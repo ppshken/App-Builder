@@ -1,0 +1,11 @@
+import {db} from "@/lib/db";
+import {backupBeforeSchema} from "@/lib/database-backup";
+import {NextResponse} from "next/server";
+import {withAuth} from "@/lib/auth-api";
+import {currentUser} from "@/lib/permissions";
+import {settingDefinitions,settingsFor,saveSettings,manageSetting,expressionUser} from "@/lib/user-settings";
+import {bad,errorMessage,errorStatus,readBody} from "@/lib/api";
+export const dynamic="force-dynamic";
+export const GET=withAuth(async()=>{const user=currentUser()!;return NextResponse.json({roles:db.prepare("SELECT name,label FROM _roles ORDER BY label").all(),definitions:settingDefinitions(),values:settingsFor(user.id),expressionUser:expressionUser(user)});});
+export const PUT=withAuth(async(req:Request)=>{try{saveSettings(currentUser()!.id,(await readBody(req)).values);return NextResponse.json({ok:true});}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const POST=withAuth(async(req:Request)=>{try{const body=await readBody(req);backupBeforeSchema();manageSetting(body);return NextResponse.json({ok:true});}catch(e){return bad(errorMessage(e),errorStatus(e));}});

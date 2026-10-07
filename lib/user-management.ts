@@ -1,0 +1,45 @@
+import {actionPermission} from "./action-config";
+import {validateRowRule} from "./row-access";
+import {randomUUID} from "node:crypto";
+import type Database from "better-sqlite3";
+import {db} from "./db";
+import {AuthError,emailAddress,validPassword,hashPassword,tokenHash} from "./auth";
+import {type TableAccess} from "./access";
+function text(value:unknown,label:string){if(typeof value!=="string"||!value.trim()||value.length>100)throw new AuthError("กรุณากรอก"+label+"ไม่เกิน 100 ตัวอักษร");return value.trim();}
+function actorOwner(database:Database.Database,id:number){if(!database.prepare("SELECT 1 FROM _users WHERE id=? AND active=1 AND role='owner'").get(id))throw new AuthError("ส่วนนี้สำหรับเจ้าของแอปเท่านั้น",403);}
+function ensureOwner(database:Database.Database,id:number,nextRole:string,nextActive:boolean){const old=database.prepare("SELECT role,active FROM _users WHERE id=?").get(id) as {role:string;active:number}|undefined;if(!old)throw new AuthError("ไม่พบบัญชีผู้ใช้",404);if(old.role==="owner"&&old.active&&(nextRole!=="owner"||!nextActive)&&!database.prepare("SELECT 1 FROM _users WHERE role='owner' AND active=1 AND id<>?").get(id))throw new AuthError("ต้องมีเจ้าของแอปที่เปิดใช้งานอย่างน้อยหนึ่งบัญชี ไม่สามารถปิด ลบ หรือเปลี่ยนบทบาทบัญชีสุดท้ายได้");}
+export function usersOverview(database:Database.Database=db){const users=database.prepare("SELECT u.id,u.name,u.email,u.role,u.active,u.created_at,r.label AS role_label FROM _users u JOIN _roles r ON r.name=u.role ORDER BY u.id").all();const roles=(database.prepare("SELECT * FROM _roles ORDER BY name='owner' DESC,label").all() as any[]).map(role=>({...role,builder:!!role.builder,tables:Object.fromEntries((database.prepare("SELECT * FROM _role_tables WHERE role_name=?").all(role.name) as any[]).map(g=>[g.table_name,{read:!!g.can_read,create:!!g.can_create,update:!!g.can_update,delete:!!g.can_delete}])),row_rules:Object.fromEntries((database.prepare("SELECT table_name,operation,expression FROM _role_row_rules WHERE role_name=?").all(role.name) as any[]).map(r=>[r.table_name+":"+r.operation,r.expression])),actions:(database.prepare("SELECT action_name FROM _role_actions WHERE role_name=?").all(role.name) as any[]).map(g=>g.action_name)}));return {users,roles,tables:database.prepare("SELECT name,label FROM _tables ORDER BY label").all(),actions:database.prepare("SELECT name,label,table_name,kind FROM _actions ORDER BY table_name,label").all()};}
+export async function manageUsers(actor:number,input:Record<string,any>,database:Database.Database=db){actorOwner(database,actor);
+ const op=input.op;let hash:string|undefined;
+ if(op==="create_user"||op==="reset_password")hash=await hashPassword(validPassword(input.password));
+ return database.transaction(()=>{actorOwner(database,actor);
+  if(op==="create_role"||op==="update_role"){
+   const name=op==="create_role"?"role_"+randomUUID().slice(0,8):input.name;if(name==="owner")throw new AuthError("บทบาทเจ้าของแอปเป็นบทบาทระบบ แก้ไขไม่ได้");
+   if(op==="update_role"&&!database.prepare("SELECT 1 FROM _roles WHERE name=?").get(name))throw new AuthError("ไม่พบบทบาท",404);
+   const label=text(input.label,"ชื่อบทบาท"),builder=input.builder===true;if(typeof input.builder!=="boolean"||!input.tables||typeof input.tables!=="object"||Array.isArray(input.tables)||!Array.isArray(input.actions))throw new AuthError("ข้อมูลสิทธิ์ไม่ถูกต้อง");
+   const grants:Record<string,TableAccess>={};for(const [table,rights] of Object.entries(input.tables) as [string,any][]){if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(table))throw new AuthError("ไม่พบตารางที่กำหนดสิทธิ์ กรุณาโหลดหน้าใหม่");if(!rights||['read','create','update','delete'].some(k=>typeof rights[k]!=="boolean"))throw new AuthError("สิทธิ์ต้องเป็นค่าที่ติ๊กเลือก");if(!rights.read&&(rights.create||rights.update||rights.delete))throw new AuthError("ต้องให้สิทธิ์ดูตารางก่อนเพิ่ม แก้ไข หรือลบข้อมูล");grants[table]=rights;}
+   const previousRules=op==="update_role"?Object.fromEntries((database.prepare("SELECT table_name,operation,expression FROM _role_row_rules WHERE role_name=?").all(name) as any[]).filter(r=>grants[r.table_name]).map(r=>[r.table_name+":"+r.operation,r.expression])):{};const rules:Record<string,string>={...previousRules};if(input.row_rules!==undefined){if(!input.row_rules||typeof input.row_rules!=="object"||Array.isArray(input.row_rules))throw new AuthError("กฎสิทธิ์แถวไม่ถูกต้อง");for(const key of Object.keys(rules))delete rules[key];for(const [key,value] of Object.entries(input.row_rules)){const [table,operation,...rest]=key.split(":");if(rest.length||!grants[table]||!['read','create','update','delete'].includes(operation))throw new AuthError("กรุณาเลือกตารางและการทำรายการของกฎแถว");rules[key]=validateRowRule(value,table,database);}}
+   const chosen=[...new Set(input.actions)] as string[];for(const action of chosen){const row=database.prepare("SELECT table_name,kind FROM _actions WHERE name=?").get(action) as {table_name:string;kind:string}|undefined;if(!row)throw new AuthError("ไม่พบ Action ที่เลือก กรุณาโหลดหน้าใหม่");const g=grants[row.table_name];if(!builder&&(!g?.read||!g[actionPermission(row.kind)]))throw new AuthError("ให้สิทธิ์ดู เพิ่ม แก้ไข หรือลบที่ตรงกับชนิด Action ก่อนอนุญาต");}
+   if(op==="create_role")database.prepare("INSERT INTO _roles VALUES(?,?,?)").run(name,label,Number(builder));else database.prepare("UPDATE _roles SET label=?,builder=? WHERE name=?").run(label,Number(builder),name);
+   database.prepare("DELETE FROM _role_tables WHERE role_name=?").run(name);database.prepare("DELETE FROM _role_actions WHERE role_name=?").run(name);
+   database.prepare("DELETE FROM _role_row_rules WHERE role_name=?").run(name);for(const [key,expr] of Object.entries(rules)){const [table,op]=key.split(":");if(expr)database.prepare("INSERT INTO _role_row_rules VALUES(?,?,?,?)").run(name,table,op,expr);}
+   const insert=database.prepare("INSERT INTO _role_tables VALUES(?,?,?,?,?,?)");for(const [table,g] of Object.entries(grants))insert.run(name,table,Number(g.read),Number(g.create),Number(g.update),Number(g.delete));for(const action of chosen)database.prepare("INSERT INTO _role_actions VALUES(?,?)").run(name,action);
+   database.prepare("DELETE FROM _sessions WHERE user_id IN (SELECT id FROM _users WHERE role=?)").run(name);return {ok:true,name};
+  }
+  if(op==="delete_role"){if(input.name==="owner")throw new AuthError("ลบบทบาทเจ้าของแอปไม่ได้");if(database.prepare("SELECT 1 FROM _users WHERE role=?").get(input.name))throw new AuthError("มีผู้ใช้ในบทบาทนี้ กรุณาย้ายบทบาทผู้ใช้ก่อนลบ");database.prepare("DELETE FROM _roles WHERE name=?").run(input.name);return {ok:true};}
+  const id=Number(input.id);
+  if(op==="create_user"||op==="edit_user"){
+   const name=text(input.name,"ชื่อ"),email=emailAddress(input.email),role=input.role;if(typeof role!=="string"||!database.prepare("SELECT 1 FROM _roles WHERE name=?").get(role))throw new AuthError("กรุณาเลือกบทบาทที่มีอยู่");if(typeof input.active!=="boolean")throw new AuthError("กรุณาระบุสถานะเปิดใช้งานบัญชี");
+   if(op==="create_user"){const result=database.prepare("INSERT INTO _users(name,email,password_hash,role,active,created_at) VALUES(?,?,?,?,?,?)").run(name,email,hash,role,Number(input.active),Date.now());return {ok:true,id:Number(result.lastInsertRowid)};}
+   if(!Number.isSafeInteger(id)||id<1)throw new AuthError("รหัสผู้ใช้ไม่ถูกต้อง");ensureOwner(database,id,role,input.active);
+   const old=database.prepare("SELECT email,role,active FROM _users WHERE id=?").get(id) as any;database.prepare("UPDATE _users SET name=?,email=?,role=?,active=? WHERE id=?").run(name,email,role,Number(input.active),id);if(old.email!==email||old.role!==role||!!old.active!==input.active)database.prepare("DELETE FROM _sessions WHERE user_id=?").run(id);return {ok:true};
+  }
+  if(!Number.isSafeInteger(id)||id<1)throw new AuthError("รหัสผู้ใช้ไม่ถูกต้อง");
+  if(op==="delete_user"){ensureOwner(database,id,"",false);database.prepare("DELETE FROM _users WHERE id=?").run(id);return {ok:true};}
+  if(!database.prepare("SELECT 1 FROM _users WHERE id=?").get(id))throw new AuthError("ไม่พบบัญชีผู้ใช้",404);
+  if(op==="reset_password"){database.prepare("UPDATE _users SET password_hash=? WHERE id=?").run(hash,id);database.prepare("DELETE FROM _auth_attempts WHERE scope=?").run(accountAttemptScope(database,id));}
+  else if(op!=="revoke_sessions")throw new AuthError("การทำรายการนี้ไม่รองรับ");
+  database.prepare("DELETE FROM _sessions WHERE user_id=?").run(id);return {ok:true};
+ }).immediate();
+}
+function accountAttemptScope(database:Database.Database,id:number){return tokenHash((database.prepare("SELECT email FROM _users WHERE id=?").get(id) as {email:string}).email);}

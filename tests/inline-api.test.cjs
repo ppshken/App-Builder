@@ -1,0 +1,27 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const base=process.env.NOCODE_TEST_URL;if(!base||!process.env.NOCODE_TEST_DB?.includes('integration-'))throw Error('Use isolated runner');
+async function api(path,method='GET',body,status=200){const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;}
+test('Inline views bind to one Ref, page only related rows, save layouts and defend metadata dependencies',async()=>{
+ await api('/api/tables','POST',{name:'inline_clients',label:'ลูกค้า',columns:[{name:'name',label:'ชื่อ',type:'text',is_label:true}]});
+ const one=(await api('/api/data/inline_clients','POST',{name:'ลูกค้า ก'})).id,two=(await api('/api/data/inline_clients','POST',{name:'ลูกค้า ข'})).id;
+ await api('/api/tables','POST',{name:'inline_jobs',label:'งาน',columns:[{name:'name',label:'ชื่องาน',type:'text',is_label:true},{name:'price',label:'ราคา',type:'decimal'},{name:'client',label:'ลูกค้า',type:'ref',ref_table:'inline_clients'},{name:'backup_client',label:'สำรอง',type:'ref',ref_table:'inline_clients'},{name:'category',label:'ประเภท',type:'text'},{name:'computed',label:'คำนวณ',type:'number',is_virtual:true,virtual_expr:'[price]*2'}]});
+ for(let i=1;i<=23;i++)await api('/api/data/inline_jobs','POST',{name:'งาน '+i,price:i,client:one,backup_client:two,category:i%2?'ก':'ข'});
+ await api('/api/data/inline_jobs','POST',{name:'ของลูกค้าอื่น',price:999,client:two});
+ let all=await api('/api/views'),inline=all.find(v=>v.table_name==='inline_jobs'&&v.position==='inline'&&v.inline_ref==='client'),other=all.find(v=>v.table_name==='inline_jobs'&&v.position==='inline'&&v.inline_ref==='backup_client'),parent=all.find(v=>v.table_name==='inline_clients'&&v.kind==='detail');
+ assert.equal(all.filter(v=>v.table_name==='inline_jobs'&&v.position==='inline').length,2);
+ inline={...inline,kind:'table',columns:['name','price','client'],sort_column:'price',sort_dir:'desc',display:{table_density:'compact',table_wrap:true,row_click:'detail',list_buttons:'none'}};await api('/api/views','PUT',inline);
+ parent={...parent,display:{related:{'inline_jobs:client':{view:inline.name,title:'รายการงานของลูกค้า',limit:10,visible:true},'inline_jobs:backup_client':{visible:false}}}};await api('/api/views','PUT',parent);
+ let result=await api(`/api/lists/inline_jobs?mode=related&owner=inline_clients&id=${one}&column=client&view=${inline.name}&limit=10`);assert.equal(result.total,23);assert.equal(result.rows.length,10);assert.equal(result.rows[0].values.price,23);assert.equal(result.rows[0].values.client__label,'ลูกค้า ก');assert.deepEqual(result.columns.map(c=>c.name),['name','price','client']);
+ result=await api(`/api/lists/inline_jobs?mode=related&owner=inline_clients&id=${one}&column=client&view=${inline.name}&limit=10&page=2`);assert.equal(result.rows[0].values.price,13);
+ await api(`/api/lists/inline_jobs?mode=related&owner=inline_clients&id=${one}&column=client&view=${other.name}`,'GET',undefined,400);
+ for(const patch of [{kind:'detail'},{inline_ref:'name'},{sort_column:'computed'},{group_column:'computed'},{position:'primary'}])await api('/api/views','PUT',{...inline,...patch},400);
+ await api('/api/views','PUT',{...parent,display:{related:{'inline_jobs:client':{view:other.name}}}},400);await api('/api/views','PUT',{...parent,display:{related:{'inline_jobs:fake':{visible:false}}}},400);await api('/api/views','PUT',{...parent,display:{related:{'inline_jobs:client':{limit:7}}}},400);
+ await api('/api/views?name='+inline.name,'DELETE',undefined,400);
+ const {display,...older}=parent;await api('/api/views','PUT',older);assert.deepEqual((await api('/api/views')).find(v=>v.name===parent.name).display,display);
+ await api('/api/actions','POST',{name:'inline_double',label:'เพิ่มราคา',table_name:'inline_jobs',kind:'set',condition_expr:'[price]<20',values:{price:'[price]+1'},confirmation:''});
+ result=await api(`/api/lists/inline_jobs?mode=related&owner=inline_clients&id=${one}&column=client&view=${inline.name}&limit=0`);assert.ok(!result.rows[0].allowedActions.includes('inline_double'));assert.ok(result.rows.at(-1).allowedActions.includes('inline_double'));
+ await api('/api/views','PUT',{...inline,show_if:'FALSE'});await api(`/api/lists/inline_jobs?mode=related&owner=inline_clients&id=${one}&column=client&view=${inline.name}`,'GET',undefined,400);assert.ok((await api('/api/views?runtime=1')).hidden.includes(inline.name));await api('/api/views','PUT',inline);
+ await api('/api/tables/inline_jobs','PATCH',{op:'rename_column',name:'client',new_name:'customer'});all=await api('/api/views');assert.equal(all.find(v=>v.name===inline.name).inline_ref,'customer');assert.equal(all.find(v=>v.name===parent.name).display.related['inline_jobs:customer'].view,inline.name);
+ await api('/api/tables/inline_jobs','PATCH',{op:'drop_column',name:'customer'});all=await api('/api/views');assert.ok(!all.some(v=>v.name===inline.name));assert.ok(!Object.hasOwn(all.find(v=>v.name===parent.name).display.related,'inline_jobs:customer'));
+ await api('/api/tables/inline_jobs','PATCH',{op:'add_column',column:{name:'new_client',label:'อ้างอิงใหม่',type:'ref',ref_table:'inline_clients'}});assert.ok((await api('/api/views')).some(v=>v.table_name==='inline_jobs'&&v.position==='inline'&&v.inline_ref==='new_client'));
+});

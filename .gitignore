@@ -1,0 +1,28 @@
+data.db*
+node_modules
+.next
+.next-tests
+.next-check
+backups/
+.test-build/
+.test-data/
+*.tsbuildinfo
+
+uploads/
+
+.npm-cache/
+
+# Generated browser screenshots and reports
+artifacts/
+playwright-report/
+test-results/
+
+# Local secrets (keep example configuration templates)
+.env*
+!.env.example
+!.env.sample
+
+# Build output and local logs
+.next*/
+out/
+*.log

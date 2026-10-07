@@ -1,0 +1,19 @@
+"use client";
+import AppIcon from "@/app/components/AppIcon";
+
+import {useEffect,useState} from "react";
+import {useAuth} from "@/app/components/AuthProvider";
+import {useAppSettings} from "@/app/components/AppSettingsProvider";
+import Icon from "@/app/components/Icon";
+import {clearRuntimeCache} from "@/lib/runtime-cache";
+export default function LoginPage(){const {settings}=useAppSettings(),{needsSetup}=useAuth(),[name,setName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[confirmation,setConfirmation]=useState(""),[busy,setBusy]=useState(false),[ready,setReady]=useState(false),[restored,setRestored]=useState(false),[error,setError]=useState("");
+ useEffect(()=>{setReady(true);const next=new URLSearchParams(location.search).get("next") || "";setRestored(new URL(next,location.origin).searchParams.get("restored")==="1");},[]);
+ async function submit(event:React.FormEvent){event.preventDefault();setError("");if(needsSetup&&password!==confirmation){setError("รหัสผ่านทั้งสองช่องไม่ตรงกัน กรุณากรอกใหม่");return;}setBusy(true);try{const response=await fetch("/api/auth/"+(needsSetup?"setup":"login"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password})}),data=await response.json();if(!response.ok)throw Error(data.error);clearRuntimeCache();try{localStorage.setItem("nocode:auth",String(Date.now()));}catch{}const requested=new URLSearchParams(location.search).get("next"),next=(!requested||requested==="/"||requested==="/run")?(data.redirectTo?.startsWith("/run?view=")?data.redirectTo:(requested||data.redirectTo||"/")):requested,target=(()=>{try{return new URL(next,location.origin);}catch{return new URL("/",location.origin);}})();location.assign(next.startsWith("/")&&!next.startsWith("//")&&target.origin===location.origin&&target.pathname!=="/login"?target.pathname+target.search:"/");}catch(e){setError((e as Error).message);setBusy(false);}}
+ return <main className="auth-page"><section className="auth-card" aria-labelledby="auth-title"><div className="auth-brand"><AppIcon settings={settings}/><span>{settings.name}</span></div><h1 id="auth-title">{needsSetup?"สร้างบัญชีเจ้าของแอป":"เข้าสู่ระบบ"}</h1><p className="hint">{needsSetup?"ตั้งบัญชีครั้งแรกเพื่อจัดการแอปและข้อมูลของคุณ":"ใช้อีเมลและรหัสผ่านของบัญชีคุณ"}</p>{restored&&<div className="success-banner" role="status">กู้คืนข้อมูลเรียบร้อยแล้ว กรุณาเข้าสู่ระบบใหม่ด้วยบัญชีเดิม</div>}<form onSubmit={submit}>
+ {needsSetup&&<label htmlFor="auth-name">ชื่อ<input id="auth-name" autoComplete="name" value={name} onChange={e=>setName(e.target.value)} required maxLength={100} disabled={busy||!ready}/></label>}
+ <label htmlFor="auth-email">อีเมล<input id="auth-email" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required maxLength={254} disabled={busy||!ready}/></label>
+ <label htmlFor="auth-password">รหัสผ่าน<input id="auth-password" type="password" autoComplete={needsSetup?"new-password":"current-password"} value={password} onChange={e=>setPassword(e.target.value)} required minLength={needsSetup?10:undefined} maxLength={128} disabled={busy||!ready}/></label>
+ {needsSetup&&<><small className="hint">ใช้รหัสผ่าน 10–128 ตัวอักษร</small><label htmlFor="auth-confirm">ยืนยันรหัสผ่าน<input id="auth-confirm" type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required maxLength={128} disabled={busy||!ready}/></label></>}
+ {error&&<div className="error-banner" role="alert">{error}</div>}<button className="primary" disabled={busy||!ready} type="submit">{busy?"กำลังตรวจสอบ…":needsSetup?"สร้างบัญชีเจ้าของแอป":"เข้าสู่ระบบ"}</button>
+ </form><p className="auth-note">Session มีอายุสูงสุด 12 ชั่วโมง และหมดอายุเมื่อไม่ใช้งาน 2 ชั่วโมง</p></section></main>;
+}

@@ -1,0 +1,3 @@
+import {requestUser,revokeSession,cookieToken,assertSameOrigin,AuthError} from "@/lib/auth";import {authResponse,authFailure} from "@/lib/auth-response";import {db} from "@/lib/db";
+export const dynamic="force-dynamic";
+export async function POST(req:Request){try{assertSameOrigin(req);if(new URL(req.url).searchParams.get("all")==="1"){const user=requestUser(req);if(!user)throw new AuthError("กรุณาเข้าสู่ระบบ",401);db.prepare("DELETE FROM _sessions WHERE user_id=?").run(user.id);}else revokeSession(cookieToken(req.headers.get("cookie")));return authResponse(req,{ok:true},"");}catch(e){return authFailure(e);}}

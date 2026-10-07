@@ -1,0 +1,3 @@
+import {setupOwner,assertSameOrigin,AuthError} from "@/lib/auth";import {authResponse,authFailure} from "@/lib/auth-response";import {readBody} from "@/lib/api";
+export const dynamic="force-dynamic";
+export async function POST(req:Request){try{assertSameOrigin(req);const host=new URL("http://"+(req.headers.get("host")||new URL(req.url).host)).hostname;if(!["localhost","127.0.0.1","[::1]"].includes(host))throw new AuthError("สร้างเจ้าของแอปครั้งแรกผ่าน localhost เท่านั้น",403);const result=await setupOwner(await readBody(req));return authResponse(req,{user:result.user},result.token);}catch(e){return authFailure(e);}}

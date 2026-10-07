@@ -1,0 +1,291 @@
+"use client";
+import RecordLabel from "./RecordLabel";
+import LocationField from "./LocationField";
+import LocationMap from "./LocationMap";
+import {parseCoordinates} from "@/lib/location";
+import {prepareImage} from "@/lib/image-upload";
+
+import {actionNavigationUrl} from "@/lib/action-navigation";
+import ExcelTransfer from "./ExcelTransfer";
+import ActionButton from "./ActionButton";
+import {actionPermission} from "@/lib/action-config";
+
+import {tableAccess} from "@/lib/access";
+import {useAuth} from "./AuthProvider";
+import TableTabs from "./TableTabs";
+import {runtimeJSON, clearRuntimeCache} from "@/lib/runtime-cache";
+import SearchSelect from "@/app/components/SearchSelect";
+import DataFilters from "./DataFilters";
+import type {DataFilter} from "@/lib/data-filters";
+
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+
+import { useAppSettings } from "./AppSettingsProvider";
+import PreviewImage from "./PreviewImage";
+import InlineRelated from "./InlineRelated";
+import PagedList from "./PagedList";
+import type { RelatedList } from "@/lib/lists";
+import Link from "next/link";
+import AppLoading from "@/app/components/AppLoading";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
+import RuntimeScreen from "@/app/components/RuntimeScreen";
+import EditorDialog from "@/app/components/EditorDialog";
+import Icon from "@/app/components/Icon";
+import { Column, formState, enumListLabel, enumListImage, labelTextColumn, refTablesOf } from "@/lib/columns";
+import { dateTimeInput, dateTimeLabel } from "@/lib/datetime";
+import { displaySettings } from "@/lib/view-display";
+import { AppView, visibleColumns } from "@/lib/views";
+import type { RowAction, Slice } from "@/lib/automation";
+import { asBoolean, evaluateExpression, ExpressionTable } from "@/lib/expression";
+type Table = { name: string; label: string; columns: Column[]; related?: RelatedList[] };
+
+export default function RuntimeTable({ table, runtimeView, referenceViews = [], inlineViews = [], initialRow, initialValues, initialEdit = false, previewEmail: suppliedEmail = "", onOpenReference, onScreenChange, onReturn, onSavedDetail, onDataChange, onNavigate, successMessage = "", registerNavigationGuard, onReady }: { onReady?:()=>void; table: string; runtimeView?: AppView; referenceViews?: AppView[]; inlineViews?: AppView[]; initialRow?: number; initialValues?:Record<string,unknown>; initialEdit?: boolean; previewEmail?: string; onOpenReference?: (table: string, id: number, kind?:"detail"|"form") => void; onScreenChange?: (name: string, open: boolean, id?: number) => void; onReturn?: (message?: string) => void; onSavedDetail?:(table:string,id:number,message:string)=>void; onNavigate?: (view: AppView, id?: number,values?:Record<string,unknown>) => void; successMessage?: string; registerNavigationGuard?: (guard: (() => boolean) | null) => void; onDataChange?: () => void }) {
+  const {settings: appSettings} = useAppSettings();
+  const {user,access,expressionUser}=useAuth(), rights=tableAccess(access,table), previewEmail=user?.email || suppliedEmail;
+  const [excelOpen,setExcelOpen]=useState(false);
+  const [relatedViews,setRelatedViews] = useState<AppView[]>([]), [hiddenInline,setHiddenInline] = useState<string[]>([]);
+  const [rowActions, setRowActions] = useState<RowAction[]>([]), [sliceColumns, setSliceColumns] = useState<string[]>([]), [pendingAction, setPendingAction] = useState<{action:RowAction;row:any}|null>(null);
+  const sliceQuery = runtimeView?.slice_name ? `&slice=${encodeURIComponent(runtimeView.slice_name)}` : "";
+  const requestHeaders = { "x-nocode-preview-email": previewEmail };
+  const [meta, setMeta] = useState<Table | null | false>(null), [rows, setRows] = useState<any[]>([]), [refs, setRefs] = useState<Record<string, any[]>>({});
+  const [rowsLoading,setRowsLoading]=useState(true),[refreshVisible,setRefreshVisible]=useState(false), rowRequest=useRef(0);
+  useEffect(()=>{setRefreshVisible(false);if(!rowsLoading)return;const timer=setTimeout(()=>setRefreshVisible(true),180);return()=>clearTimeout(timer);},[rowsLoading]);
+  const [expressionTables, setExpressionTables] = useState<Record<string, ExpressionTable>>({});
+  const expressionOptions = { ...expressionUser, tables: expressionTables, refTables: meta ? refTablesOf(meta.columns) : {} };
+  async function fetchExpressionTables(displayOnly=false) { const r = await fetch(`/api/expression-data?table=${encodeURIComponent(table)}${displayOnly ? "&display=1" : ""}`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+  const [filters,setFilters]=useState<DataFilter[]>([]),[page,setPage]=useState(1),[pageSize,setPageSize]=useState(25),[total,setTotal]=useState(0),[pages,setPages]=useState(1);
+  const activeFilters=JSON.stringify(filters.filter(f=>["empty","not_empty"].includes(f.op)||f.value?.trim()));
+  const [q, setQ] = useState(""), [sort, setSort] = useState(runtimeView?.sort_column || "id"), [dir, setDir] = useState(runtimeView?.sort_dir || "desc");
+  const [gpsPending,setGpsPending]=useState<Record<string,boolean>>({});
+  const [form, setForm] = useState<Record<string, any> | null>(null), [formTime, setFormTime] = useState(new Date());
+  const [err, setErr] = useState(""), [loadErr, setLoadErr] = useState(""), [busy, setBusy] = useState(false), [attempted, setAttempted] = useState(false);
+  const [deletion, setDeletion] = useState<number | null>(null);
+  const [view, setView] = useState<"table" | "list">("table"), [detail, setDetail] = useState<any | null>(null);
+  const formView = runtimeView?.kind === "form" ? runtimeView : referenceViews.find(v => v.table_name === table && v.kind === "form") || (!runtimeView ? relatedViews.find(v=>v.table_name===table&&v.kind==="form"&&v.position==="ref") : undefined);
+  const detailView = runtimeView?.kind === "detail" ? runtimeView : referenceViews.find(v => v.table_name === table && v.kind === "detail") || (!runtimeView ? relatedViews.find(v=>v.table_name===table && v.kind==="detail" && v.position==="ref") : undefined);
+  const Screen = runtimeView ? RuntimeScreen : EditorDialog;
+  const initialDetailOpened = useRef(false);
+  const editOrigin = useRef<any>(null),leaving=useRef(false);
+  const openDetail = (row: any) => { setSaved(""); if (onNavigate && detailView) onNavigate(detailView, row.id); else setDetail(row); };
+  useEffect(() => { if (runtimeView) onScreenChange?.((form ? formView : detail ? detailView : runtimeView)?.name || runtimeView.name, !!(form || detail), form?.id || detail?.id); }, [runtimeView?.name, formView?.name, detailView?.name, !!form, !!detail, form?.id, detail?.id, onScreenChange]);
+  const [initialForm, setInitialForm] = useState(""), [discard, setDiscard] = useState(false), [saved, setSaved] = useState("");
+  useEffect(() => { registerNavigationGuard?.(() => { if(leaving.current)return true; if (busy) return false; if (form && JSON.stringify(form) !== initialForm) { setDiscard(true); return false; } return true; }); return () => registerNavigationGuard?.(null); }, [form, initialForm, busy, registerNavigationGuard]);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width:760px)");
+    const change = () => setView(runtimeView ? runtimeView.kind === "table" ? "table" : "list" : media.matches ? "list" : "table");
+    change(); media.addEventListener("change", change);
+    return () => media.removeEventListener("change", change);
+  }, [runtimeView?.name,runtimeView?.kind]);
+  useEffect(() => {
+    let active = true;
+    setMeta(null); setForm(null); setLoadErr("");setPage(1);setFilters([]);setQ("");
+    (async () => {
+      const [all, expressionData, visible, viewRegistry, actions, slices] = await Promise.all([
+        runtimeJSON("/api/tables"), runtimeJSON(`/api/expression-data?table=${encodeURIComponent(table)}&display=1`,previewEmail,15000),
+        runtimeJSON("/api/views?runtime=1",previewEmail,15000), runtimeJSON("/api/views"),
+        runtimeView ? runtimeJSON("/api/actions") : [], runtimeView ? runtimeJSON("/api/slices") : []
+      ]);
+      const m = all.find((t: Table) => t.name === table);
+      if (!active) return;
+      if (!m) { setMeta(false); return; }
+      setExpressionTables(expressionData); setRelatedViews(viewRegistry); setHiddenInline(visible.hidden);
+      setRowActions(actions.filter((a:RowAction)=>a.table_name===table));
+      setSliceColumns(slices.find((s:Slice)=>s.name===runtimeView?.slice_name)?.columns || []);
+      setRefs({}); setMeta({...m,columns:m.columns.map((c:Column)=>c.ref_table&&!tableAccess(access,c.ref_table).read?{...c,is_editable:false}:c)});
+
+    })().catch(e => { if (active) { setLoadErr(e.message || "โหลดตารางไม่ได้"); setMeta(false); } });
+    return () => { active = false; };
+  }, [table, previewEmail, runtimeView?.slice_name]);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const ticket=++rowRequest.current;setRowsLoading(true);
+    try {
+      const r = await fetch(`/api/data/${table}?q=${encodeURIComponent(q)}&sort=${sort}&dir=${dir}&page=${page}&page_size=${pageSize}&filters=${encodeURIComponent(activeFilters)}${sliceQuery}`, { signal, headers: requestHeaders }), j = await r.json();
+      if (!r.ok) throw new Error(j.error); if(ticket!==rowRequest.current)return;setRows(j.rows);setTotal(j.total);setPages(j.pages);setPage(j.page); setLoadErr("");
+    } catch (e) { if (!signal?.aborted&&ticket===rowRequest.current) setLoadErr(e instanceof Error ? e.message : "โหลดข้อมูลไม่ได้ กรุณาลองใหม่"); }
+    finally {if(ticket===rowRequest.current)setRowsLoading(false);}
+  }, [table, q, sort, dir, previewEmail, sliceQuery,page,pageSize,activeFilters]);
+  useEffect(() => { const controller = new AbortController(); if (meta) { if (initialRow || runtimeView?.kind === "form") setRowsLoading(false); else load(controller.signal); } return () => controller.abort(); }, [meta, load, initialRow, runtimeView?.kind]);
+  const [uniqueResult,setUniqueResult]=useState<{signature:string;errors:Record<string,string>}>({signature:"",errors:{}});
+  const originalRow = initialForm ? JSON.parse(initialForm) : undefined;
+  const state = useMemo(() => meta && form ? formState(meta.columns, form, formTime, previewEmail, expressionOptions, form.id ? originalRow : undefined) : null, [meta, form, formTime, previewEmail, expressionTables, expressionUser, initialForm]);
+  const uniqueDraft=meta&&form&&state&&meta.columns.some(c=>!c.is_virtual&&(c.is_unique||c.is_key))?JSON.stringify({id:form.id,values:Object.fromEntries(meta.columns.filter(c=>!c.is_virtual&&(c.is_unique||c.is_key)).map(c=>[c.name,state.row[c.name]]))}):"";
+  const uniqueErrors=uniqueResult.signature===uniqueDraft?uniqueResult.errors:{};
+  useEffect(()=>{if(!uniqueDraft)return;const controller=new AbortController(),timer=setTimeout(()=>{fetch('/api/data/'+table+'/validate',{method:"POST",signal:controller.signal,headers:{"Content-Type":"application/json"},body:uniqueDraft}).then(async r=>{const j=await r.json();if(r.ok&&!controller.signal.aborted)setUniqueResult({signature:uniqueDraft,errors:j.errors});}).catch(()=>{});},250);return()=>{clearTimeout(timer);controller.abort();};},[uniqueDraft,table]);
+  useEffect(()=>{if(!form||!meta||!state||!initialForm)return;const initial=JSON.parse(initialForm);const locked=meta.columns.filter(c=>!c.is_virtual && !state.editable[c.name] && JSON.stringify(form[c.name])!==JSON.stringify(initial[c.name]));if(locked.length)setForm(old=>old?{...old,...Object.fromEntries(locked.map(c=>[c.name,initial[c.name]]))}:old);},[form,meta,state,initialForm]);
+  async function loadFormRefs() {
+    if (!meta) return;
+    const out: Record<string, any[]> = {};
+    await Promise.all(meta.columns.filter(c=>c.type === "ref" && c.ref_table && tableAccess(access,c.ref_table).read).map(async c=>{
+      out[c.name] = await runtimeJSON(`/api/data/${c.ref_table}?sort=id&dir=asc`,previewEmail,15000);
+    }));
+    setRefs(out);
+  }
+  async function add() {
+    if(!rights.create){setErr("ไม่มีสิทธิ์เพิ่มข้อมูลในตารางนี้");return;}
+    if (onNavigate && formView && runtimeView?.kind !== "form") { onNavigate(formView); return; }
+    editOrigin.current = null;leaving.current=false;
+    setBusy(true); setErr(""); setAttempted(false);
+    try {
+      const r = await fetch(`/api/data/${table}?defaults=1`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error);
+      setExpressionTables(await fetchExpressionTables()); await loadFormRefs();
+      const values={...j.values,...Object.fromEntries(Object.entries(initialValues||{}).filter(([name])=>meta&&meta.columns.some(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0)))};setFormTime(new Date()); setForm(values); setInitialForm(JSON.stringify(values)); setSaved("");
+    } catch (e) { setErr(e instanceof Error ? e.message : "เปิดฟอร์มไม่ได้ กรุณาตรวจสูตรค่าเริ่มต้น"); }
+    finally { if(!leaving.current)setBusy(false); }
+  }
+  async function save() {
+    if (!form || !state || !meta) return;
+    setAttempted(true); setErr("");
+    if(Object.values(gpsPending).some(Boolean))return setErr("กำลังหาตำแหน่ง กรุณารอให้ได้พิกัดก่อนบันทึก");
+    const missingGps=meta.columns.find(c=>c.gps_auto&&!c.is_virtual&&state.editable[c.name]&&!parseCoordinates(form[c.name]));
+    if(missingGps)return setErr(`กรุณาดึงตำแหน่งของ "${missingGps.label}" ก่อนบันทึก หากยังไม่ได้อนุญาตให้เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์`);
+    const error = Object.values(state.errors)[0] || Object.values(uniqueErrors)[0] || Object.values(state.validation)[0];
+    if (error) return setErr(error);
+    setBusy(true);
+    try {
+      const body = Object.fromEntries(meta.columns.filter(c => !c.is_virtual && state.editable[c.name]).map(c => [c.name, state.row[c.name]]));
+      const r = await fetch(`/api/data/${table}${form.id ? `?id=${form.id}` : ""}`, { method: form.id ? "PUT" : "POST", headers: { "Content-Type": "application/json", ...requestHeaders }, body: JSON.stringify(body) }), j = await r.json();
+      if (!r.ok) { if(j.errors)setUniqueResult({signature:uniqueDraft,errors:j.errors});throw new Error(j.error); }
+      clearRuntimeCache("data");
+      if(formDisplay.form_after_save==="detail") {
+        const id=Number(j.id||form.id),message="บันทึกข้อมูลแล้ว";
+        if(onSavedDetail&&runtimeView?.kind==="form"){leaving.current=true;onDataChange?.();onSavedDetail(table,id,message);return;}
+        editOrigin.current=null;setForm(null);setSaved(message);onDataChange?.();
+        try{const response=await fetch("/api/data/"+table+"?id="+id,{headers:requestHeaders}),fresh=await response.json();if(!response.ok||!fresh.length)throw Error("บันทึกแล้ว แต่เปิดรายละเอียดไม่ได้ ข้อมูลอาจไม่อยู่ในสิทธิ์ที่ดูได้");setDetail(fresh[0]);}catch(e){setDetail(null);setErr((e as Error).message);}
+        await load();return;
+      }
+      if (editOrigin.current) { const response = await fetch(`/api/data/${table}?id=${form.id}${sliceQuery}`, { headers: requestHeaders }); const fresh = await response.json(); if (response.ok && fresh.length) setDetail(fresh[0]); else setDetail({ ...editOrigin.current, ...body }); editOrigin.current = null; }
+      if(runtimeView?.kind==="form"&&onReturn){leaving.current=true;setSaved("บันทึกข้อมูลแล้ว");onDataChange?.();onReturn("บันทึกข้อมูลแล้ว");return;}
+      setForm(null); setSaved("บันทึกข้อมูลแล้ว"); await load(); onDataChange?.(); if (runtimeView?.kind === "form" && onNavigate) onReturn?.("บันทึกข้อมูลแล้ว");
+    } catch (e) { setErr(e instanceof Error ? e.message : "บันทึกไม่ได้ กรุณาลองใหม่"); }
+    finally { setBusy(false); }
+  }
+  async function remove() {
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch(`/api/data/${table}?id=${deletion}`, { method: "DELETE", headers: requestHeaders }), j = await r.json();
+      if (!r.ok) throw new Error(j.error); clearRuntimeCache("data"); if(runtimeView&&["detail","form"].includes(runtimeView.kind)&&onReturn){leaving.current=true;setDeletion(null);onDataChange?.();onReturn("ลบข้อมูลแล้ว");return;} setDeletion(null); setDetail(null); setForm(null); setSaved("ลบข้อมูลแล้ว"); await load(); onDataChange?.(); if (runtimeView && ["detail", "form"].includes(runtimeView.kind)) onReturn?.("ลบข้อมูลแล้ว");
+    } catch (e) { setErr(e instanceof Error ? e.message : "ลบข้อมูลไม่ได้"); }
+    finally { setBusy(false); }
+  }
+  const closeForm = () => {
+    if (busy) return;
+    if (JSON.stringify(form) !== initialForm) { setDiscard(true); return; }
+    if(runtimeView?.kind==="form"&&!editOrigin.current&&onReturn){leaving.current=true;onReturn();return;}
+    setForm(null); setErr(""); if (editOrigin.current) { setDetail(editOrigin.current); editOrigin.current = null; } else if (runtimeView?.kind === "form") onReturn?.();
+  };
+  const editRow = async (row: any) => {
+    if (!meta) return;
+    if(!rights.update||row.__permissions?.update===false){openDetail(row);return;}
+    if (onNavigate && formView && runtimeView?.kind !== "form") { onNavigate(formView, row.id); return; }
+    editOrigin.current = detail;leaving.current=false;
+    setBusy(true); setErr("");
+    try { setExpressionTables(await fetchExpressionTables()); await loadFormRefs();
+    const value = Object.fromEntries(["id", ...meta.columns.filter(c => !c.is_virtual).map(c => c.name)].map(k => [k, row[k]]));
+    setErr(""); setAttempted(false); setFormTime(new Date()); setForm(value); setInitialForm(JSON.stringify(value)); setDetail(null); setSaved("");
+    } catch(e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  useEffect(() => { if (runtimeView) { setSort(runtimeView.sort_column); setDir(runtimeView.sort_dir); } }, [runtimeView?.name, runtimeView?.sort_column, runtimeView?.sort_dir]);
+  useEffect(() => {
+    if (!initialRow || !meta) return;
+    const controller = new AbortController();
+    fetch(`/api/data/${table}?id=${initialRow}${sliceQuery}`, { signal: controller.signal, headers: requestHeaders }).then(async r => {
+      const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      if (!j.length) throw new Error("ไม่พบแถวที่อ้างอิง อาจถูกลบไปแล้ว"); if (runtimeView?.kind === "form" || initialEdit) await editRow(j[0]); else setDetail(j[0]);
+    }).catch(e => { if (!controller.signal.aborted) setLoadErr(e.message); });
+    return () => controller.abort();
+  }, [initialRow, initialEdit, table, previewEmail, !!meta]);
+  useEffect(() => { if (meta && runtimeView?.kind === "form" && !initialRow) add(); }, [!!meta, runtimeView?.name]);
+  useEffect(() => { if (runtimeView?.kind === "detail" && !initialRow && rows.length && !initialDetailOpened.current) { initialDetailOpened.current = true; setDetail(rows[0]); } }, [runtimeView?.kind, initialRow, rows]);
+  const ready=meta===false||!!meta&&(runtimeView?.kind==="form"?!!form||!!err||!!loadErr:initialRow||runtimeView?.kind==="detail"?!!detail||!!loadErr||(!initialRow&&!rowsLoading&&rows.length===0):!rowsLoading);
+  useEffect(()=>{if(ready)onReady?.();},[ready,onReady]);
+  const closeDetail = () => { if (busy) return; if(runtimeView?.kind==="detail"&&onReturn){onReturn();return;}setDetail(null); };
+  if (meta === null) return <AppLoading/>;
+  if (meta === false) return <><p>{loadErr || "ไม่พบตารางนี้"}</p><Link href="/">กลับหน้าหลัก</Link></>;
+  const sourceCols = visibleColumns(meta.columns, sliceColumns);
+  const internalId: Column = {name:"id",label:"id · รหัสภายใน",type:"number",is_editable:false};
+  const displayCols = runtimeView ? visibleColumns(sourceCols, runtimeView.columns) : [internalId,...meta.columns];
+  const listDisplay = displaySettings(runtimeView?.display, runtimeView ? appSettings.display_defaults[runtimeView.kind === "table" ? "table" : "list"] : {...appSettings.display_defaults.list,...appSettings.display_defaults.table}), detailDisplay = displaySettings(detailView?.display, appSettings.display_defaults.detail), formDisplay = displaySettings(formView?.display, appSettings.display_defaults.form);
+  const detailCols = runtimeView ? visibleColumns(sourceCols, detailView?.columns || []) : [internalId,...visibleColumns(sourceCols, detailView?.columns || [])], configuredFormCols = visibleColumns(sourceCols, formView?.columns || []);
+  const formCols = [...configuredFormCols, ...meta.columns.filter(c => state && state.visible[c.name] && (state.required[c.name] || state.validation[c.name] || state.errors[c.name]) && !configuredFormCols.some(f => f.name === c.name))];
+  const relatedDisplay = displaySettings((runtimeView ? detailView : relatedViews.find(v=>v.table_name===table && v.kind==="detail" && v.position==="ref"))?.display).related;
+  const coverColumn = detailDisplay.detail_cover_column === "__auto__" ? detailCols.find(c=>c.type==="image") : sourceCols.find(c=>c.type==="image" && c.name===detailDisplay.detail_cover_column);
+  const coverSrc = detailDisplay.detail_image_mode === "cover" && coverColumn && detail?.[coverColumn.name] && !detail.__errors?.[coverColumn.name] ? detail[coverColumn.name] : "";
+  const renderedDetailCols = detailCols.filter(c=>!(coverSrc && c.name===coverColumn?.name) && !(detailDisplay.detail_hide_empty && !detail?.__errors?.[c.name] && (detail?.[c.name] == null || detail[c.name] === "" || Array.isArray(detail[c.name]) && !detail[c.name].length)));
+  const detailPageStyle = { "--detail-padding": `${detailDisplay.detail_padding}px`, "--detail-spacing": `${detailDisplay.detail_row_spacing}px`, "--detail-line-height": detailDisplay.detail_line_height, "--detail-cover-height": `${detailDisplay.detail_cover_height}px`, "--detail-image-radius": `${detailDisplay.detail_image_radius}px` } as React.CSSProperties;
+  const show = (c: Column, row: any) => c.type === "datetime" ? dateTimeLabel(row[c.name]) : c.type === "image" ? row[c.name] ? "รูปภาพ" : "" : c.type === "list" ? `${row[`${c.name}__labels`]?.join(" · ") || (row[c.name] || []).slice(0,c.list_limit || undefined).join(" · ")}${(c.list_limit && row[c.name]?.length > c.list_limit) ? ` · อีก ${row[c.name].length-c.list_limit} รายการ` : ""}` : c.type === "enumlist" ? (row[c.name] || []).map((v: string) => enumListLabel(c, v, expressionOptions)).join(" · ") : c.type === "ref" ? row[`${c.name}__label`] ?? refs[c.name]?.find(r => r.id === row[c.name])?.__label ?? "" : c.type === "yesno" ? row[c.name] == null ? "" : row[c.name] ? "ใช่" : "ไม่ใช่" : row[c.name] ?? "";
+  const display = (c: Column, row: any) => { const value = show(c, row); if (c.type === "image" && row[c.name]) return <PreviewImage className="data-image" src={row[c.name]} alt={c.label} loading="lazy"/>; if (c.type === "ref" && row[c.name] && onOpenReference && tableAccess(access,c.ref_table!).read) return <button className="record-link" onClick={() => onOpenReference(c.ref_table!, row[c.name])}><RecordLabel text={value || "เปิดข้อมูลอ้างอิง"} image={row[`${c.name}__image`]}/> ↗</button>; if(c.type==="ref")return <RecordLabel text={value||"—"} image={row[`${c.name}__image`]}/>;if(c.type==="enumlist")return <span className="row-label-list">{(row[c.name]||[]).map((v:string)=><RecordLabel key={v} text={enumListLabel(c,v,expressionOptions)} image={enumListImage(c,v,expressionOptions)}/>)}</span>;if(c.name===labelTextColumn(meta.columns)&&c.type!=="image")return <RecordLabel text={value===""?"—":value} image={row.__image}/>;return value === "" ? "—" : value; };
+  const groupColumn = runtimeView && ["list", "table"].includes(runtimeView.kind) ? runtimeView.group_column || "" : "";
+  const groupMeta = meta.columns.find(c => c.name === groupColumn);
+  const groups: { key: string; label: string; value: any; rows: any[] }[] = [];
+  if (groupColumn && ["list", "table"].includes(runtimeView!.kind)) {
+    const byKey = new Map<string, typeof groups[number]>();
+    for (const row of rows) {
+      const value = row[groupColumn], key = value == null || value === "" || Array.isArray(value) && !value.length ? "empty" : JSON.stringify(value);
+      if (!byKey.has(key)) byKey.set(key, { key, value, label: key === "empty" ? "ไม่ระบุ" : String(groupMeta ? show(groupMeta, row) : value), rows: [] });
+      byKey.get(key)!.rows.push(row);
+    }
+    groups.push(...byKey.values());
+    groups.sort((a, b) => (typeof a.value === "number" && typeof b.value === "number" && groupMeta?.type !== "ref" ? a.value - b.value : a.label.localeCompare(b.label, "th", { numeric: true })) * (runtimeView?.group_dir === "desc" ? -1 : 1));
+  } else groups.push({ key: "all", label: "", value: null, rows });
+  const titleCol = sourceCols.find(c => c.name === listDisplay.title_column);
+  const listTitle = (row: any) => titleCol ? String(show(titleCol, row) || "—") : String(row.__label ?? `รายการที่ ${row.id}`);
+  const summaryCols = listDisplay.summary_columns === null ? displayCols.filter(c => !c.is_label && c.type !== "image").slice(0, 3) : visibleColumns(sourceCols, listDisplay.summary_columns).filter(c => listDisplay.summary_columns!.includes(c.name));
+  const imageCol = listDisplay.image_column === "__auto__" ? displayCols.find(c=>c.type==="image"&&c.is_label)||displayCols.find(c => c.type === "image") : sourceCols.find(c => c.name === listDisplay.image_column && c.type === "image");
+  const compactLabelImage = !!imageCol?.is_label || listDisplay.image_column==="__auto__"&&meta.columns.some(c=>c.is_label&&c.type==="image");
+  const input = (c: Column) => {
+    const id = `data-${c.name}`, value = form![c.name], error = state!.errors[c.name] || uniqueErrors[c.name] || (attempted ? state!.validation[c.name] : "");
+    const set = (v: any) => { setErr(""); setForm(old => ({ ...old, [c.name]: v })); };
+    const common = { id, disabled: busy || !state!.editable[c.name], "aria-required": state!.required[c.name], "aria-invalid": !!error, "aria-describedby": [error ? `${id}-error` : "", runtimeView && formDisplay.form_fields[c.name]?.help ? `${id}-help` : ""].filter(Boolean).join(" ") || undefined };
+    if (c.type === "list") { const selected = Array.isArray(value) ? value : []; if(c.is_virtual) return <PagedList title={c.label} table={c.ref_table || undefined} values={state!.row[c.name] as string[] || []} limit={c.list_limit ?? 5} email={previewEmail} onOpen={onOpenReference}/>; if(c.ref_table) return <PagedList title={c.label} table={c.ref_table} values={state!.choices[c.name]} limit={c.list_limit ?? 5} email={previewEmail} selectValues={selected} onSelect={set} disabled={common.disabled}/>; return <><textarea {...common} rows={4} value={typeof value === "string" ? value : JSON.stringify(value || [])} onChange={e=>set(e.target.value)}/><small className="hint">กรอกรายการ เช่น ["ค่าแรก","ค่าที่สอง"] หรือกำหนดสูตรค่าเริ่มต้นในคอลัมน์</small></>; }
+    if (c.is_virtual) return <output className="computed" id={id} aria-live="polite">{error ? "คำนวณไม่ได้" : display(c, state!.row)}</output>;
+    if(c.type === "latlong") return <LocationField id={id} label={c.label} value={value} auto={!!c.gps_auto} newRow={!form!.id} editable={!!state!.editable[c.name]} disabled={busy} required={common["aria-required"]} invalid={common["aria-invalid"]} describedBy={common["aria-describedby"]} onChange={set} onStatus={status=>setGpsPending(old=>old[c.name]===status.pending?old:{...old,[c.name]:status.pending})}/>;
+    if (c.type === "image") return <div className="image-field">{value && <PreviewImage className="image-field-preview" src={value} alt={c.label}/>}<button type="button" disabled={common.disabled} onClick={() => document.getElementById(id)?.click()}>{value ? "เปลี่ยนรูปภาพ" : "เลือกรูปภาพ"}</button><input {...common} className="sr-only" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={async e => {
+      const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+
+      setBusy(true); setErr(""); try { const body = new FormData(); body.append("file", await prepareImage(file,appSettings)); body.append("table",table);body.append("column",c.name); const r = await fetch("/api/images", { method: "POST", body }), j = await r.json(); if (!r.ok) throw new Error(j.error); set(j.url); } catch(e) { setErr((e as Error).message); } finally { setBusy(false); }
+    }}/><small className="hint">JPG, PNG, WebP หรือ GIF · ไม่เกิน {appSettings.image_max_mb} MB หลังปรับขนาด{appSettings.image_max_edge>0?` · ด้านยาวไม่เกิน ${appSettings.image_max_edge} px`:""}</small>{value && <button type="button" disabled={common.disabled} onClick={() => set(null)}>นำรูปภาพออก</button>}</div>;
+    if (c.type === "enumlist") { const allowed = state!.choices[c.name] || [], selected: string[] = value || [], choices = [...new Set([...allowed, ...selected])]; return <fieldset id={id} className="choice-list" disabled={common.disabled} aria-label={c.label} aria-describedby={common["aria-describedby"]}><legend className="sr-only">{c.label}</legend>{choices.length ? choices.map(o => <label key={o}><input type="checkbox" checked={selected.includes(o)} disabled={!allowed.includes(o) && !selected.includes(o)} onChange={e => set(e.target.checked ? [...selected, o] : selected.filter(v => v !== o))}/><RecordLabel text={enumListLabel(c,o,expressionOptions)} image={enumListImage(c,o,expressionOptions)}/>{!allowed.includes(o) && <small className="err">ไม่อยู่ในตัวเลือกปัจจุบัน กรุณายกเลิกการเลือก</small>}</label>) : <p className="hint">ไม่มีรายการที่ตรงกับเงื่อนไข</p>}</fieldset>; }
+    if (c.type === "yesno") return <input {...common} type="checkbox" checked={!!value} onChange={e => set(e.target.checked)} />;
+    if (c.type === "enum" || c.type === "ref") return <SearchSelect {...common} value={value ?? ""} onChange={e => set(e.target.value)}>
+      <option value="">เลือกค่า</option>{c.type === "enum" ? (c.options || "").split(",").map(o => o.trim()).filter(Boolean).map(o => <option key={o}>{o}</option>) : (refs[c.name] || []).map(r => <option key={r.id} value={r.id} data-image={r.__image||undefined}>{r.__label}{r.__key!=null && String(r.__key)!==String(r.__label) ? " · "+r.__key : ""}</option>)}
+    </SearchSelect>;
+    if (runtimeView && c.type === "text" && formDisplay.form_fields[c.name]?.multiline) return <textarea {...common} rows={4} placeholder={formDisplay.form_fields[c.name]?.placeholder} value={value ?? ""} onChange={e => set(e.target.value)}/>;
+    return <input {...common} placeholder={runtimeView ? formDisplay.form_fields[c.name]?.placeholder : undefined} type={["number", "decimal"].includes(c.type) ? "number" : c.type === "date" ? "date" : c.type === "datetime" ? "datetime-local" : "text"} inputMode={c.type === "decimal" ? "decimal" : undefined} step={["number", "decimal"].includes(c.type) || c.type === "datetime" ? "any" : undefined} value={c.type === "datetime" ? dateTimeInput(value) : value ?? ""} onChange={e => set(e.target.value)} />;
+  };
+  async function performAction(action:RowAction,row:any) {
+    setBusy(true);setErr("");
+    try { const r=await fetch("/api/actions",{method:"POST",headers:{"Content-Type":"application/json",...requestHeaders},body:JSON.stringify({op:"execute",name:action.name,id:row.id,slice_name:runtimeView?.slice_name})}),j=await r.json();if(!r.ok)throw new Error(j.error);setPendingAction(null);if(j.url){location.assign(j.url);return;}if(j.navigate){const target=relatedViews.find(v=>v.name===j.navigate.name);if(target&&onNavigate){leaving.current=true;onNavigate(target,j.navigate.id,j.navigate.initialValues);}else location.assign(actionNavigationUrl(j.navigate.name,j.navigate.id,j.navigate.initialValues));return;}clearRuntimeCache("data"); const message = `ทำรายการ ${action.label} แล้ว`; setSaved(message); if (action.kind === "delete" || j.deleted) setDetail(null); else if (detail?.id === row.id) { const response = await fetch(`/api/data/${table}?id=${row.id}${sliceQuery}`, {headers:requestHeaders}); const fresh = await response.json(); if(response.ok && fresh.length) setDetail(fresh[0]); } await load();onDataChange?.();if((action.kind === "delete" || j.deleted) && runtimeView && ["form","detail"].includes(runtimeView.kind))onReturn?.(message); } catch(e){setErr((e as Error).message);}finally{setBusy(false);}
+  }
+  const actionAllowed=(action:RowAction,row:any)=>{if(["set","delete","edit_form"].includes(action.kind)&&row.__permissions?.[actionPermission(action.kind)]===false)return false;try{return asBoolean(evaluateExpression(action.condition_expr,row,{...expressionOptions,userEmail:previewEmail}));}catch{return false;}};
+  const triggerAction=(action:RowAction,row:any)=>{if(busy)return;setErr("");if(!actionAllowed(action,row)){setErr("แถวนี้ไม่ตรงเงื่อนไขของ Action กรุณาเลือกแถวอื่นหรือโหลดข้อมูลใหม่");return;}if(action.confirmation||["delete","grouped"].includes(action.kind))setPendingAction({action,row});else performAction(action,row);};
+  const rowClick=(row:any)=>{if(busy)return;setErr("");switch(runtimeView ? listDisplay.row_click : "detail"){case "detail":openDetail(row);break;case "edit":editRow(row);break;case "delete":if(rights.delete&&row.__permissions?.delete!==false)setDeletion(row.id);else openDetail(row);break;case "action":{const action=rowActions.find(a=>a.name===listDisplay.row_action);if(action)triggerAction(action,row);else setErr("ไม่พบ Action ที่ตั้งไว้ กรุณาตรวจการคลิกแถวใน View");break;}}};
+  const rowClickLabel = runtimeView ? {detail:"ดูรายละเอียด",edit:"แก้ไข",delete:"ลบ",action:rowActions.find(a=>a.name===listDisplay.row_action)?.label || "เรียก Action",none:""}[listDisplay.row_click] : "ดูรายละเอียด";
+  const actionButtons=(row:any)=><div className="runtime-row-actions">{rowActions.filter(a=>actionAllowed(a,row)).map(a=><ActionButton key={a.name} action={a} disabled={busy} onClick={()=>triggerAction(a,row)}/>)}</div>;
+  return <div className={runtimeView ? `runtime-content runtime-kind-${runtimeView.kind} table-density-${listDisplay.table_density} ${listDisplay.table_wrap ? "table-wrap" : ""}` : "builder-data-content"}>
+    <div hidden={!!runtimeView && !!(form || detail)}>
+    {excelOpen&&<ExcelTransfer table={table} rights={rights} onClose={()=>setExcelOpen(false)} onImported={message=>{setExcelOpen(false);setSaved(message);clearRuntimeCache("data");load();onDataChange?.();}}/>}<div className="page-heading"><div><div className="eyebrow">{runtimeView ? "แอปของฉัน" : "ข้อมูลตาราง"}</div><h1>{runtimeView?.label || meta.label}</h1><p>ดูข้อมูล ค้นหา และเพิ่มรายการได้จากหน้านี้</p></div>{rights.create&&<button className={runtimeView ? "primary runtime-add" : "primary"} aria-label="เพิ่มข้อมูล" disabled={busy} onClick={add}><Icon name="plus"/><span>เพิ่มข้อมูล</span></button>}</div>
+    
+    {!runtimeView && <TableTabs table={table} selected="data"/>}
+    {busy && !rowsLoading && !form && !detail && !pendingAction && deletion===null && <AppLoading compact/>}
+    {(saved || successMessage) && <div className="success-banner" role="status"><Icon name="check"/>{saved || successMessage}</div>}{loadErr && <div className="error-banner" role="alert">{loadErr}</div>}{err && !form && deletion === null && <div className="error-banner" role="alert">{err}</div>}
+    <section className="panel data-panel" hidden={runtimeView?.kind === "form" && !!form}><div className="data-toolbar"><div className="search-box"><Icon name="search"/><input aria-label="ค้นหาข้อมูล" placeholder="ค้นหาข้อมูล…" value={q} onChange={e => {setQ(e.target.value);setPage(1);}}/></div><div className="view-toggle" role="group" aria-label="มุมมองข้อมูล"><button aria-label="มุมมองตาราง" aria-pressed={view === "table"} onClick={() => setView("table")}><Icon name="table"/>ตาราง</button><button aria-label="มุมมองรายการ" aria-pressed={view === "list"} onClick={() => setView("list")}><Icon name="list"/>รายการ</button></div><button className="excel-open" aria-label="นำเข้า / ส่งออก Excel" title="นำเข้า / ส่งออก Excel" disabled={busy} onClick={()=>setExcelOpen(true)}><Icon name="download"/><span>Excel</span></button><DataFilters columns={sourceCols} filters={filters} onChange={v=>{setFilters(v);setPage(1);}}/></div>
+      {rowsLoading&&refreshVisible&&rows.length>0&&<div className="runtime-refresh-indicator"><AppLoading compact/></div>}<div className="data-caption"><span>{total} รายการ{q || filters.length ? "ที่พบ" : ""}</span><span>{runtimeView?.kind === "table" ? rowClickLabel ? `คลิกแถวเพื่อ${rowClickLabel}` : "ใช้ปุ่มในแถวเพื่อจัดการข้อมูล" : "กดชื่อรายการเพื่อดูรายละเอียด"}</span></div>
+      {rowsLoading && rows.length===0 ? <AppLoading/> : rows.length === 0 ? <div className="empty-state"><span className="empty-icon"><Icon name="table" width="30" height="30"/></span><h2>{q || filters.length ? "ไม่พบข้อมูลที่ตรงเงื่อนไข" : "ตารางพร้อมใช้งานแล้ว"}</h2><p>{q || filters.length ? "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง" : "เพิ่มรายการแรก แล้วระบบจะจัดข้อมูลให้เป็นตาราง"}</p>{rights.create && !q && !filters.length && <button className="primary" onClick={add}><Icon name="plus"/>เพิ่มข้อมูลแรก</button>}</div> : <>
+      <div className={`scroll record-table ${view === "list" ? "view-hidden" : ""}`}><table><thead><tr>{displayCols.map(c => <th key={c.name} aria-sort={sort === c.name ? dir === "asc" ? "ascending" : "descending" : "none"}><button className="sort-button" onClick={() => { setDir(sort === c.name && dir === "asc" ? "desc" : "asc"); setSort(c.name);setPage(1); }}>{c.label}{c.is_key ? " · Key" : ""}{c.is_virtual ? " ƒ" : ""}{sort === c.name ? dir === "asc" ? " ↑" : " ↓" : ""}</button></th>)}<th>จัดการ</th></tr></thead><tbody>{groups.map(group => <React.Fragment key={group.key}>{groupColumn && <tr className="record-group-row"><th colSpan={displayCols.length + 1}>{groupMeta?.label || "รหัสแถว"}: {group.label} <span>{group.rows.length} รายการ</span></th></tr>}{group.rows.map(row => <tr key={row.id} className={rowClickLabel ? "clickable-record-row" : ""} tabIndex={rowClickLabel ? 0 : undefined} aria-label={rowClickLabel ? `${rowClickLabel}แถว ${row.__label ?? row.id}` : undefined} onClick={e=>{if(e.target instanceof Element && e.target.closest("button,a,input,select,textarea"))return;rowClick(row);}} onKeyDown={e=>{if(e.target===e.currentTarget && rowClickLabel && ["Enter"," "].includes(e.key)){e.preventDefault();rowClick(row);}}}>{displayCols.map((c, i) => <td key={c.name}>{row.__errors?.[c.name] ? <span className="table-error">{row.__errors[c.name]}</span> : i === 0 && rowClickLabel ? <button className="record-link" disabled={busy} onClick={() => rowClick(row)} aria-label={`${rowClickLabel === "ดูรายละเอียด" ? rowClickLabel : "เมื่อคลิกแถว: " + rowClickLabel} ${row.__label ?? row.id}`}>{c.type === "image" || c.type==="ref" || c.name===labelTextColumn(meta.columns) ? display(c, row) : show(c,row)===""?"—":show(c,row)}</button> : display(c, row)}</td>)}<td><div className="record-actions">{rights.update&&row.__permissions?.update!==false&&<button className="icon-button" disabled={busy} aria-label={`แก้ไข ${row.__label ?? row.id}`} onClick={() => editRow(row)}><Icon name="edit"/></button>}{rights.delete&&row.__permissions?.delete!==false&&<button className="icon-button danger" disabled={busy} aria-label={`ลบ ${row.__label ?? row.id}`} onClick={() => { setErr(""); setDeletion(row.id); }}><Icon name="trash"/></button>}</div>{runtimeView && actionButtons(row)}</td></tr>)}</React.Fragment>)}</tbody></table></div>
+      <div style={{"--grid-columns":listDisplay.list_grid_columns,"--grid-mobile-columns":listDisplay.list_grid_mobile_columns,"--grid-gap":listDisplay.list_gap+"px"} as React.CSSProperties} className={`record-list ${runtimeView&&listDisplay.list_style==="grid"?"record-grid":""} ${view === "table" ? "mobile-record-list" : ""}`}>{groups.map(group => <React.Fragment key={group.key}>{groupColumn && <h2 className="record-group-heading">{groupMeta?.label || "รหัสแถว"}: {group.label}<span>{group.rows.length} รายการ</span></h2>}{group.rows.map(row => <article style={runtimeView ? {"--list-padding":listDisplay.list_padding+"px","--list-min-height":listDisplay.list_min_height+"px","--list-gap":listDisplay.list_gap+"px","--list-radius":listDisplay.list_radius+"px"} as React.CSSProperties : undefined} className={runtimeView ? `record-card ${compactLabelImage?"has-row-label-image":""} ${listDisplay.image_column === "" ? "list-no-image" : ""} list-style-${listDisplay.list_style} image-shape-${listDisplay.image_shape} image-size-${listDisplay.image_size}` : `record-card ${compactLabelImage?"has-row-label-image":""}`} key={row.id}><button className="record-card-main" aria-label={`ดูรายละเอียด ${row.__label ?? row.id}`} onClick={() => openDetail(row)}>{(!runtimeView || listDisplay.image_column !== "") && !(compactLabelImage) && <span className="record-avatar">{imageCol && row[imageCol.name] ? display(imageCol, row) : listTitle(row).slice(0, 1)}</span>}<span className="record-text"><strong><RecordLabel text={listTitle(row)} image={row.__image}/></strong><span className="record-summary">{summaryCols.map(c => <span key={c.name}>{listDisplay.show_summary_labels ? `${c.label}: ` : ""}{row.__errors?.[c.name] ? "คำนวณไม่ได้" : c.type==="ref"||c.type==="enumlist"||c.name===labelTextColumn(meta.columns) ? display(c,row) : show(c, row)}</span>)}</span></span><Icon name="chevron" width="17" height="17"/></button>{rights.update && row.__permissions?.update!==false && (!runtimeView || ["edit", "both"].includes(listDisplay.list_buttons)) && <button className="icon-button record-edit" disabled={busy} aria-label={`แก้ไขรายการ ${row.__label ?? row.id}`} onClick={() => editRow(row)}><Icon name="edit"/></button>}{runtimeView && ["actions", "both"].includes(listDisplay.list_buttons) && actionButtons(row)}</article>)}</React.Fragment>)}</div></>}
+    {groupColumn&&<p className="hint">จัดกลุ่มเฉพาะรายการในหน้าที่กำลังดู</p>}<div className="data-pagination"><label><span>ต่อหน้า</span> <SearchSelect aria-label="รายการต่อหน้า" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1);}}>{[10,25,50,100].map(n=><option key={n} value={n}>{n}</option>)}</SearchSelect></label><span role="status" title={`หน้า ${page} / ${pages} · ทั้งหมด ${total} รายการ`}>หน้า {page} / {pages}<span className="pagination-total"> · {total} รายการ</span></span><div className="row"><button disabled={rowsLoading||page<=1} aria-label="หน้าก่อนหน้า" title="หน้าก่อนหน้า" onClick={()=>setPage(p=>p-1)}><Icon name="back" width="16" height="16"/></button><button disabled={rowsLoading||page>=pages} aria-label="หน้าถัดไป" title="หน้าถัดไป" onClick={()=>setPage(p=>p+1)}><Icon name="chevron" width="16" height="16"/></button></div></div>
+    </section>
+    </div>
+    {form && state && <Screen title={runtimeView && formView?.label || (form.id ? "แก้ไขข้อมูล" : "เพิ่มข้อมูล")} subtitle={`${meta.label} · ช่องที่มี * จำเป็นต้องกรอก`} busy={busy} onClose={closeForm} footer={<><button disabled={busy} onClick={closeForm}>ยกเลิก</button><button className="primary" disabled={busy||Object.values(gpsPending).some(Boolean)} onClick={save}><Icon name="check"/>{busy ? "กำลังบันทึก…" : form.id ? "บันทึกการแก้ไข" : "บันทึกข้อมูล"}</button></>}>
+      {meta.columns.filter(c=>c.gps_auto&&!c.is_virtual&&state.editable[c.name]&&(!formCols.some(f=>f.name===c.name)||!state.visible[c.name])).map(c=><LocationField key={c.name} hidden id={`gps-${c.name}`} label={c.label} value={form[c.name]} auto newRow={!form.id} editable disabled={busy} onChange={value=>setForm(old=>old?{...old,[c.name]:value}:old)} onStatus={status=>setGpsPending(old=>old[c.name]===status.pending?old:{...old,[c.name]:status.pending})}/>)}
+      {!runtimeView && <p className="hint internal-id-note">รหัสภายใน (id): <strong>{form.id ?? "ระบบสร้างเมื่อบันทึก"}</strong> · ใช้เชื่อม Ref และ List เปลี่ยนค่าไม่ได้</p>}
+      <div className={`data-form configured-form form-label-${formDisplay.form_labels}`} style={{ gridTemplateColumns: `repeat(${formDisplay.form_columns}, minmax(0, 1fr))` }}>{formCols.filter(c => state.visible[c.name]).map((c, i, visible) => { const error = state.errors[c.name] || uniqueErrors[c.name] || (attempted ? state.validation[c.name] : ""), field = runtimeView ? formDisplay.form_fields[c.name] || {} : {}, section = field.section?.trim(); return <React.Fragment key={c.name}>{section && (i === 0 || section !== formDisplay.form_fields[visible[i - 1].name]?.section?.trim()) && <h3 className="form-section-heading">{section}</h3>}<div className={`field ${c.is_virtual ? "calculated-field" : ""}`} style={runtimeView && field.width === "full" ? { gridColumn: "1 / -1" } : undefined}><label htmlFor={`data-${c.name}`}>{c.label}{state.required[c.name] ? " *" : ""}{!!c.is_virtual && <span className="badge blue">คำนวณอัตโนมัติ</span>}</label>{input(c)}{!c.is_virtual && !state.editable[c.name] && <small className="field-help">{c.ref_table&&!tableAccess(access,c.ref_table).read?"ไม่มีสิทธิ์ดูตารางอ้างอิง กรุณาติดต่อเจ้าของแอปหากต้องการเลือกข้อมูลช่องนี้":"อ่านอย่างเดียว · ใช้ค่าเริ่มต้นหรือเงื่อนไขการแก้ไขของคอลัมน์"}</small>}{field.help && <small className="field-help" id={`data-${c.name}-help`}>{field.help}</small>}{error && <div className="err" id={`data-${c.name}-error`} role="status">{error}</div>}</div></React.Fragment>; })}</div>{err && <div className="error-banner" role="alert">{err}</div>}
+    </Screen>}
+    {detail && <Screen title={detailView?.label || "รายละเอียดข้อมูล"} subtitle={<RecordLabel text={String(detail.__label ?? `รายการที่ ${detail.id}`)} image={detail.__image}/>} busy={busy} onClose={closeDetail} actions={runtimeView ? <>{rights.update&&detail.__permissions?.update!==false&&<button className="icon-button" aria-label="แก้ไขข้อมูล" title="แก้ไขข้อมูล" disabled={busy} onClick={() => editRow(detail)}><Icon name="edit"/></button>}{rights.delete&&detail.__permissions?.delete!==false&&<button className="icon-button danger" aria-label="ลบข้อมูล" title="ลบข้อมูล" disabled={busy} onClick={() => { setErr(""); setDeletion(detail.id); }}><Icon name="trash"/></button>}</> : undefined} footer={runtimeView ? undefined : <>{rights.delete&&detail.__permissions?.delete!==false&&<button className="danger" onClick={() => { setErr(""); setDeletion(detail.id); }}><Icon name="trash"/>ลบข้อมูล</button>}{rights.update&&detail.__permissions?.update!==false&&<button className="primary" onClick={() => editRow(detail)}><Icon name="edit"/>แก้ไขข้อมูล</button>}</>}><div className="detail-page" style={detailPageStyle}>{coverSrc && <figure className={`detail-cover detail-cover-fit-${detailDisplay.detail_image_fit}`}><PreviewImage src={coverSrc} alt={coverColumn!.label}/></figure>}{(saved || successMessage) && <div className="success-banner" role="status"><Icon name="check"/>{saved || successMessage}</div>}{err && <div className="error-banner" role="alert">{err}</div>}{busy && <AppLoading compact/>}{runtimeView && actionButtons(detail)}<dl className={`detail-fields configured-detail detail-layout-${detailDisplay.detail_layout} detail-image-${detailDisplay.image_size} detail-style-${detailDisplay.detail_style} detail-separator-${detailDisplay.detail_separator} ${detailDisplay.detail_show_labels ? "" : "detail-labels-hidden"}`} style={{ gridTemplateColumns: `repeat(${detailDisplay.detail_columns}, minmax(0, 1fr))` }}>{renderedDetailCols.map(c => <div key={c.name}><dt>{c.label}{!!c.is_virtual && <span className="badge blue">คำนวณ</span>}</dt><dd aria-label={detailDisplay.detail_show_labels ? undefined : c.label}>{detail.__errors?.[c.name] ? <span className="err">{detail.__errors[c.name]}</span> : c.type === "latlong"&&parseCoordinates(detail[c.name]) ? <div className="location-detail"><span>{detail[c.name]}</span><LocationMap value={detail[c.name]} label={"แผนที่ "+c.label}/></div> : c.type === "list" ? <PagedList title={c.label} table={c.ref_table || undefined} query={c.ref_table ? `mode=list&owner=${table}&id=${detail.id}&column=${c.name}` : ""} values={c.ref_table ? undefined : detail[c.name] || []} limit={c.list_limit ?? 5} email={previewEmail} onOpen={onOpenReference}/> : display(c, detail)}</dd></div>)}</dl>{meta.related?.map(r=>{const config=relatedDisplay[`${r.table}:${r.column}`]||{};if(config.visible===false)return null;const options=relatedViews.filter(v=>v.position==="inline"),inline=config.view?options.find(v=>v.name===config.view):options.find(v=>v.table_name===r.table && v.inline_ref===r.column),title=config.title?.trim()||`Related · ${r.label}`;if(config.view && !inline || inline && (runtimeView ? !inlineViews.some(v=>v.name===inline.name) : hiddenInline.includes(inline.name)))return null;return inline?<InlineRelated key={`${r.table}:${r.column}:${detail.id}`} view={inline} title={title} owner={table} id={detail.id} column={r.column} limit={config.limit??r.list_limit} email={previewEmail} onOpen={onOpenReference} onNavigate={(name,id,values)=>{const target=relatedViews.find(v=>v.name===name);if(target&&onNavigate)onNavigate(target,id,values);else location.assign(actionNavigationUrl(name,id,values));}} onChange={(message)=>{setSaved(message);load();onDataChange?.();}}/>:<PagedList key={`${r.table}:${r.column}:${detail.id}`} title={title} table={r.table} query={`mode=related&owner=${table}&id=${detail.id}&column=${r.column}`} limit={config.limit??r.list_limit} email={previewEmail} onOpen={onOpenReference}/>;})}</div></Screen>}
+    {pendingAction && <ConfirmDialog titleId="execute-action" busy={busy} onCancel={()=>{setPendingAction(null);setErr("");}}><h2 id="execute-action">{pendingAction.action.label}</h2><p>{pendingAction.action.confirmation || (pendingAction.action.kind==="grouped"?"ยืนยันทำทุกขั้นตอนในชุดนี้? ชุดอาจมีการลบข้อมูลตามที่ตั้งค่าไว้":"ยืนยันลบแถวนี้? การลบย้อนกลับไม่ได้")}</p>{err&&<p className="err" role="alert">{err}</p>}<div className="row"><button className={pendingAction.action.kind==="delete"?"danger":"primary"} disabled={busy} onClick={()=>performAction(pendingAction.action,pendingAction.row)}>ยืนยันทำรายการ</button><button autoFocus disabled={busy} onClick={()=>{setPendingAction(null);setErr("");}}>ยกเลิก</button></div></ConfirmDialog>}
+    {deletion !== null && <ConfirmDialog titleId="delete-row-title" busy={busy} onCancel={() => setDeletion(null)}><h2 id="delete-row-title">ยืนยันลบข้อมูลแถวที่ {deletion}</h2><p>ข้อมูลแถวนี้จะถูกลบ ย้อนกลับไม่ได้</p>{err && <p className="err" role="alert">{err}</p>}<div className="row"><button className="danger" disabled={busy} onClick={remove}>ยืนยันการลบ</button><button autoFocus disabled={busy} onClick={() => setDeletion(null)}>ยกเลิกการลบ</button></div></ConfirmDialog>}
+    {discard && <ConfirmDialog titleId="discard-row-title" busy={false} onCancel={() => setDiscard(false)}><h2 id="discard-row-title">ยังไม่ได้บันทึกข้อมูล</h2><p>ต้องการกลับไปกรอกต่อ หรือปิดโดยไม่บันทึก?</p><div className="row"><button className="primary" autoFocus onClick={() => setDiscard(false)}>กลับไปกรอกต่อ</button><button onClick={() => { setDiscard(false);if(runtimeView?.kind==="form"&&!editOrigin.current&&onReturn){leaving.current=true;onReturn();return;} setForm(null); setErr(""); if (editOrigin.current) { setDetail(editOrigin.current); editOrigin.current = null; } else if (runtimeView?.kind === "form") onReturn?.(); }}>ปิดโดยไม่บันทึก</button></div></ConfirmDialog>}
+  </div>;
+}
+
+

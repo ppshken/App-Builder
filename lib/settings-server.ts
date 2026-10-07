@@ -1,0 +1,3 @@
+import {db} from "./db";
+import {DEFAULT_SETTINGS,type AppSettings} from "./app-settings";
+export function readAppSettings(publicOnly=false):AppSettings{if(publicOnly){const row=db.prepare("SELECT name,icon,color,mode,font,font_size,custom_color,loading_style,loading_text,icon_image FROM _app_settings WHERE id=1").get() as Partial<AppSettings>|undefined;return {...DEFAULT_SETTINGS,...row,display_defaults:{}};}const row=db.prepare("SELECT * FROM _app_settings WHERE id=1").get() as any;if(!row)return DEFAULT_SETTINGS;const {id,display_defaults_json,list_reference_version,...settings}=row;return {...DEFAULT_SETTINGS,...settings,display_defaults:JSON.parse(display_defaults_json||"{}")};}

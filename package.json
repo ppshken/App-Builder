@@ -1,0 +1,47 @@
+{
+  "name": "nocode-builder",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node scripts/test.cjs",
+    "test:api": "node scripts/integration.cjs api",
+    "test:browser": "node scripts/integration.cjs browser",
+    "test:features": "node scripts/integration.cjs features",
+    "test:designer": "node scripts/integration.cjs designer",
+    "test:automation": "node scripts/integration.cjs automation",
+    "test:builder": "node scripts/integration.cjs builder",
+    "test:safety": "node scripts/integration.cjs safety",
+    "test:conversion": "node scripts/integration.cjs conversion",
+    "test:unique": "node scripts/integration.cjs unique",
+    "test:filters": "node scripts/integration.cjs filters",
+    "test:view-refresh": "node scripts/integration.cjs refresh",
+    "test:smooth": "node scripts/integration.cjs smooth",
+    "test:grid": "node scripts/integration.cjs grid",
+    "test:dropdown": "node scripts/integration.cjs dropdown",
+    "test:permissions": "node scripts/integration.cjs permissions",
+    "test:user-formulas": "node scripts/integration.cjs userformulas"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "exceljs": "^4.4.0",
+    "leaflet": "^1.9.4",
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "typescript": "^5.5.0"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
+  }
+}

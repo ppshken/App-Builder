@@ -1,0 +1,1 @@
+import {withAuth} from '@/lib/auth-api';import {previewView} from '@/lib/view-api';export const dynamic='force-dynamic';export const POST=withAuth(previewView);
