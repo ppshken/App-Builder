@@ -22,8 +22,9 @@ export const APP_FONTS = [
   {name:"mitr",family:"Mitr",description:"ตัวกลม เป็นกันเอง"},
   {name:"anuphan",family:"Anuphan",description:"เรียบและกระชับ"},
 ] as const;
-export type AppSettings = { icon_image:string;home_view:string;image_max_edge:number;image_quality:number;image_format:"original"|"jpeg"|"webp";image_max_mb:number;image_storage:"database"|"database_copy";image_folder:string; name: string; icon: typeof APP_ICONS[number]; color: typeof APP_COLORS[number]["name"] | "custom"; mode: "auto" | "light" | "dark"; font: typeof APP_FONTS[number]["name"]; font_size: number; loading_style: "spinner" | "text" | "both"; loading_text: string; custom_color: string; display_defaults: GlobalDisplayDefaults };
-export const DEFAULT_SETTINGS: AppSettings = {icon_image:"",home_view:"",image_max_edge:0,image_quality:85,image_format:"original",image_max_mb:5,image_storage:"database",image_folder:"images", name: "No-code Builder", icon: "grid", color: "blue", mode: "auto", font:"sarabun", font_size:14, loading_style:"text", loading_text:"กำลังโหลด…", custom_color:"#2563EB", display_defaults:{} };
+export const APP_FONT_WEIGHTS = [{value:300,label:"บาง"},{value:400,label:"ปกติ"},{value:500,label:"ปานกลาง"},{value:600,label:"กึ่งหนา"},{value:700,label:"หนา"}] as const;
+export type AppSettings = { icon_image:string;home_view:string;image_max_edge:number;image_quality:number;image_format:"original"|"jpeg"|"webp";image_max_mb:number;image_storage:"database"|"database_copy";image_folder:string; name: string; icon: typeof APP_ICONS[number]; color: typeof APP_COLORS[number]["name"] | "custom"; mode: "auto" | "light" | "dark"; font: typeof APP_FONTS[number]["name"]; font_weight: number; font_size: number; loading_style: "spinner" | "text" | "both"; loading_text: string; custom_color: string; display_defaults: GlobalDisplayDefaults };
+export const DEFAULT_SETTINGS: AppSettings = {icon_image:"",home_view:"",image_max_edge:0,image_quality:85,image_format:"original",image_max_mb:5,image_storage:"database",image_folder:"images", name: "No-code Builder", icon: "grid", color: "blue", mode: "auto", font:"sarabun", font_weight:400, font_size:14, loading_style:"text", loading_text:"กำลังโหลด…", custom_color:"#2563EB", display_defaults:{} };
 export const fontFamily = (font: AppSettings["font"]) => `"${APP_FONTS.find(f=>f.name===font)?.family || "Sarabun"}", system-ui, sans-serif`;
 export function normalizeHex(value: unknown) {
   if (typeof value !== "string" || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim())) throw new Error("โค้ดสีต้องเป็น # ตามด้วยตัวเลขหรือ A–F เช่น #2563EB หรือ #09F");
@@ -36,6 +37,7 @@ export function validateSettings(b: Record<string,unknown>, previous: AppSetting
   if(value.color!=="custom" && !APP_COLORS.some(c=>c.name===value.color)) throw new Error("กรุณาเลือกสีจากรายการหรือกำหนดโค้ดสีเอง");
   if(!["auto","light","dark"].includes(value.mode as string)) throw new Error("กรุณาเลือกโหมดสว่าง มืด หรือตามอุปกรณ์");
   if(!APP_FONTS.some(f=>f.name===value.font)) throw new Error("กรุณาเลือกฟอนต์จากรายการ Google Fonts");
+  if(!APP_FONT_WEIGHTS.some(weight=>weight.value===value.font_weight)) throw new Error("กรุณาเลือกน้ำหนักฟอนต์จากรายการ");
   if(!Number.isInteger(value.font_size) || (value.font_size as number)<12 || (value.font_size as number)>24) throw new Error("ขนาดตัวอักษรต้องเป็นจำนวนเต็ม 12–24 พิกเซล");
   if(!["spinner","text","both"].includes(value.loading_style as string)) throw new Error("กรุณาเลือกรูปแบบกำลังโหลดจากรายการ");
   if(typeof value.loading_text!=="string" || !value.loading_text.trim() || value.loading_text.trim().length>80) throw new Error("ข้อความกำลังโหลดต้องมี 1–80 ตัวอักษร");

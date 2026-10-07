@@ -63,10 +63,10 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(request.mode==="replace"&&target.type===source.type&&(request.target.ref_table||null)===(source.ref_table||null))throw Error("กรุณาเลือกชนิดข้อมูลใหม่ หรือเลือกคัดลอกไปคอลัมน์ใหม่");
  for(const field of ["default_expr","valid_if"] as const)if(Object.hasOwn(request.target,field)){if(request.target[field]!=null&&typeof request.target[field]!=="string")throw Error("สูตรต้องเป็นข้อความ");target[field]=request.target[field]?.trim()||null;}
  target.options=["enum","enumlist"].includes(target.type)?typeof request.target.options==="string"?[...new Set(request.target.options.split(",").map(v=>v.trim()).filter(Boolean))].join(","):"":null;
- target.ref_table=["ref","list"].includes(target.type)?request.target.ref_table||null:null;
+ target.ref_table=["ref","list","enum","enumlist"].includes(target.type)?request.target.ref_table||null:null;
  if(target.ref_table){assertIdentifier(target.ref_table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(target.ref_table))throw Error("ไม่พบตารางอ้างอิงปลายทาง");}
  if(target.type==="ref"&&!target.ref_table)throw Error("กรุณาเลือกตารางอ้างอิงปลายทาง");
- if(["enum","enumlist"].includes(target.type)&&!target.options&&!(target.type==="enumlist"&&target.valid_if))throw Error("กรุณากำหนดตัวเลือก หรือสูตร Valid_If สำหรับ EnumList");
+ if(["enum","enumlist"].includes(target.type)&&!target.options&&!target.ref_table&&!target.valid_if)throw Error("กรุณากำหนดตัวเลือก หรือสูตร Valid_If สำหรับ Enum หรือ EnumList");
  if(target.is_key&&!["text","number","decimal","enum"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Key ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Key อื่นก่อน");
  if(target.is_label&&(source.type==="image")!==(target.type==="image"))throw Error("กรุณายกเลิก Label ก่อนแปลงระหว่างรูปภาพกับชนิดอื่น เพื่อรักษา Label ข้อความและรูปภาพอย่างละหนึ่งช่อง");
  if(target.is_label&&["ref","list","enumlist"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Label ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Label อื่นก่อน");

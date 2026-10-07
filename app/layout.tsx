@@ -23,7 +23,7 @@ export default async function Root({ children }: { children: React.ReactNode }) 
   if(page==="/login"&&user)redirect(landingPage(user));
   if(user&&page!=="/login"&&page!=="/run"&&(!access.builder||((page==="/users"||page==="/backups")&&!access.owner)))redirect("/run");
   const settings=readAppSettings(!user),dark=settings.mode==="dark",colors=themeColors(settings,dark);
-  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(settings.font),"--font-scale":String(settings.font_size/14)} as CSSProperties;
+  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(settings.font),"--app-font-weight":String(settings.font_weight),"--font-scale":String(settings.font_size/14)} as CSSProperties;
   const palettes=JSON.stringify({light:themeColors(settings,false),dark:themeColors(settings,true)}).replace(/</g,"\\u003c");
   const bootstrap=`(()=>{const root=document.documentElement,dark=matchMedia('(prefers-color-scheme:dark)').matches,palette=(${palettes})[dark?'dark':'light'];root.dataset.mode=dark?'dark':'light';for(const [key,value] of Object.entries({'--accent':palette.accent,'--accent-soft':palette.soft,'--brand-color':palette.button,'--brand-contrast':palette.buttonText}))root.style.setProperty(key,value);})();`;
   return (

@@ -90,7 +90,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
     if (typeof items === "string") { try { items = JSON.parse(items); } catch { throw new Error(`"${c.label}" ต้องเป็นรายการตัวเลือก`); } }
     if (!Array.isArray(items) || items.length > 200 || items.some(v => typeof v !== "string")) throw new Error(`"${c.label}" ต้องเป็นรายการตัวเลือก`);
     const allowed = (c.options || "").split(",").map(v => v.trim());
-    if (!c.valid_if?.trim() && items.some(v => !allowed.includes(v))) throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
+    if (!c.valid_if?.trim() && !c.ref_table && items.some(v => !allowed.includes(v))) throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
     return [...new Set(items as string[])];
   }
   if (isBlank(value)) return null;
@@ -119,11 +119,11 @@ export function normalizeValue(c: Column, value: unknown): Value {
       throw new Error(`"${c.label}" ต้องเป็นวันที่ที่ถูกต้อง เช่น 2026-10-05`);
     return date;
   }
-  if (c.type === "enum" && !(c.options || "").split(",").map(o => o.trim()).includes(value))
+  if (c.type === "enum" && !c.valid_if?.trim() && !c.ref_table && !(c.options || "").split(",").map(o => o.trim()).includes(value))
     throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
   return value;
 }
-// SELECT still returns the requested values in ordinary expressions and EnumList.
+// SELECT still returns the requested values in ordinary expressions, Enum and EnumList.
 // In a referenced List, its result carries row identity instead; conditions keep
 // their ordinary values. IF/IFS propagate this only to the selected result branch.
 export function evaluateColumnExpression(c: Column, source: string, row: Record<string, Value>, options: ExpressionOptions): Value {
@@ -167,10 +167,10 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
       try {
         if (!c[field]?.trim()) return fallback;
         const value = evaluateExpression(c[field]!, { ...row, _THIS: row[c.name] }, { ...context, now, userEmail, referenceListTable: field === "valid_if" && c.type === "list" && c.ref_table ? c.ref_table : undefined });
-        if (field === "valid_if" && ["enumlist", "list"].includes(c.type) && Array.isArray(value)) {
-          const allowed = c.type === "list" ? normalizeValue(c,value) as string[] : value;
+        if (field === "valid_if" && ["enum", "enumlist", "list"].includes(c.type) && Array.isArray(value)) {
+          const allowed = c.type === "list" ? normalizeValue(c,value) as string[] : c.type === "enum" ? value.filter(v=>v!==null).map(String) : value;
           choices[c.name] = [...new Set(allowed)];
-          return Array.isArray(row[c.name]) && (row[c.name] as string[]).every(v => allowed.includes(v));
+          return c.type === "enum" ? isBlank(row[c.name])||allowed.includes(String(row[c.name])) : Array.isArray(row[c.name]) && (row[c.name] as string[]).every(v => allowed.includes(v));
         }
         return asBoolean(value);
       }
@@ -187,22 +187,23 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
     if (c.is_key && typeof row[c.name] === "string" && !(row[c.name] as string).trim()) validation[c.name] = `Key "${c.label}" ต้องไม่ว่าง`;
     if (!condition("valid_if", true) && !validation[c.name]) validation[c.name] = `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
     // A boolean Valid_If still uses the fixed options; a list Valid_If supplies its own options.
-    if (c.type === "enumlist" && !Object.hasOwn(choices, c.name)) {
-      choices[c.name] = (c.options || "").split(",").map(v => v.trim()).filter(Boolean);
-      if (Array.isArray(row[c.name]) && (row[c.name] as string[]).some(v => !choices[c.name].includes(v))) validation[c.name] = `"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`;
+    if (["enum","enumlist"].includes(c.type) && !Object.hasOwn(choices, c.name)) {
+      const data = c.ref_table ? (context.getTable ? context.getTable(c.ref_table) : context.tables?.[c.ref_table]) : undefined;
+      choices[c.name] = c.ref_table ? [...new Set((data?.rows || []).map(r=>r[data!.key]).filter(v=>v!=null).map(String))] : (c.options || "").split(",").map(v => v.trim()).filter(Boolean);
+      if ((c.type==="enum"&&!isBlank(row[c.name])&&!choices[c.name].includes(String(row[c.name])))||(Array.isArray(row[c.name]) && (row[c.name] as string[]).some(v => !choices[c.name].includes(v)))) validation[c.name] = `"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`;
     }
   }
   return { row, errors, visible, required, validation, choices, editable };
 }
 export function enumListLabel(c: Column, value: string, context: ExpressionContext): string {
   try {
-    const source = c.type === "list" && c.ref_table ? { table: c.ref_table, column: "" } : listSource(c.valid_if || ""); if (!source) return value;
+    const source = c.ref_table ? { table: c.ref_table, column: "" } : listSource(c.valid_if || ""); if (!source) return value;
     const data = context.getTable ? context.getTable(source.table) : context.tables?.[source.table];
     if (data && c.type === "list") {
       const row = data.rows.find(row=>String(row.id)===value);
       if (row && row[data.key] != null) return data.labels[String(row[data.key])] ?? value;
     }
-    if (data && data.key === source.column && Object.hasOwn(data.labels, value)) return data.labels[value];
+    if (data && (data.key === source.column || !!c.ref_table) && Object.hasOwn(data.labels, value)) return data.labels[value];
   } catch { /* A broken formula is reported by formState, while saved keys remain readable. */ }
   return value;
 }
@@ -237,4 +238,4 @@ export function calculateInsertRow(cols: Column[], body: Record<string, unknown>
 export function labelTextColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type!=="image")?.name??cols.find(c=>c.type==="text")?.name??"id";}
 export function labelImageColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type==="image")?.name;}
 export function assertLabels(cols:Column[]){if(cols.some(c=>c.is_label&&["enumlist","list","ref"].includes(c.type)))throw Error("Label ใช้กับช่องค่าเดียวหรือรูปภาพเท่านั้น");if(cols.filter(c=>c.is_label&&c.type!=="image").length>1)throw Error("เลือก Label ข้อความได้ 1 คอลัมน์ต่อตาราง");if(cols.filter(c=>c.is_label&&c.type==="image").length>1)throw Error("เลือก Label รูปภาพได้ 1 คอลัมน์ต่อตาราง");}
-export function enumListImage(c:Column,value:string,context:ExpressionContext):string|undefined{try{const source=c.type==="list"&&c.ref_table?{table:c.ref_table,column:""}:listSource(c.valid_if||"");if(!source)return;const data=context.getTable?context.getTable(source.table):context.tables?.[source.table];if(!data)return;const key=c.type==="list"?data.rows.find(r=>String(r.id)===value)?.[data.key]:data.key===source.column?value:undefined;return key==null?undefined:data.labelImages?.[String(key)];}catch{return;}}
+export function enumListImage(c:Column,value:string,context:ExpressionContext):string|undefined{try{const source=c.ref_table?{table:c.ref_table,column:""}:listSource(c.valid_if||"");if(!source)return;const data=context.getTable?context.getTable(source.table):context.tables?.[source.table];if(!data)return;const key=c.type==="list"?data.rows.find(r=>String(r.id)===value)?.[data.key]:data.key===source.column||c.ref_table?value:undefined;return key==null?undefined:data.labelImages?.[String(key)];}catch{return;}}

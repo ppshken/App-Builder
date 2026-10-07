@@ -8,7 +8,7 @@ test('roles deny by default, require read before writes, and require both table 
  runAuthorized(user,access,()=>{assert.ok(canRead('items'));assert.equal(canRead('private'),false);assert.throws(()=>assertTablePermission('items','delete'),e=>e.status===403);assert.ok(canExecuteAction({name:'change',table_name:'items',kind:'set'}));assert.equal(canExecuteAction({name:'other',table_name:'items',kind:'set'}),false);assert.equal(canExecuteAction({name:'change',table_name:'items',kind:'delete'}),false);});
  const empty=await manageUsers(7,{op:'create_role',label:'Empty',builder:false,tables:{},actions:[]},db);assert.deepEqual(accessFor({...user,role:empty.name},db).tables,{});
  }finally{db.close();}});
-test('last active owner is protected, passwords are hashed and permission changes revoke sessions immediately',async()=>{const db=fixture();try{
+test('last active owner is protected, passwords are hashed and permission changes preserve sessions while account shutdown and password reset revoke them',async()=>{const db=fixture();try{
  await assert.rejects(manageUsers(7,{op:'delete_user',id:7},db),/อย่างน้อยหนึ่ง/);
  await assert.rejects(manageUsers(7,{op:'edit_user',id:7,name:'Owner',email:'owner@example.com',role:'owner',active:false},db),/อย่างน้อยหนึ่ง/);
  const role=await manageUsers(7,{op:'create_role',label:'Staff',builder:false,tables:{items:rights},actions:[]},db);
@@ -16,7 +16,10 @@ test('last active owner is protected, passwords are hashed and permission change
  const hash=db.prepare('SELECT password_hash FROM _users WHERE id=?').get(user.id).password_hash;assert.ok(await auth.verifyPassword('StaffPassword123',hash));assert.ok(!JSON.stringify(usersOverview(db)).includes(hash));
  await assert.rejects(manageUsers(user.id,{op:'delete_user',id:7},db),e=>e.status===403);
  await assert.rejects(manageUsers(7,{op:'delete_role',name:role.name},db),/ย้ายบทบาท/);
- let session=auth.createSession(user,db);await manageUsers(7,{op:'update_role',name:role.name,label:'Reader',builder:false,tables:{items:{read:true,create:false,update:false,delete:false}},actions:[]},db);assert.equal(auth.sessionUser(session.token,db),null);
+ let session=auth.createSession(user,db);await manageUsers(7,{op:'update_role',name:role.name,label:'Reader',builder:false,tables:{items:{read:true,create:false,update:false,delete:false}},actions:[]},db);assert.deepEqual(auth.sessionUser(session.token,db),user);assert.equal(accessFor(auth.sessionUser(session.token,db),db).tables.items.update,false);
+ const otherSession=auth.createSession(user,db),otherRole=await manageUsers(7,{op:'create_role',label:'No access',builder:false,tables:{},actions:[]},db);await manageUsers(7,{op:'edit_user',id:user.id,name:user.name,email:user.email,role:otherRole.name,active:true},db);
+ for(const current of [session,otherSession]){const active=auth.sessionUser(current.token,db);assert.equal(active.role,otherRole.name);assert.deepEqual(accessFor(active,db).tables,{});}
+ await manageUsers(7,{op:'edit_user',id:user.id,name:user.name,email:user.email,role:role.name,active:true},db);
  session=auth.createSession(user,db);await manageUsers(7,{op:'reset_password',id:user.id,password:'NewPassword123'},db);assert.equal(auth.sessionUser(session.token,db),null);assert.ok(await auth.verifyPassword('NewPassword123',db.prepare('SELECT password_hash FROM _users WHERE id=?').get(user.id).password_hash));
  session=auth.createSession(user,db);await manageUsers(7,{op:'edit_user',id:user.id,name:'Staff',email:user.email,role:role.name,active:false},db);assert.equal(auth.sessionUser(session.token,db),null);
  await manageUsers(7,{op:'delete_user',id:user.id},db);await manageUsers(7,{op:'delete_role',name:role.name},db);assert.deepEqual(db.pragma('foreign_key_check'),[]);

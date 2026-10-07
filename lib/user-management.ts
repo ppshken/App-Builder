@@ -24,7 +24,7 @@ export async function manageUsers(actor:number,input:Record<string,any>,database
    database.prepare("DELETE FROM _role_tables WHERE role_name=?").run(name);database.prepare("DELETE FROM _role_actions WHERE role_name=?").run(name);
    database.prepare("DELETE FROM _role_row_rules WHERE role_name=?").run(name);for(const [key,expr] of Object.entries(rules)){const [table,op]=key.split(":");if(expr)database.prepare("INSERT INTO _role_row_rules VALUES(?,?,?,?)").run(name,table,op,expr);}
    const insert=database.prepare("INSERT INTO _role_tables VALUES(?,?,?,?,?,?)");for(const [table,g] of Object.entries(grants))insert.run(name,table,Number(g.read),Number(g.create),Number(g.update),Number(g.delete));for(const action of chosen)database.prepare("INSERT INTO _role_actions VALUES(?,?)").run(name,action);
-   database.prepare("DELETE FROM _sessions WHERE user_id IN (SELECT id FROM _users WHERE role=?)").run(name);return {ok:true,name};
+   return {ok:true,name};
   }
   if(op==="delete_role"){if(input.name==="owner")throw new AuthError("ลบบทบาทเจ้าของแอปไม่ได้");if(database.prepare("SELECT 1 FROM _users WHERE role=?").get(input.name))throw new AuthError("มีผู้ใช้ในบทบาทนี้ กรุณาย้ายบทบาทผู้ใช้ก่อนลบ");database.prepare("DELETE FROM _roles WHERE name=?").run(input.name);return {ok:true};}
   const id=Number(input.id);
@@ -32,7 +32,7 @@ export async function manageUsers(actor:number,input:Record<string,any>,database
    const name=text(input.name,"ชื่อ"),email=emailAddress(input.email),role=input.role;if(typeof role!=="string"||!database.prepare("SELECT 1 FROM _roles WHERE name=?").get(role))throw new AuthError("กรุณาเลือกบทบาทที่มีอยู่");if(typeof input.active!=="boolean")throw new AuthError("กรุณาระบุสถานะเปิดใช้งานบัญชี");
    if(op==="create_user"){const result=database.prepare("INSERT INTO _users(name,email,password_hash,role,active,created_at) VALUES(?,?,?,?,?,?)").run(name,email,hash,role,Number(input.active),Date.now());return {ok:true,id:Number(result.lastInsertRowid)};}
    if(!Number.isSafeInteger(id)||id<1)throw new AuthError("รหัสผู้ใช้ไม่ถูกต้อง");ensureOwner(database,id,role,input.active);
-   const old=database.prepare("SELECT email,role,active FROM _users WHERE id=?").get(id) as any;database.prepare("UPDATE _users SET name=?,email=?,role=?,active=? WHERE id=?").run(name,email,role,Number(input.active),id);if(old.email!==email||old.role!==role||!!old.active!==input.active)database.prepare("DELETE FROM _sessions WHERE user_id=?").run(id);return {ok:true};
+   const old=database.prepare("SELECT email,role,active FROM _users WHERE id=?").get(id) as any;database.prepare("UPDATE _users SET name=?,email=?,role=?,active=? WHERE id=?").run(name,email,role,Number(input.active),id);if(old.email!==email||!!old.active!==input.active)database.prepare("DELETE FROM _sessions WHERE user_id=?").run(id);return {ok:true};
   }
   if(!Number.isSafeInteger(id)||id<1)throw new AuthError("รหัสผู้ใช้ไม่ถูกต้อง");
   if(op==="delete_user"){ensureOwner(database,id,"",false);database.prepare("DELETE FROM _users WHERE id=?").run(id);return {ok:true};}

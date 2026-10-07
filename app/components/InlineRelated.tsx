@@ -17,7 +17,7 @@ import PagedList,{ListItem} from "./PagedList";
 import ActionButton from "./ActionButton";
 import Icon from "./Icon";
 import ConfirmDialog from "./ConfirmDialog";
-export default function InlineRelated({view,title,owner,id,column,limit,email="",onOpen,onChange,onNavigate}: {view:AppView;title:string;owner:string;id:number;column:string;limit:number;email?:string;onOpen?:(table:string,id:number,kind?:"detail"|"form")=>void;onChange?:(message:string)=>void;onNavigate?:(name:string,id?:number,values?:Record<string,unknown>)=>void}) {
+export default function InlineRelated({view,title,owner,id,column,limit,email="",onOpen,onChange,onNavigate,dataRevision=0}: {dataRevision?:number;view:AppView;title:string;owner:string;id:number;column:string;limit:number;email?:string;onOpen?:(table:string,id:number,kind?:"detail"|"form")=>void;onChange?:(message:string)=>void;onNavigate?:(name:string,id?:number,values?:Record<string,unknown>)=>void}) {
   const {settings}=useAppSettings(),{access}=useAuth(),rights=tableAccess(access,view.table_name);
   const d=displaySettings(view.display,settings.display_defaults[view.kind==="table"?"table":"list"]),[revision,setRevision]=useState(0),[actions,setActions]=useState<RowAction[]>([]),[error,setError]=useState(""),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState<{row:ListItem;action?:RowAction}|null>(null);
   useEffect(()=>{const abort=new AbortController();if(["actions","both"].includes(d.list_buttons) || view.kind==="table" && d.row_click==="action")fetch("/api/actions",{signal:abort.signal}).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error);setActions(data.filter((a:RowAction)=>a.table_name===view.table_name));}).catch(e=>{if(!abort.signal.aborted)setError(e.message);});return()=>abort.abort();},[view.name,view.kind,d.list_buttons,d.row_click]);
@@ -39,7 +39,7 @@ export default function InlineRelated({view,title,owner,id,column,limit,email=""
   }
   return <div className={`inline-related runtime-kind-${view.kind} table-density-${d.table_density} ${d.table_wrap?"table-wrap":""}`}>
     {error && !confirm && <div className="error-banner" role="alert">{error}</div>}
-    <PagedList key={`${view.name}:${revision}`} title={title} table={view.table_name} query={`mode=related&owner=${owner}&id=${id}&column=${column}&view=${view.name}`} limit={limit} email={email} disabled={busy} renderRows={render}/>
+    <PagedList key={view.name} refreshRevision={dataRevision+revision} title={title} table={view.table_name} query={`mode=related&owner=${owner}&id=${id}&column=${column}&view=${view.name}`} limit={limit} email={email} disabled={busy} renderRows={render}/>
     {confirm && <ConfirmDialog titleId={`inline-confirm-${view.name}`} busy={busy} onCancel={()=>{setConfirm(null);setError("");}}><h2 id={`inline-confirm-${view.name}`}>{confirm.action?.label||"ลบรายการที่เกี่ยวข้อง"}</h2><p>{confirm.action?.confirmation||`ยืนยันลบ ${confirm.row.label}? การลบย้อนกลับไม่ได้`}</p>{error&&<p className="err" role="alert">{error}</p>}<div className="row"><button className={confirm.action?.kind==="set"?"primary":"danger"} disabled={busy} onClick={()=>execute(confirm.row,confirm.action)}>ยืนยันทำรายการ</button><button disabled={busy} onClick={()=>{setConfirm(null);setError("");}}>ยกเลิก</button></div></ConfirmDialog>}
   </div>;
 }

@@ -47,7 +47,7 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
       const options = { ...expressionUser, tables: data, userEmail: sampleEmail, refTables: refTablesOf(columns) };
       const { row } = calculateRow(columns, samples, true, new Date(), true, sampleEmail, options);
       const value = evaluateExpression(source, { ...row, _THIS: row[column.name] ?? null }, options);
-      if (["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enumlist","list"].includes(column.type) && Array.isArray(value))) asBoolean(value);
+      if (["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enum","enumlist","list"].includes(column.type) && Array.isArray(value))) asBoolean(value);
       else if (!["show_if", "valid_if", "required_if"].includes(field)) normalizeValue(column, value);
       setResult({ value: value === null ? "ค่าว่าง" : typeof value === "boolean" ? value ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(value) ? JSON.stringify(value) : String(value) });
     } catch (e) { setResult({ error: e instanceof Error ? e.message : "ทดสอบสูตรไม่ได้" }); }

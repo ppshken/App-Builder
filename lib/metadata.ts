@@ -18,15 +18,15 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
     const c: Column = { gps_auto:raw.gps_auto?1:0,image_path:raw.type==="image"?imageFolder(raw.image_path??""):null,name: raw.name, label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : raw.name,
       is_unique: raw.is_unique ? 1 : 0, is_editable: raw.is_virtual || raw.is_editable === 0 || raw.is_editable === false ? 0 : 1, type: raw.type, required: raw.required ? 1 : 0, pos, is_virtual: raw.is_virtual ? 1 : 0, is_key: raw.is_key ? 1 : 0, is_label: raw.is_label ? 1 : 0,
       options: ["enum", "enumlist"].includes(raw.type) && typeof raw.options === "string" ? [...new Set(raw.options.split(",").map((o: string) => o.trim()).filter(Boolean))].join(",") : null,
-      ref_table: ["ref", "list"].includes(raw.type) ? raw.ref_table || null : null, list_limit: raw.list_limit ?? 5 };
+      ref_table: ["ref", "list", "enum", "enumlist"].includes(raw.type) ? raw.ref_table || null : null, list_limit: raw.list_limit ?? 5 };
     if(raw.is_unique!==undefined&&![true,false,0,1].includes(raw.is_unique))throw Error("ห้ามซ้ำต้องเป็นค่าเปิดหรือปิด");
     assertUniqueColumn(c);
     if (![0, 5, 10, 20].includes(c.list_limit!)) throw new Error("จำนวนรายการต่อหน้าต้องเป็น 5, 10, 20 หรือทั้งหมด");
-    if (["enum", "enumlist"].includes(c.type) && !c.options && !(c.type === "enumlist" && typeof raw.valid_if === "string" && raw.valid_if.trim())) throw new Error(`คอลัมน์ "${c.label}" ต้องระบุตัวเลือกหรือสูตร Valid_If ที่ให้รายการตัวเลือก`);
+    if (["enum", "enumlist"].includes(c.type) && !c.options && !c.ref_table && !(typeof raw.valid_if === "string" && raw.valid_if.trim())) throw new Error(`คอลัมน์ "${c.label}" ต้องระบุตัวเลือกหรือสูตร Valid_If ที่ให้รายการตัวเลือก`);
     if (c.is_key && (c.is_virtual || !["text", "number", "decimal", "enum"].includes(c.type))) throw new Error("Key ต้องเป็นช่องข้อมูลชนิดข้อความ ตัวเลข หรือเลือกหนึ่งรายการ และเป็นช่องคำนวณไม่ได้");
 
     if (c.type === "ref" && !tableExists(c.ref_table!)) throw new Error(`คอลัมน์ "${c.label}" ต้องเลือกตารางอ้างอิงที่มีอยู่`);
-    if (c.type === "list" && c.ref_table && !tableExists(c.ref_table)) throw new Error(`ไม่พบตารางอ้างอิงของ "${c.label}"`);
+    if (["list", "enum", "enumlist"].includes(c.type) && c.ref_table && !tableExists(c.ref_table)) throw new Error(`ไม่พบตารางอ้างอิงของ "${c.label}"`);
     for (const field of FORMULA_FIELDS) {
       if (raw[field] != null && typeof raw[field] !== "string") throw new Error("สูตรต้องเป็นข้อความ");
       c[field] = raw[field]?.trim() || null;

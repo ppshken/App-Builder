@@ -104,7 +104,7 @@ function InternalIdRow() {
   return <tr className="system-column-row" aria-label="คอลัมน์ id รหัสภายในอัตโนมัติ">
     <td><span className="row-index">1</span><span className="system-column-lock" title="คอลัมน์ระบบ แก้ไข เปลี่ยนชื่อ หรือลบไม่ได้"><Icon name="lock" width="17" height="17"/></span></td>
     <td>{fixed("ชื่อในระบบ","id")}<small className="hint">คอลัมน์ระบบ · แก้ไขไม่ได้</small></td>
-    <td>{fixed("ชนิดข้อมูล","จำนวนเต็ม")}</td>
+    <td>{fixed("ชนิดข้อมูล","จำนวนเต็ม (Number)")}</td>
     <td>{flag("Key อัตโนมัติ",true)}<small className="system-column-auto">Auto</small></td>
     <td>{flag("Label",false)}</td>
     <td>{flag("ห้ามซ้ำ",true)}</td>

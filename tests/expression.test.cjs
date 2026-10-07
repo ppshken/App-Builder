@@ -188,3 +188,22 @@ test('IN matches numeric IDs serialized in lists without conflating text busines
   assert.deepEqual(run('SELECT(permission[permission_key], IN([permission_key], [_THISROW].[permission]))',
     { permission: ['user.add'] }, { tables }), ['user.add']);
 });
+
+test('Enum Valid_If supplies scalar choices from tables and enforces membership without static options',()=>{
+ const assert=require('node:assert/strict'),{formState,validateRow,normalizeValue}=require('../.test-build/columns.js');
+ const source={columns:['name','active'],key:'name',labels:{},rows:[{name:'Alpha',active:true},{name:'Beta',active:true},{name:'Alpha',active:true},{name:'Hidden',active:false}]},context={tables:{choices:source}},column={name:'choice',label:'Choice',type:'enum',valid_if:'SELECT(choices[name], [active] = TRUE)'};
+ const valid=formState([column],{choice:'Alpha'},new Date(),' ',context);assert.deepEqual(valid.choices.choice,['Alpha','Beta']);assert.deepEqual(valid.validation,{});assert.deepEqual(valid.errors,{});assert.equal(normalizeValue(column,'Beta'),'Beta');
+ for(const choice of ['Hidden','Forged'])assert.throws(()=>validateRow([column],{choice},new Date(),'',context),/Valid_If/);
+ assert.deepEqual(formState([column],{choice:null},new Date(),'',context).validation,{});assert.match(formState([{...column,required:true}],{choice:null},new Date(),'',context).validation.choice,/กรอก/);
+ const fixed={...column,options:'Alpha,Beta',valid_if:'TRUE'};assert.deepEqual(formState([fixed],{choice:'Alpha'}).choices.choice,['Alpha','Beta']);assert.throws(()=>validateRow([fixed],{choice:'Forged'}),/เลือกค่า/);
+ assert.deepEqual(formState([{...column,valid_if:'LIST("1","2","2")'}],{choice:'2'}).choices.choice,['1','2']);
+ assert.throws(()=>validateRow([{...column,options:'Alpha',valid_if:'FALSE'}],{choice:'Alpha'}),/Valid_If/);
+});
+
+ test('Referenced Enum uses table keys and labels without fixed options or Valid_If',()=>{
+ const {formState,validateRow,enumListLabel}=require('../.test-build/columns.js');
+ const context={tables:{choices:{columns:['id','code','name'],key:'code',labels:{A:'Alpha',B:'Beta'},rows:[{id:1,code:'A',name:'Alpha'},{id:2,code:'B',name:'Beta'}]}}};
+ for(const type of ['enum','enumlist']){const column={name:'choice',label:'Choice',type,ref_table:'choices'},value=type==='enum'?'A':['A'];
+ const state=formState([column],{choice:value},new Date(),'',context);assert.deepEqual(state.choices.choice,['A','B']);assert.deepEqual(state.errors,{});assert.deepEqual(state.validation,{});assert.equal(enumListLabel(column,'A',context),'Alpha');
+ assert.throws(()=>validateRow([column],{choice:type==='enum'?'Forged':['Forged']},new Date(),'',context),/เลือกค่า/);}
+ });

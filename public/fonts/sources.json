@@ -808,5 +808,239 @@
     "file": "anuphan-3.woff2",
     "source": "https://fonts.gstatic.com/s/anuphan/v6/2sDeZGxYgY7LkLT0mWoDag.woff2",
     "bytes": 35036
+  },
+  {
+    "family": "Sarabun",
+    "file": "sarabun-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/sarabun/v17/DtVmJx26TKEr37c9YL5rik8s6zDX.woff2",
+    "bytes": 9972
+  },
+  {
+    "family": "Sarabun",
+    "file": "sarabun-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/sarabun/v17/DtVmJx26TKEr37c9YL5rilQs6zDX.woff2",
+    "bytes": 4136
+  },
+  {
+    "family": "Sarabun",
+    "file": "sarabun-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/sarabun/v17/DtVmJx26TKEr37c9YL5rilUs6zDX.woff2",
+    "bytes": 10568
+  },
+  {
+    "family": "Sarabun",
+    "file": "sarabun-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/sarabun/v17/DtVmJx26TKEr37c9YL5rilss6w.woff2",
+    "bytes": 11660
+  },
+  {
+    "family": "Noto Sans Thai",
+    "file": "noto-sans-thai-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/notosansthai/v29/iJWnBXeUZi_OHPqn4wq6hQ2_hbJ1xyN9wd43SofNWcd1MKVQt_So_9CdU8ptlyJ0QCvz.woff2",
+    "bytes": 9216
+  },
+  {
+    "family": "Noto Sans Thai",
+    "file": "noto-sans-thai-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/notosansthai/v29/iJWnBXeUZi_OHPqn4wq6hQ2_hbJ1xyN9wd43SofNWcd1MKVQt_So_9CdU8ptlzh0QCvz.woff2",
+    "bytes": 6076
+  },
+  {
+    "family": "Noto Sans Thai",
+    "file": "noto-sans-thai-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/notosansthai/v29/iJWnBXeUZi_OHPqn4wq6hQ2_hbJ1xyN9wd43SofNWcd1MKVQt_So_9CdU8ptlzZ0QA.woff2",
+    "bytes": 10340
+  },
+  {
+    "family": "Prompt",
+    "file": "prompt-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/prompt/v12/-W_8XJnvUD7dzB2Cy_gIfWMuQ5Q.woff2",
+    "bytes": 12468
+  },
+  {
+    "family": "Prompt",
+    "file": "prompt-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/prompt/v12/-W_8XJnvUD7dzB2Cy_gIZmMuQ5Q.woff2",
+    "bytes": 9264
+  },
+  {
+    "family": "Prompt",
+    "file": "prompt-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/prompt/v12/-W_8XJnvUD7dzB2Cy_gIZ2MuQ5Q.woff2",
+    "bytes": 17432
+  },
+  {
+    "family": "Prompt",
+    "file": "prompt-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/prompt/v12/-W_8XJnvUD7dzB2Cy_gIaWMu.woff2",
+    "bytes": 17528
+  },
+  {
+    "family": "Kanit",
+    "file": "kanit-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/kanit/v17/nKKU-Go6G5tXcr4-ORWzVaF5NQ.woff2",
+    "bytes": 13156
+  },
+  {
+    "family": "Kanit",
+    "file": "kanit-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/kanit/v17/nKKU-Go6G5tXcr4-ORWoVaF5NQ.woff2",
+    "bytes": 10392
+  },
+  {
+    "family": "Kanit",
+    "file": "kanit-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/kanit/v17/nKKU-Go6G5tXcr4-ORWpVaF5NQ.woff2",
+    "bytes": 19840
+  },
+  {
+    "family": "Kanit",
+    "file": "kanit-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/kanit/v17/nKKU-Go6G5tXcr4-ORWnVaE.woff2",
+    "bytes": 19048
+  },
+  {
+    "family": "IBM Plex Sans Thai",
+    "file": "ibm-plex-sans-thai-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/ibmplexsansthai/v11/m8JMje1VVIzcq1HzJq2AEdo2Tj_qvLqEovQ1Z-JHa74.woff2",
+    "bytes": 1416
+  },
+  {
+    "family": "IBM Plex Sans Thai",
+    "file": "ibm-plex-sans-thai-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/ibmplexsansthai/v11/m8JMje1VVIzcq1HzJq2AEdo2Tj_qvLqEovQ1fuJHa74.woff2",
+    "bytes": 12024
+  },
+  {
+    "family": "IBM Plex Sans Thai",
+    "file": "ibm-plex-sans-thai-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/ibmplexsansthai/v11/m8JMje1VVIzcq1HzJq2AEdo2Tj_qvLqEovQ1ZOJHa74.woff2",
+    "bytes": 6608
+  },
+  {
+    "family": "IBM Plex Sans Thai",
+    "file": "ibm-plex-sans-thai-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/ibmplexsansthai/v11/m8JMje1VVIzcq1HzJq2AEdo2Tj_qvLqEovQ1auJH.woff2",
+    "bytes": 19024
+  },
+  {
+    "family": "Bai Jamjuree",
+    "file": "bai-jamjuree-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/baijamjuree/v13/LDIqapSCOBt_aeQQ7ftydoa09eDegJo0yyg.woff2",
+    "bytes": 9544
+  },
+  {
+    "family": "Bai Jamjuree",
+    "file": "bai-jamjuree-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/baijamjuree/v13/LDIqapSCOBt_aeQQ7ftydoa09eDem5o0yyg.woff2",
+    "bytes": 4172
+  },
+  {
+    "family": "Bai Jamjuree",
+    "file": "bai-jamjuree-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/baijamjuree/v13/LDIqapSCOBt_aeQQ7ftydoa09eDempo0yyg.woff2",
+    "bytes": 10644
+  },
+  {
+    "family": "Bai Jamjuree",
+    "file": "bai-jamjuree-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/baijamjuree/v13/LDIqapSCOBt_aeQQ7ftydoa09eDelJo0.woff2",
+    "bytes": 11784
+  },
+  {
+    "family": "Chakra Petch",
+    "file": "chakra-petch-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/chakrapetch/v13/cIflMapbsEk7TDLdtEz1BwkeNIh1U5_F7AY.woff2",
+    "bytes": 7348
+  },
+  {
+    "family": "Chakra Petch",
+    "file": "chakra-petch-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/chakrapetch/v13/cIflMapbsEk7TDLdtEz1BwkeNIh1SJ_F7AY.woff2",
+    "bytes": 3704
+  },
+  {
+    "family": "Chakra Petch",
+    "file": "chakra-petch-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/chakrapetch/v13/cIflMapbsEk7TDLdtEz1BwkeNIh1SZ_F7AY.woff2",
+    "bytes": 9136
+  },
+  {
+    "family": "Chakra Petch",
+    "file": "chakra-petch-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/chakrapetch/v13/cIflMapbsEk7TDLdtEz1BwkeNIh1R5_F.woff2",
+    "bytes": 10008
+  },
+  {
+    "family": "Krub",
+    "file": "krub-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/krub/v11/sZlEdRyC6CRYZuo4GKJyRpgW.woff2",
+    "bytes": 11128
+  },
+  {
+    "family": "Krub",
+    "file": "krub-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/krub/v11/sZlEdRyC6CRYZuo4GLlyRpgW.woff2",
+    "bytes": 4280
+  },
+  {
+    "family": "Krub",
+    "file": "krub-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/krub/v11/sZlEdRyC6CRYZuo4GLhyRpgW.woff2",
+    "bytes": 11460
+  },
+  {
+    "family": "Krub",
+    "file": "krub-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/krub/v11/sZlEdRyC6CRYZuo4GLZyRg.woff2",
+    "bytes": 12000
+  },
+  {
+    "family": "Mitr",
+    "file": "mitr-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/mitr/v13/pxiEypw5ucZF8ZcaJIPecmNE.woff2",
+    "bytes": 13648
+  },
+  {
+    "family": "Mitr",
+    "file": "mitr-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/mitr/v13/pxiEypw5ucZF8ZcaJJjecmNE.woff2",
+    "bytes": 10140
+  },
+  {
+    "family": "Mitr",
+    "file": "mitr-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/mitr/v13/pxiEypw5ucZF8ZcaJJnecmNE.woff2",
+    "bytes": 20168
+  },
+  {
+    "family": "Mitr",
+    "file": "mitr-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/mitr/v13/pxiEypw5ucZF8ZcaJJfecg.woff2",
+    "bytes": 21408
+  },
+  {
+    "family": "Anuphan",
+    "file": "anuphan-light-0.woff2",
+    "source": "https://fonts.gstatic.com/s/anuphan/v6/2sDBZGxYgY7LkLT0s2Yrm5UhuLoIZClG9T43EGSN2w.woff2",
+    "bytes": 7684
+  },
+  {
+    "family": "Anuphan",
+    "file": "anuphan-light-1.woff2",
+    "source": "https://fonts.gstatic.com/s/anuphan/v6/2sDBZGxYgY7LkLT0s2Yrm5UhuLoIZClG9T4sEGSN2w.woff2",
+    "bytes": 4536
+  },
+  {
+    "family": "Anuphan",
+    "file": "anuphan-light-2.woff2",
+    "source": "https://fonts.gstatic.com/s/anuphan/v6/2sDBZGxYgY7LkLT0s2Yrm5UhuLoIZClG9T4tEGSN2w.woff2",
+    "bytes": 10840
+  },
+  {
+    "family": "Anuphan",
+    "file": "anuphan-light-3.woff2",
+    "source": "https://fonts.gstatic.com/s/anuphan/v6/2sDBZGxYgY7LkLT0s2Yrm5UhuLoIZClG9T4jEGQ.woff2",
+    "bytes": 15676
   }
 ]

@@ -14,7 +14,7 @@ export function readColumns(db: Database.Database, table: string): Column[] {
     assertIdentifier(c.name);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);
     assertUniqueColumn(c);
     if (!Object.hasOwn(SQLTYPE, c.type)) throw new Error(`ชนิดข้อมูลของ "${c.label}" ไม่รองรับ`);
-    if (c.type === "ref" || (c.type === "list" && c.ref_table)) assertIdentifier(c.ref_table);
+    if (c.type === "ref" || (["list", "enum", "enumlist"].includes(c.type) && c.ref_table)) assertIdentifier(c.ref_table);
   }
   assertLabels(cols);
   return cols;
@@ -108,7 +108,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needImagePath=!(db.pragma("table_info('_images')") as {name:string}[]).some(c=>c.name==="storage_path");
   const needSettings = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_app_settings'").get();
   const settingsFields = new Set((db.pragma("table_info('_app_settings')") as {name:string}[]).map(c=>c.name));
-  const settingsOptions = {icon_image:"TEXT NOT NULL DEFAULT ''",home_view:"TEXT NOT NULL DEFAULT ''",image_max_edge:"INTEGER NOT NULL DEFAULT 0",image_quality:"INTEGER NOT NULL DEFAULT 85",image_format:"TEXT NOT NULL DEFAULT 'original'",image_max_mb:"REAL NOT NULL DEFAULT 5",image_storage:"TEXT NOT NULL DEFAULT 'database'",image_folder:"TEXT NOT NULL DEFAULT 'images'", display_defaults_json:"TEXT NOT NULL DEFAULT '{}'", font:"TEXT NOT NULL DEFAULT 'sarabun'", font_size:"INTEGER NOT NULL DEFAULT 14", loading_style:"TEXT NOT NULL DEFAULT 'text'", loading_text:"TEXT NOT NULL DEFAULT 'กำลังโหลด…'", custom_color:"TEXT NOT NULL DEFAULT '#2563EB'", list_reference_version:"INTEGER NOT NULL DEFAULT 0" };
+  const settingsOptions = {icon_image:"TEXT NOT NULL DEFAULT ''",home_view:"TEXT NOT NULL DEFAULT ''",image_max_edge:"INTEGER NOT NULL DEFAULT 0",image_quality:"INTEGER NOT NULL DEFAULT 85",image_format:"TEXT NOT NULL DEFAULT 'original'",image_max_mb:"REAL NOT NULL DEFAULT 5",image_storage:"TEXT NOT NULL DEFAULT 'database'",image_folder:"TEXT NOT NULL DEFAULT 'images'", display_defaults_json:"TEXT NOT NULL DEFAULT '{}'", font:"TEXT NOT NULL DEFAULT 'sarabun'", font_weight:"INTEGER NOT NULL DEFAULT 400", font_size:"INTEGER NOT NULL DEFAULT 14", loading_style:"TEXT NOT NULL DEFAULT 'text'", loading_text:"TEXT NOT NULL DEFAULT 'กำลังโหลด…'", custom_color:"TEXT NOT NULL DEFAULT '#2563EB'", list_reference_version:"INTEGER NOT NULL DEFAULT 0" };
   const missingSettingsOptions = Object.entries(settingsOptions).filter(([name])=>!settingsFields.has(name));
   const needListReferences = !settingsFields.has("list_reference_version") || (db.prepare("SELECT list_reference_version AS version FROM _app_settings WHERE id=1").get() as {version:number} | undefined)?.version !== 1;
   const tables = db.prepare("SELECT name FROM _tables").all() as { name: string }[];
