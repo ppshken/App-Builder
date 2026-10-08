@@ -14,7 +14,7 @@ import { viewIsVisible } from "./view-visibility";
 export type RelatedList = { table: string; column: string; label: string; list_limit: number };
 export function relatedLists(table: string): RelatedList[] {
   if (!tableExists(table)) throw new Error("ไม่พบตาราง");
-  const tables = db.prepare("SELECT name,label FROM _tables ORDER BY label,name").all() as {name:string;label:string}[];
+  const tables = db.prepare("SELECT name,label FROM _tables WHERE name IN (SELECT table_name FROM _columns WHERE ref_table=? AND type='ref' AND COALESCE(is_virtual,0)=0) ORDER BY label,name").all(table) as {name:string;label:string}[];
   return tables.filter(t=>canRead(t.name)).flatMap(t => columnsOf(t.name).filter(c => c.type === "ref" && !c.is_virtual && c.ref_table === table).map(c => ({table:t.name,column:c.name,label:`${t.label} · ${c.label}`,list_limit:c.list_limit ?? 5})));
 }
 export function listKey(table: string) { if (!tableExists(table)) throw Error("ไม่พบตารางอ้างอิง"); return "id"; }

@@ -3,20 +3,20 @@ import { normalizeCoordinates } from "./location";
 import { normalizeDateTime } from "./datetime";
 
 export const IDENT = /^[a-z][a-z0-9_]{0,40}$/;
-export const SQLTYPE: Record<string, string> = { text: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
-export const UNIQUE_TYPES = ["text","number","decimal","date","datetime","image","yesno","enum","ref"];
+export const SQLTYPE: Record<string, string> = { text: "TEXT", longtext: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
+export const UNIQUE_TYPES = ["text","longtext","number","decimal","date","datetime","image","yesno","enum","ref"];
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
-  name: string; label: string; type: string; gps_auto?:number|boolean; image_path?:string|null; options?: string | null; ref_table?: string | null;
-  required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
+  name: string; label: string; type: string; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; options?: string | null; ref_table?: string | null;
+  is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
 export const FORMULA_LABELS: Record<FormulaField, string> = {
   virtual_expr: "สูตรคำนวณ", default_expr: "ค่าเริ่มต้น", show_if: "แสดงเมื่อ (Show_If)",
   editable_if: "แก้ไขเมื่อ (Editable_If)", valid_if: "ค่าต้องผ่านเงื่อนไข (Valid_If)", required_if: "จำเป็นเมื่อ (Required_If)",
 };
 export const blankColumn = (): Column => ({ name: "", label: "", type: "text", options: "", ref_table: "", required: false,
-  gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
+  is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
 export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");
@@ -107,6 +107,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
     throw new Error(`"${c.label}" ต้องเป็นใช่หรือไม่ใช่`);
   }
   if (typeof value !== "string") throw new Error(`"${c.label}" ต้องเป็นข้อความ`);
+  if (["text","longtext"].includes(c.type) && c.max_length && value.length > c.max_length) throw new Error(`"${c.label}" กรอกได้ไม่เกิน ${c.max_length} ตัวอักษร กรุณาลดข้อความก่อนบันทึก`);
   if(c.type === "latlong") { try { return normalizeCoordinates(value); } catch(e) { throw Error(`"${c.label}": ${(e as Error).message}`); } }
   if (c.type === "datetime") {
     try { return normalizeDateTime(value); } catch (e) { throw new Error(`"${c.label}": ${(e as Error).message}`); }
@@ -235,7 +236,14 @@ export function calculateInsertRow(cols: Column[], body: Record<string, unknown>
 }
 
 // Row identity has one textual label and an optional image; formulas retain scalar labels.
-export function labelTextColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type!=="image")?.name??cols.find(c=>c.type==="text")?.name??"id";}
+export function labelTextColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type!=="image")?.name??cols.find(c=>["text","longtext"].includes(c.type))?.name??"id";}
 export function labelImageColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type==="image")?.name;}
 export function assertLabels(cols:Column[]){if(cols.some(c=>c.is_label&&["enumlist","list","ref"].includes(c.type)))throw Error("Label ใช้กับช่องค่าเดียวหรือรูปภาพเท่านั้น");if(cols.filter(c=>c.is_label&&c.type!=="image").length>1)throw Error("เลือก Label ข้อความได้ 1 คอลัมน์ต่อตาราง");if(cols.filter(c=>c.is_label&&c.type==="image").length>1)throw Error("เลือก Label รูปภาพได้ 1 คอลัมน์ต่อตาราง");}
 export function enumListImage(c:Column,value:string,context:ExpressionContext):string|undefined{try{const source=c.ref_table?{table:c.ref_table,column:""}:listSource(c.valid_if||"");if(!source)return;const data=context.getTable?context.getTable(source.table):context.tables?.[source.table];if(!data)return;const key=c.type==="list"?data.rows.find(r=>String(r.id)===value)?.[data.key]:data.key===source.column||c.ref_table?value:undefined;return key==null?undefined:data.labelImages?.[String(key)];}catch{return;}}
+
+export function normalizeMaxLength(type:string,value:unknown):number {
+  if (value == null) return 0;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 1000000) throw Error("จำนวนตัวอักษรสูงสุดต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000 (0 คือไม่จำกัด)");
+  if (!["text","longtext"].includes(type) && value !== 0) throw Error("จำกัดจำนวนตัวอักษรได้เฉพาะ Text และ Longtext");
+  return value;
+}

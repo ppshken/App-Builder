@@ -19,7 +19,7 @@ async function main(){
  assert.deepEqual((await api('/api/tables','GET',undefined,cookie)).map(t=>t.name),['staff_items']);
  assert.deepEqual((await api('/api/tables','GET',undefined,cookie))[0].related,[]);assert.equal((await response('/api/lists/private_children?mode=related&owner=staff_items&id='+item.id+'&column=job','GET',undefined,cookie)).status,403);
  const rows=await api('/api/data/staff_items','GET',undefined,cookie);assert.equal(rows[0].private_ref,secret.id);assert.ok(!JSON.stringify(rows).includes('ข้อมูลที่ห้ามเห็น'));assert.equal(rows[0].private_ref__label,undefined);
- for(const path of ['/api/users','/api/backups','/api/data/private_items','/api/lists/private_items?mode=choices',image,'/api/expression-data?table=private_items','/api/expression-data?source=private_items%5Bname%5D','/api/tables/staff_items/duplicates'])assert.equal((await response(path,'GET',undefined,cookie)).status,403,path);
+ for(const path of ['/api/users','/api/backups','/api/tables/staff_items/raw','/api/data/private_items','/api/lists/private_items?mode=choices',image,'/api/expression-data?table=private_items','/api/expression-data?source=private_items%5Bname%5D','/api/tables/staff_items/duplicates'])assert.equal((await response(path,'GET',undefined,cookie)).status,403,path);
  assert.equal((await response('/api/tables','POST',{name:'forbidden',columns:[]},cookie)).status,403);
  assert.equal((await response('/api/settings','PUT',{},cookie)).status,403);
  assert.equal((await response('/api/data/staff_items?id='+item.id,'DELETE',undefined,cookie)).status,403);

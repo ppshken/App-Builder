@@ -207,3 +207,5 @@ test('Enum Valid_If supplies scalar choices from tables and enforces membership 
  const state=formState([column],{choice:value},new Date(),'',context);assert.deepEqual(state.choices.choice,['A','B']);assert.deepEqual(state.errors,{});assert.deepEqual(state.validation,{});assert.equal(enumListLabel(column,'A',context),'Alpha');
  assert.throws(()=>validateRow([column],{choice:type==='enum'?'Forged':['Forged']},new Date(),'',context),/เลือกค่า/);}
  });
+
+test('date formatter reuse preserves Bangkok midnight and each evaluation clock',()=>{const assert=require('node:assert/strict'),{evaluateExpression}=require('../.test-build/expression.js'),formula='CONCATENATE(TODAY(), " ", NOW(), " ", TODAY())';assert.equal(evaluateExpression(formula,{}, {now:new Date('2026-10-08T16:59:59Z')}),'2026-10-08 2026-10-08T23:59:59+07:00 2026-10-08');assert.equal(evaluateExpression(formula,{}, {now:new Date('2026-10-08T17:00:00Z')}),'2026-10-09 2026-10-09T00:00:00+07:00 2026-10-09');});

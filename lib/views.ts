@@ -6,3 +6,7 @@ export const VIEW_ICONS = ICON_CATALOG.map(i => [i.name as IconName, i.label] as
 export function viewIcon(view: { icon?: string; show_if?: string; kind: string }) { return VIEW_ICONS.find(([icon]) => icon === view.icon)?.[0] || (view.kind === "map" ? "map" : view.kind === "chart" ? "chart-bar" : view.kind === "calendar" ? "calendar" : view.kind === "dashboard" ? "grid" : view.kind === "table" ? "table" : view.kind === "form" ? "edit" : view.kind === "detail" ? "eye" : "list"); }
 export type AppView = { name: string; label: string; table_name: string; slice_name?: string | null; inline_ref?: string; kind: string; position: string; pos: number; columns: string[]; sort_column: string; sort_dir: string; icon?: string; show_if?: string; group_column?: string; group_dir?: string; display?: ViewDisplay };
 export function visibleColumns<T extends { name: string }>(cols: T[], selected: string[]) { return selected.length ? selected.flatMap(n => cols.find(c => c.name === n) ? [cols.find(c => c.name === n)!] : []) : cols; }
+
+export function relatedInlineView(views:AppView[],table:string,column:string,selected?:string){return selected?views.find(v=>v.position==="inline"&&v.name===selected&&v.table_name===table&&v.inline_ref===column):views.find(v=>v.position==="inline"&&v.table_name===table&&v.inline_ref===column);}
+
+export function relatedTitle(label:string,custom?:string){return custom?.trim()||`Related · ${label}`;}

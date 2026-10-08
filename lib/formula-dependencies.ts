@@ -1,3 +1,4 @@
+import {PART_FORMULA_FIELDS} from "./part-of-config";
 import {actionConfigExpressions} from "./action-config";
 import { db, columnsOf } from "./db";
 import { FORMULA_FIELDS, refTablesOf } from "./columns";
@@ -14,6 +15,7 @@ export function externalFormulaUse(table: string, column?: string): string | und
   for (const v of db.prepare("SELECT * FROM _views").all() as any[]) if ((column || v.table_name !== table) && uses(v.show_if || "", v.table_name)) return `Show_If ของ View ${v.label}`;
   const columns = db.prepare("SELECT * FROM _columns").all() as StoredColumn[];
   for (const c of columns) {
+    if(c.is_part_of)for(const field of PART_FORMULA_FIELDS){const source=c[field]||"";if(source.trim()&&(c.ref_table===table&&(!column||references(source).includes(column))||uses(source,c.ref_table!)))return `เงื่อนไขรายการลูก ${c.table_name} · ${c.label}`;}
     if (c.table_name === table && (!column || c.name === column)) continue;
     if (FORMULA_FIELDS.some(f => uses(c[f] || "", c.table_name))) return `${c.table_name} · ${c.label}`;
   }
@@ -24,6 +26,7 @@ export function renameExternalFormulas(table: string, old: string, next: string)
   const schemas = referenceSchemas();
   const rewrite = (source: string, owner: string) => renameReference(renameDereference(source, table, old, next, schemas[owner] || {}, schemas), old, next, table);
   for (const c of db.prepare("SELECT * FROM _columns").all() as StoredColumn[]) {
+    for(const field of PART_FORMULA_FIELDS)if(c[field]){let source=rewrite(c[field]!,c.ref_table!);if(c.ref_table===table)source=renameReference(source,old,next);if(source!==c[field])db.prepare(`UPDATE _columns SET ${field}=? WHERE table_name=? AND name=?`).run(source,c.table_name,c.name);}
     for (const field of FORMULA_FIELDS) if (c[field]) {
       const source = rewrite(c[field]!, c.table_name);
       if (source !== c[field]) db.prepare(`UPDATE _columns SET ${field}=? WHERE table_name=? AND name=?`).run(source, c.table_name, c.name);

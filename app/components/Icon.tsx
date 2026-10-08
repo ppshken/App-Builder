@@ -1,6 +1,7 @@
 import type { SVGProps } from "react";
 import { EXTRA_ICONS, type IconName } from "@/lib/icons";
 export type { IconName } from "@/lib/icons";
+const extraPaths = new Map<string,string>(EXTRA_ICONS.map(i=>[i[0],i[3]]));
 const paths: Partial<Record<IconName, React.ReactNode>> = {
   home: <><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></>,
   users: <><circle cx="9" cy="7" r="4"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 3a4 4 0 0 1 0 8M19 14a6 6 0 0 1 3 5v2"/></>,
@@ -25,5 +26,5 @@ const paths: Partial<Record<IconName, React.ReactNode>> = {
   external: <><path d="M14 3h7v7M21 3l-10 10M10 3H4v17h17v-6"/></>,
 };
 export default function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || <path d={EXTRA_ICONS.find(i => i[0] === name)?.[3]}/> }</svg>;
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || <path d={extraPaths.get(name)}/> }</svg>;
 }

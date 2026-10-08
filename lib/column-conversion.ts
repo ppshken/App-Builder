@@ -1,7 +1,8 @@
+import {assertPartSchema} from "./part-of-config";
 import {actionConfigExpressions} from "./action-config";
 import Database from "better-sqlite3";
 import {createHash} from "node:crypto";
-import {assertIdentifier,assertFormulas,Column,FORMULA_FIELDS,SQLTYPE,normalizeValue,calculateRow,formState,refTablesOf} from "./columns";
+import {normalizeMaxLength,assertIdentifier,assertFormulas,Column,FORMULA_FIELDS,SQLTYPE,normalizeValue,calculateRow,formState,refTablesOf} from "./columns";
 import {assertUniqueColumn} from "./unique";
 import {normalizeDateTime} from "./datetime";
 import {readColumns,rebuildTable,columnDefinition,foreignKeyTransaction,syncKeyIndex,createInlineViews} from "./schema";
@@ -23,7 +24,7 @@ function decimalIdentity(text:string){
 // Explicit conversions only: no SQLite CAST, guessing comma-separated lists, or discarding list items.
 export function convertValue(source:Column,target:Column,raw:unknown,resolveRef?:(value:unknown)=>number):unknown{
  let value=normalizeValue(source,raw);
- if(target.type==="text")return value==null?null:Array.isArray(value)?JSON.stringify(value):String(value);
+ if(["text","longtext"].includes(target.type))return normalizeValue(target,value==null?null:Array.isArray(value)?JSON.stringify(value):String(value));
  if(value==null||(Array.isArray(value)&&!value.length))return ["enumlist","list"].includes(target.type)?[]:null;
  if(["enumlist","list"].includes(target.type)){
   let items:unknown=value;if(!Array.isArray(items)){if(typeof items==="string"&&items.trim().startsWith("[")){try{items=JSON.parse(items);}catch{throw Error("รายการ JSON ไม่ถูกต้อง กรุณาแก้ข้อมูลต้นฉบับ");}}else items=[String(items)];}
@@ -57,7 +58,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(objects.some(o=>o.type==="trigger"||request.mode==="replace"&&(o.type==="view"||o.type==="index"&&o.sql&&!knownIndexes.has(o.name))))throw Error("ตารางนี้มี SQL View, Trigger หรือดัชนีที่เพิ่มนอกระบบ กรุณาจัดการส่วนนี้ก่อน เพื่อไม่ให้สูญหายระหว่างแปลง");
  if(!["replace","copy"].includes(request.mode)||!request.target||!Object.hasOwn(SQLTYPE,request.target.type||""))throw Error("กรุณาเลือกวิธีและชนิดข้อมูลปลายทาง");
  if(request.ref_match!==undefined&&!["id","key"].includes(request.ref_match))throw Error("วิธีจับคู่ Ref ไม่ถูกต้อง");
- const target:Column={...source,gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
+ const target:Column={...source,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
  assertIdentifier(target.name);if(!target.label)throw Error("กรุณากรอกชื่อที่แสดงของคอลัมน์ใหม่");
  if(request.mode==="copy"&&(cols.length>=200||cols.some(c=>c.name===target.name)))throw Error("ชื่อคอลัมน์ใหม่ซ้ำหรือมีครบ 200 คอลัมน์แล้ว กรุณาใช้ชื่ออื่น");
  if(request.mode==="replace"&&target.type===source.type&&(request.target.ref_table||null)===(source.ref_table||null))throw Error("กรุณาเลือกชนิดข้อมูลใหม่ หรือเลือกคัดลอกไปคอลัมน์ใหม่");
@@ -67,7 +68,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(target.ref_table){assertIdentifier(target.ref_table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(target.ref_table))throw Error("ไม่พบตารางอ้างอิงปลายทาง");}
  if(target.type==="ref"&&!target.ref_table)throw Error("กรุณาเลือกตารางอ้างอิงปลายทาง");
  if(["enum","enumlist"].includes(target.type)&&!target.options&&!target.ref_table&&!target.valid_if)throw Error("กรุณากำหนดตัวเลือก หรือสูตร Valid_If สำหรับ Enum หรือ EnumList");
- if(target.is_key&&!["text","number","decimal","enum"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Key ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Key อื่นก่อน");
+ if(target.is_key&&!["text","longtext","number","decimal","enum"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Key ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Key อื่นก่อน");
  if(target.is_label&&(source.type==="image")!==(target.type==="image"))throw Error("กรุณายกเลิก Label ก่อนแปลงระหว่างรูปภาพกับชนิดอื่น เพื่อรักษา Label ข้อความและรูปภาพอย่างละหนึ่งช่อง");
  if(target.is_label&&["ref","list","enumlist"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Label ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Label อื่นก่อน");
  assertUniqueColumn(target);
@@ -80,8 +81,8 @@ function referenceResolver(database:Database.Database,target:Column,match:"id"|"
  return(value:unknown)=>{const rows=query.all(String(value)) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
 }
 function writeColumn(database:Database.Database,table:string,target:Column,copy:boolean){
- const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","gps_auto",...FORMULA_FIELDS];
- const values=fields.map(field=>field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
+ const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if",...FORMULA_FIELDS];
+ const values=fields.map(field=>field==="max_length"?target.max_length??0:field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto","is_part_of"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
  if(copy)database.prepare(`INSERT INTO _columns(table_name,${fields.join(",")}) VALUES(${["?",...fields.map(()=>"?")].join(",")})`).run(table,...values);
  else database.prepare(`UPDATE _columns SET ${fields.map(field=>field+"=?").join(",")} WHERE table_name=? AND name=?`).run(...values,table,target.name);
 }
@@ -107,6 +108,7 @@ function rowProblem(database:Database.Database,cols:Column[],raw:Record<string,u
 function checkDependencies(database:Database.Database,table:string,report:ConversionReport,baseline:Database.Database,now:Date){
  const all=database.prepare("SELECT name,label FROM _tables").all() as {name:string;label:string}[],schema=Object.fromEntries(all.map(t=>[t.name,readColumns(database,t.name)])),context=expressionContext(now,"",database),oldContext=expressionContext(now,"",baseline);
  const add=(owner:string,message:string,id?:number)=>{report.failed++;if(report.issues.length<20)report.issues.push({table:owner,id,message});};
+ assertPartSchema(schema);
  for(const t of all){const cols=schema[t.name];assertFormulas(cols,schema);
   // Check initial values against the new type without storing any calculated/default data.
   if(t.name===table)calculateRow(cols,{},true,now,false,"",context);

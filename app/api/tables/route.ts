@@ -22,7 +22,7 @@ async function handlePOST(req: Request) {
     const { name, label, columns } = await readBody(req);
     assertIdentifier(name);
     if (tableExists(name)) return bad("มีตารางชื่อนี้แล้ว กรุณาใช้ชื่อในระบบอื่น");
-    const cols = normalizeColumns(columns);
+    const cols = normalizeColumns(columns,{[name]:[]});
     const defs = ["id INTEGER PRIMARY KEY AUTOINCREMENT", ...cols.filter(c => !c.is_virtual).map(columnDefinition)];
     backupBeforeSchema();
     db.transaction(() => {

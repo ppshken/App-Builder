@@ -1,3 +1,4 @@
+import {assertPartSchema} from "./part-of-config";
 import {validateSpecialView} from "./special-view-config";
 import {actionConfigExpressions,ACTION_KINDS,appearance} from "./action-config";
 import {AUTH_TABLES} from "./auth-schema";
@@ -44,7 +45,7 @@ export function inspectBackup(sourceFile:string,stageFile:string):RestoreSummary
   if(source.pragma("integrity_check",{simple:true})!=="ok")throw Error("ไฟล์สำรองเสียหาย กรุณาเลือกไฟล์อื่น");
   const tables=supportedTables(source),all=objects(source),has=(name:string)=>all.some(o=>o.name===name&&o.type==="table");
   const schemas:Record<string,Column[]>={};for(const t of tables){const cols=readColumns(source,t.name);if(!cols.length||cols.length>200)throw Error(`คอลัมน์ของตาราง "${t.label}" ไม่ถูกต้อง`);schemas[t.name]=cols;}
-  for(const t of tables){const cols=schemas[t.name];assertFormulas(cols,schemas);for(const c of cols)if(c.ref_table&&!schemas[c.ref_table])throw Error(`ไม่พบตารางอ้างอิงของ "${c.label}" ในไฟล์สำรอง`);}
+  assertPartSchema(schemas);for(const t of tables){const cols=schemas[t.name];assertFormulas(cols,schemas);for(const c of cols)if(c.ref_table&&!schemas[c.ref_table])throw Error(`ไม่พบตารางอ้างอิงของ "${c.label}" ในไฟล์สำรอง`);}
   stage=new Database(stageFile);initializeDatabase(stage,":memory:");
   const destination=stage;
   const copyMeta=(name:string)=>{

@@ -1,3 +1,4 @@
+import {deleteRecord} from "@/lib/delete-record";
 import {readRows} from "@/lib/view-records";
 import {writeRecord} from "@/lib/data-write";
 import {visibleRawRows,hasRowRule,rowAllowed,assertRowAllowed} from "@/lib/row-access";
@@ -35,6 +36,11 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     const fast=paged&&!u.searchParams.get("slice")&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
     let page=requested,total=0,rawRows:Row[]|undefined;
     if(wanted)rawRows=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).all(Number(wanted)) as Row[];
+    // Ref choices only return 500 rows; limit before calculating every row in the table.
+    if(!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
+      const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
+      rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
+    }
     if(fast){const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
       if(hasRowRule(t)){const permitted=visibleRawRows(t,db.prepare(`SELECT * FROM "t_${t}" WHERE ${where}`).all(...args) as Row[]).map(r=>r.id);where+=' AND id IN (SELECT value FROM json_each(?))';args.push(JSON.stringify(permitted));}
       total=(db.prepare('SELECT COUNT(*) AS total FROM "t_'+t+'" WHERE '+where).get(...args) as {total:number}).total;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));const key=requestedSort?.name||"id",direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
@@ -78,7 +84,7 @@ async function handleDELETE(req: Request, { params }: { params: { table: string 
   try {
     if (!tableExists(t) || !id || !/^[1-9]\d*$/.test(id)) return bad("ไม่พบข้อมูล", 404);
     columnsOf(t);
-    const result = db.transaction(() => {const old=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).get(id) as Row|undefined;if(!old)return {changes:0};assertRowAllowed(t,old,"delete");checkListDelete(t, Number(id)); return db.prepare(`DELETE FROM "t_${t}" WHERE id=?`).run(id); })();
+    const result = deleteRecord(t,Number(id));
     return result.changes ? NextResponse.json({ ok: true }) : bad("ไม่พบข้อมูล", 404);
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }

@@ -1,3 +1,4 @@
+import {deleteRecord} from "./delete-record";
 import {writeRecord} from "./data-write";
 import {communicationUrl,safeActionUrl,type ActionAppearance,type ActionConfig,type ActionKind,actionPermission} from "./action-config";
 import {assertRowAllowed,rowAllowed} from "./row-access";
@@ -52,7 +53,7 @@ export function executeAction(name: string, id: number, userEmail: string, slice
       const initialValues:Record<string,any>={};if(a.kind==="new_form"){const targetCols=columnsOf(target.table_name);for(const [name,expr] of Object.entries(a.config?.initial_values||{})){const col=targetCols.find(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0);if(!col)throw Error("คอลัมน์ค่าตั้งต้นของฟอร์มไม่มีอยู่หรือแก้ไขไม่ได้ กรุณาแก้ Action");initialValues[name]=normalizeValue(col,evaluateColumnExpression(col,expr,row,{...context,userEmail,refTables:refTablesOf(cols)}));}assertReferenceWrites(targetCols,initialValues);}
       return {ok:true,navigate:{name:target.name,initialValues,id:a.kind!=="new_form"&&target.table_name===t&&['detail','form'].includes(target.kind)?id:undefined}};}
     if(a.kind==="copy"||a.kind==="add"){const body:Record<string,any>=a.kind==="copy"?Object.fromEntries(cols.filter(c=>!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0&&!c.is_key&&!c.is_unique).map(c=>[c.name,row[c.name]])):{};for(const [name,expr] of Object.entries(a.values)){const c=cols.find(c=>c.name===name)!;body[name]=evaluateColumnExpression(c,expr,row,{...context,userEmail,refTables:refTablesOf(cols)});}return {...writeRecord(t,body),ok:true};}
-    if (a.kind === "delete") { checkListDelete(t,id); db.prepare(`DELETE FROM "t_${t}" WHERE id=?`).run(id); }
+    if (a.kind === "delete") { deleteRecord(t,id); }
     else {
       const candidate = { ...old };
       for (const [column, expr] of Object.entries(a.values)) {

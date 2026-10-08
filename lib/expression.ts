@@ -1,3 +1,4 @@
+import {formatExpressionText} from "./expression-text";
 // A bounded parser/interpreter shared by browser and server. No executable user code.
 export type Value = string | number | boolean | null | string[];
 type Node = { kind: "literal"; value: Value; start:number; end:number } | { kind: "column"; name: string; start: number; end: number }
@@ -13,7 +14,7 @@ const arities: Record<string, [number, number]> = {
   TRIM: [1, 1], UPPER: [1, 1], LOWER: [1, 1], TODAY: [0, 0], NOW: [0, 0],
   YEAR: [1, 1], MONTH: [1, 1], DAY: [1, 1], ROUND: [1, 1], ABS: [1, 1], MIN: [1, 100], MAX: [1, 100],
   LIST: [0, 100], COUNT: [1, 1], IN: [2, 2], UNIQUEID: [0, 0], USEREMAIL: [0, 0], USERID: [0,0], USERNAME: [0,0], USERROLE: [0,0], USERROLEKEY: [0,0], ISOWNER: [0,0], USERSETTINGS: [1,1],
-  SELECT: [2, 3],
+  SELECT: [2, 3], SUM: [1, 1], RIGHT: [2, 2], TEXT: [1, 2], INDEX: [2, 2],
 };
 export const FUNCTION_NAMES = Object.keys(arities);
 function fail(message: string, at?: number): never { throw new Error(message + (at === undefined ? "" : ` (ตำแหน่ง ${at + 1})`)); }
@@ -237,6 +238,8 @@ export function renameReference(source: string, oldName: string, newName: string
   return source;
 }
 const parsedCache = new Map<string, Node>();
+// Formatting rules are fixed; values are still evaluated with this call's clock.
+const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string> };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
 export type ExpressionContext = ExpressionUser & { tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; refTables?: Record<string, string> };
@@ -252,10 +255,12 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
   } else node = source;
   const now = options.now ?? new Date();
   let steps = 0;
+  let formattedTime: {date:string;time:string}|undefined;
   const timeParts = () => {
-    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(now);
+    if(formattedTime)return formattedTime;
+    const parts = bangkokDateFormatter.formatToParts(now);
     const get = (type: string) => parts.find(p => p.type === type)!.value;
-    return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}:${get("second")}` };
+    return formattedTime = { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}:${get("second")}` };
   };
   function dataset(name: string): ExpressionTable {
     const data = options.getTable ? options.getTable(name) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
@@ -346,7 +351,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "AND": result = n.args.every(a => asBoolean(run(a, scope))); break;
         case "OR": result = n.args.some(a => asBoolean(run(a, scope))); break;
         case "NOT": result = !asBoolean(arg(0)); break;
-        case "LIST": result = n.args.map(a => { const v = run(a, scope); if (typeof v !== "string") fail("LIST ต้องรับตัวเลือกชนิดข้อความ"); return v as string; }); break;
+        case "LIST": result = n.args.map(a => { const v = run(a, scope); if (typeof v !== "string" && typeof v !== "number") fail("LIST ต้องรับข้อความหรือตัวเลข"); return String(v); }); break;
         case "COUNT": { const v = arg(0); if (!Array.isArray(v)) fail("COUNT ต้องรับรายการ เช่น [tags]"); result = v.length; break; }
         case "IN": { const needle = arg(0), values = arg(1); if (!Array.isArray(values)) fail("IN ต้องรับรายการในช่องที่สอง เช่น IN(\"ด่วน\", [tags])"); result = values.some(v => listEquivalent(needle, v)); break; }
         case "UNIQUEID": result = crypto.randomUUID(); break;
@@ -360,6 +365,10 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "ISBLANK": result = isBlank(arg(0)); break;
         case "ISNOTBLANK": result = !isBlank(arg(0)); break;
         case "CONCATENATE": result = n.args.map(a => String(run(a, scope) ?? "")).join(""); break;
+        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");if(values.length>10000)fail("SUM รับรายการได้ไม่เกิน 10,000 ค่า");result=values.reduce((total,v)=>total+numeric(v),0);break;}
+        case "RIGHT": {const value=arg(0),count=numeric(arg(1));if(!Number.isSafeInteger(count)||count<0)fail("RIGHT จำนวนตัวอักษรต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป");if(Array.isArray(value))fail("RIGHT ต้องรับข้อความหรือตัวเลข ไม่ใช่รายการ");result=count===0?"":Array.from(String(value??"")).slice(-count).join("");break;}
+        case "TEXT": result=formatExpressionText(arg(0),n.args.length===2?arg(1):undefined);break;
+        case "INDEX": {const values=arg(0),index=numeric(arg(1));if(!Array.isArray(values))fail("INDEX ต้องรับรายการ เช่น INDEX([tags], 1)");if(!Number.isSafeInteger(index))fail("INDEX ตำแหน่งต้องเป็นจำนวนเต็ม โดยรายการแรกเริ่มที่ 1");result=index>=1&&index<=values.length?values[index-1]:null;break;}
         case "LEN": result = Array.from(String(arg(0) ?? "")).length; break;
         case "TRIM": result = String(arg(0) ?? "").trim().replace(/\s+/g, " "); break;
         case "UPPER": result = String(arg(0) ?? "").toUpperCase(); break;

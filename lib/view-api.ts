@@ -1,3 +1,4 @@
+import {viewNameError,runtimeViewName} from "./view-names";
 import {readAppSettings} from "./settings-server";
 import type {DisplayKind} from "./view-display";
 import {validateSpecialView} from "./special-view-config";
@@ -24,7 +25,7 @@ async function handleGET(req: Request) {
     if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new Error("อีเมลสำหรับ Preview ไม่ถูกต้อง");
     const now = new Date(), context = { ...expressionContext(now, email.toLowerCase()), now, userEmail: email.toLowerCase() }, errors: string[] = [], hidden: string[] = [];
     const visible = all.filter(v => { try { if(v.kind==="form"&&!currentAccess().builder&&!currentAccess().tables[v.table_name]?.create&&(v.position!=="ref"||!currentAccess().tables[v.table_name]?.update)){hidden.push(v.name);return false;} if (viewIsVisible(v.show_if, context)) return true; hidden.push(v.name); } catch(e) { errors.push(`Show_If ของ "${v.label}": ${errorMessage(e)}`); hidden.push(v.name); } return false; });
-    return NextResponse.json({ views: visible, hidden, errors });
+    return NextResponse.json({ views: visible.map(v=>runtimeViewName(v as any)), hidden, errors });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 async function handlePOST(req: Request) { return write(req, false); }
@@ -34,7 +35,10 @@ async function write(req: Request, existing: boolean, preview = false) {
     const b = await readBody(req); assertIdentifier(b.name);
     const previous = existing ? db.prepare("SELECT * FROM _views WHERE name=?").get(b.name) as Record<string, any> | undefined : undefined;
     if (existing && !previous) return bad("ไม่พบมุมมอง", 404);
-    if (typeof b.label !== "string" || !b.label.trim()) throw new Error("กรุณาตั้งชื่อมุมมอง");
+    const currentName = previous || (preview ? db.prepare("SELECT name,label FROM _views WHERE name=?").get(b.name) as {name:string;label:string}|undefined : undefined);
+    if(!existing&&!preview&&db.prepare("SELECT 1 FROM _views WHERE name=?").get(b.name))throw Error("ชื่อในระบบของ View ซ้ำ กรุณาโหลดหน้าใหม่แล้วสร้าง View อีกครั้ง");
+    const nameError=viewNameError(b.label,db.prepare("SELECT name,label FROM _views").all() as {name:string;label:string}[],currentName as {name:string;label:string}|undefined);
+    if(nameError)throw Error(nameError);
     if (!tableExists(b.table_name)) throw new Error("กรุณาเลือกตารางที่มีอยู่");
     if (!VIEW_KINDS.some(([k]) => k === b.kind) || !VIEW_POSITIONS.some(([p]) => p === b.position)) throw new Error("ชนิดหรือตำแหน่งมุมมองไม่ถูกต้อง");
     if (b.position === "ref" && !["detail", "form", "list", "table", "map", "chart", "calendar", "dashboard"].includes(b.kind)) throw new Error("ชนิด Reference View ไม่ถูกต้อง");
@@ -63,7 +67,7 @@ async function write(req: Request, existing: boolean, preview = false) {
     const showIf = validateViewCondition(b.show_if === undefined ? previous?.show_if ?? "" : b.show_if, Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, columnsOf(t.name)])));
     if (showIf) viewIsVisible(showIf, { ...expressionContext(), userEmail:"" });
     if (display.row_click === "action" && !(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.row_action || "", b.table_name))) throw new Error("กรุณาเลือก Action ของตารางนี้สำหรับการคลิกแถว");
-    if(preview)return NextResponse.json({view:{...b,label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,icon,group_column:group,group_dir:groupDir,display,show_if:showIf},visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
+    if(preview)return NextResponse.json({view:runtimeViewName({...b,label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,icon,group_column:group,group_dir:groupDir,display,show_if:showIf}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
     const args = [b.label.trim(), b.table_name, b.kind, b.position, b.pos, JSON.stringify([...new Set(b.columns)]), b.sort_column, b.sort_dir, slice?.name || null, icon, group, groupDir, JSON.stringify(display), showIf, inlineRef, b.name];
     if (existing) db.prepare("UPDATE _views SET label=?,table_name=?,kind=?,position=?,pos=?,columns_json=?,sort_column=?,sort_dir=?,slice_name=?,icon=?,group_column=?,group_dir=?,display_json=?,show_if=?,inline_ref=? WHERE name=?").run(...args);
     else db.prepare("INSERT INTO _views(label,table_name,kind,position,pos,columns_json,sort_column,sort_dir,slice_name,icon,group_column,group_dir,display_json,show_if,inline_ref,name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(...args);

@@ -42,7 +42,8 @@ function cellValue(cell: ExcelJS.Cell, type?: string): any { const v = cell.valu
     if ('text' in v)
         return v.text;
     throw Error("พบค่าที่ Excel อ่านไม่ได้ กรุณาวางเป็นค่าหรือข้อความ");
-} return v; }
+} if ((type === "text" || type === "longtext") && typeof v === "number" && Number.isFinite(v))
+    return String(v); return v; }
 export type ImportReport = {
     sheet: string;
     sheets: string[];

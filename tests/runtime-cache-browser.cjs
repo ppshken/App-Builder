@@ -14,7 +14,7 @@ async function main(){
  page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='GET')requests.push(r);});
  try{
  await page.goto(base+'/views?view='+list.name);const app=page.frameLocator('iframe[title="ตัวอย่างแอป"]');
- await expect(app.getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true})).toBeVisible();
+ await expect(app.locator('.runtime-route:not([hidden])').getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true})).toBeVisible();
  const frame=page.frames().find(f=>f.url().includes('/run?'));await frame.evaluate(()=>window.cacheFrameMarker='same-frame');
  const initial=requests.filter(r=>r.frame()===frame),count=url=>initial.filter(r=>new URL(r.url()).pathname+new URL(r.url()).search===url).length;
  for(const url of ['/api/tables','/api/views?runtime=1','/api/views','/api/actions','/api/slices','/api/expression-data?table=cache_cart&display=1'])assert.equal(count(url),1,url+' must deduplicate initial mounts');
@@ -25,9 +25,9 @@ async function main(){
  await expect(app.locator('.runtime-transition')).toHaveAttribute('aria-busy','false');
  assert.equal(await frame.evaluate(()=>window.cacheFrameMarker),'same-frame');
  const repeated=requests.filter(r=>r.frame()===frame&&['/api/tables','/api/views','/api/actions','/api/slices','/api/expression-data'].includes(new URL(r.url()).pathname));assert.equal(repeated.length,0,repeated.map(r=>r.url()).join(', '));
- await selectChoice(page.getByLabel('View ที่เปิดใน Preview',{exact:true}),list.name);
- await expect(app.getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true})).toBeVisible();
- await app.getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true}).click();await expect(app.getByRole('button',{name:'แก้ไขข้อมูล',exact:true})).toBeVisible();
+ await selectChoice(page.getByLabel('View ที่เปิดใน Preview',{exact:true}),list.name);await frame.waitForURL(new RegExp('view='+list.name+'(?:&|$)'));await expect(app.locator('.runtime-transition')).toHaveAttribute('aria-busy','false');
+ await expect(app.locator('.runtime-route:not([hidden])').getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true})).toBeVisible();
+ await app.locator('.runtime-route:not([hidden])').getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true}).click();await expect(app.getByRole('button',{name:'แก้ไขข้อมูล',exact:true})).toBeVisible();
  await app.getByRole('button',{name:'แก้ไขข้อมูล',exact:true}).click();await app.getByLabel('ชื่อ',{exact:true}).fill('รายการแก้ไขแล้ว');
  await expect(app.getByLabel('สินค้า',{exact:true})).toContainText('สินค้าทดสอบ');
  await app.getByRole('button',{name:'บันทึกการแก้ไข',exact:true}).click();await expect(app.locator('.runtime-route:not([hidden]) .runtime-screen')).toContainText('รายการแก้ไขแล้ว');

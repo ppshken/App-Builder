@@ -21,6 +21,8 @@ test('legacy migration keeps metadata, rows, foreign keys and AUTOINCREMENT hist
   try {
     initializeDatabase(db, ':memory:');
     assert.equal(readColumns(db, 'customers')[0].is_virtual, 0);
+    assert.equal(readColumns(db, 'customers')[0].is_part_of, 0);
+    assert.equal(readColumns(db, 'orders').find(c=>c.name==='customer').part_valid_if, null);
     assert.equal(db.prepare('SELECT name FROM t_customers WHERE id=1').get().name, 'ไทย');
     assert.equal(db.pragma("table_info('t_customers')").find(c => c.name === 'name').notnull, 0);
     assert.deepEqual(db.pragma('foreign_key_check'), []);

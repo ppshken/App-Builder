@@ -1,0 +1,5 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {assertPartSchema,assertPartColumn}=require('../.test-build/part-of-config.js');
+const p={name:'name',label:'ชื่อ',type:'text'},c={name:'parent',label:'แม่',type:'ref',ref_table:'parents',is_part_of:1,part_valid_if:'COUNT([_THIS]) <= 5'};
+test('Part-of conditions use parent columns and bounded child list syntax',()=>{assert.doesNotThrow(()=>assertPartSchema({parents:[p],children:[c]}));assert.doesNotThrow(()=>assertPartSchema({parents:[p],children:[{...c,part_add_if:'[name] <> "ปิด"'}]}));assert.throws(()=>assertPartSchema({parents:[p],children:[{...c,part_valid_if:'COUNT('}]}));assert.throws(()=>assertPartSchema({parents:[p],children:[{...c,part_add_if:'[missing] = 1'}]}));});
+test('Part-of rejects virtual ownership, invalid flags, multiple owners and cycles',()=>{assert.throws(()=>assertPartColumn({...c,is_virtual:1}));assert.throws(()=>assertPartColumn({...c,is_part_of:'true'}));assert.throws(()=>assertPartSchema({parents:[p],children:[c,{...c,name:'other'}]}));assert.throws(()=>assertPartSchema({parents:[{...c,ref_table:'children'}],children:[c]}),/วน/);});

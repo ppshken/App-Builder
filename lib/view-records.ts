@@ -1,6 +1,6 @@
-import {db,columnsOf,labelCol} from './db';import {labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';import {canRead} from './permissions';type Row=Record<string,any>;
+import {db,columnsOf} from './db';import {labelTextColumn,labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';import {canRead} from './permissions';type Row=Record<string,any>;
 export function readRows(table: string, cols: Column[], now: Date, userEmail = "", context = expressionContext(now, userEmail), rawRows?: Row[]): Row[] {
-  const label = labelCol(table),image=labelImageColumn(cols);
+  const label = labelTextColumn(cols),image=labelImageColumn(cols);
   return visibleRawRows(table,rawRows ?? db.prepare(`SELECT * FROM "t_${table}"`).all() as Row[]).map(raw => {
     const { row, errors } = calculateRow(cols, raw, false, now, true, userEmail, context);
     for (const c of cols.filter(c=>c.type === "list" && c.ref_table)) {

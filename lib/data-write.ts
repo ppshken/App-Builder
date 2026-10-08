@@ -1,3 +1,4 @@
+import {writeChildGroups,assertParentParts} from "./part-of-records";
 import { AuthError } from "./auth";
 import { db, columnsOf, tableExists } from "./db";
 import { calculateInsertRow, assertEditableChanges, validateRow } from "./columns";
@@ -8,7 +9,10 @@ import { assertUniqueRow } from "./unique";
 import { checkImages } from "./images";
 import { checkLists } from "./lists";
 import { cascadeEnumListValues } from "./enumlist-reference-updates";
-export function writeRecord(table: string, body: Record<string, any>, id?: number) {
+export type WriteOptions={depth:number;budget:{count:number};parents?:Map<string,{table:string;id:number}>;link?:{column:string;id:number}};
+export function writeRecord(table: string, body: Record<string, any>, id?: number, options:WriteOptions={depth:0,budget:{count:0}}):{id:number;ok?:boolean} {
+    options.parents ??= new Map();
+    if(options.depth>8)throw Error("ฟอร์มรายการลูกซ้อนเกิน 8 ชั้น กรุณาลดจำนวนชั้น");
     assertTablePermission(table, "read");
     assertTablePermission(table, id ? "update" : "create");
     if (!tableExists(table))
@@ -26,6 +30,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
             assertRowAllowed(table, old, "update");
         const input = Object.fromEntries(cols.filter(c => !c.is_virtual && Object.hasOwn(body, c.name)).map(c => [c.name, body[c.name]]));
         const candidate = old ? { ...old, ...input } : calculateInsertRow(cols, input, now, email, context);
+        if(options.link)candidate[options.link.column]=options.link.id;
         assertReferenceWrites(cols, candidate, old);
         if (old)
             assertEditableChanges(cols, old, candidate, now, email, context);
@@ -35,16 +40,22 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         assertUniqueRow(db, table, cols, row, id);
         checkImages(cols, row);
         checkLists(cols, row);
+        for(const c of cols.filter(c=>c.is_part_of&&c.ref_table)){for(const parentId of [old?.[c.name],row[c.name]])if(parentId)options.parents!.set(c.ref_table+":"+parentId,{table:c.ref_table!,id:Number(parentId)});}
+        const validateParents=()=>{if(options.depth===0)for(const parent of options.parents!.values())assertParentParts(parent.table,parent.id);};
         const values = Object.fromEntries(cols.filter(c => !c.is_virtual).map(c => [c.name, ['enumlist', 'list'].includes(c.type) ? JSON.stringify(row[c.name] ?? []) : row[c.name]])), keys = Object.keys(values);
         if (id) {
             if (keys.length)
                 db.prepare(`UPDATE "t_${table}" SET ${keys.map(k => `"${k}"=@${k}`).join(',')} WHERE id=@__id`).run({ ...values, __id: id });
             cascadeEnumListValues(db, table, cols, old!, row);
+            writeChildGroups(table,id,body.__children,options);
+            validateParents();
             return { id, ok: true };
         }
         const result = keys.length ? db.prepare(`INSERT INTO "t_${table}"(${keys.map(k => `"${k}"`).join(',')}) VALUES(${keys.map(k => '@' + k).join(',')})`).run(values) : db.prepare(`INSERT INTO "t_${table}" DEFAULT VALUES`).run();
         const newId = Number(result.lastInsertRowid);
         assertRowAllowed(table, { ...row, id: newId }, "create");
+        writeChildGroups(table,newId,body.__children,options);
+        validateParents();
         return { id: newId };
     })();
 }

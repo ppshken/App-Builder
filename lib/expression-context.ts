@@ -10,16 +10,17 @@ import { ExpressionContext, ExpressionTable, tableReferences, referencePaths } f
 
 // One bounded snapshot per request; never turn expression text into SQL.
 export function expressionContext(now = new Date(), userEmail = "", database:Database.Database=db) {
-  const columnsOf=(name:string)=>readColumns(database,name);
+  // Request-local metadata only: never share permissions or snapshots between users.
+  const metadata=new Map<string,Column[]>();
+  const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=readColumns(database,name);metadata.set(name,cols);}return cols;};
   const tableExists=(name:string)=>IDENT.test(name)&&name!=="id"&&!!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(name);
-  const labelCol=(name:string)=>{const cols=columnsOf(name);return labelTextColumn(cols);};
   const tables: Record<string, ExpressionTable> = Object.create(null), loading = new Set<string>();
   const context: ExpressionContext = { ...expressionUser(currentUser()||null,database), getTable(name) {
     assertTablePermission(name,"read");
     if (Object.hasOwn(tables, name)) return tables[name];
     if (loading.has(name) || loading.size >= 16) throw new Error(`สูตรข้ามตารางอ้างอิงวนกันที่ ${name} กรุณาแก้สูตร`);
     if (!tableExists(name)) throw new Error(`ไม่พบตาราง ${name} กรุณาตรวจชื่อในระบบ`);
-    const cols = columnsOf(name), key = cols.find(c => c.is_key)?.name || "id", label = labelCol(name);
+    const cols = columnsOf(name), key = cols.find(c => c.is_key)?.name || "id", label = labelTextColumn(cols);
     const raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id LIMIT 10001`).all() as Record<string, any>[];
     if (raw.length > 10000) throw new Error(`ตาราง ${name} มีข้อมูลเกิน 10,000 แถวสำหรับสูตรตัวเลือก`);
     loading.add(name);

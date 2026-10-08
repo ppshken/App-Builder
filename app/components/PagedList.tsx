@@ -1,4 +1,5 @@
 "use client";
+import Icon from "./Icon";
 import RecordLabel from "./RecordLabel";
 import SearchSelect from "@/app/components/SearchSelect";
 import { useEffect, useState } from "react";
@@ -7,8 +8,8 @@ import AppLoading from "./AppLoading";
 import type {Column} from "@/lib/columns";
 export type ListItem = {id:number;key:string;business_key?:string|null;label:string;image?:string|null;values?:Record<string,any>;errors?:Record<string,string>;permissions?:{update:boolean;delete:boolean};allowedActions?:string[]};
 type Page = {rows:ListItem[];total:number;page:number;pages:number;limit:number;columns?:Column[];source_columns?:Column[]};
-export default function PagedList({title,table,query="",limit:initialLimit=5,values,selectValues,onSelect,onOpen,disabled=false,email="",renderRows,refreshRevision=0}: {
-  refreshRevision?:number; title:string; table?:string; query?:string; limit?:number; values?:string[]; selectValues?:string[];
+export default function PagedList({title,table,query="",limit:initialLimit=5,values,selectValues,onSelect,onOpen,disabled=false,email="",renderRows,refreshRevision=0,onAdd}: {
+  onAdd?:()=>void;refreshRevision?:number; title:string; table?:string; query?:string; limit?:number; values?:string[]; selectValues?:string[];
   onSelect?:(values:string[])=>void; onOpen?:(table:string,id:number)=>void; disabled?:boolean; email?:string;
   renderRows?:(rows:ListItem[],cols:Column[],sourceCols:Column[])=>React.ReactNode;
 }) {
@@ -34,7 +35,7 @@ export default function PagedList({title,table,query="",limit:initialLimit=5,val
     {loading && !result ? <AppLoading compact/> : error ? <div className="error-banner" role="alert">{error}<button type="button" onClick={()=>setRetry(n=>n+1)}>โหลดรายการอีกครั้ง</button></div> : <>
       {!result?.total && <p className="hint">ไม่มีรายการที่เกี่ยวข้อง</p>}
       {renderRows && result ? renderRows(result.rows,result.columns||[],result.source_columns||[]) : <ul>{result?.rows.map(item=><li key={table?item.id:item.key}>{onSelect ? <label><input type="checkbox" disabled={disabled} checked={selectValues?.includes(item.key)||false} onChange={e=>onSelect(e.target.checked?[...(selectValues||[]),item.key]:(selectValues||[]).filter(v=>v!==item.key))}/><RecordLabel text={item.label} image={item.image}/>{item.business_key && item.business_key!==item.label && <small className="hint" aria-hidden="true"> · {item.business_key}</small>}</label> : table ? onOpen ? <button type="button" className="record-link" onClick={()=>onOpen(table,item.id)}>{item.label} ↗</button> : <Link href={`/t/${table}?row=${item.id}`}>{item.label} ↗</Link> : <span>{item.label}</span>}{!onSelect && item.business_key && item.business_key!==item.label && <small className="hint" aria-hidden="true"> · {item.business_key}</small>}</li>)}</ul>}
-      {!!result?.total && <div className="list-pagination"><span>{result.total} รายการ · หน้า {result.page}/{result.pages}</span><div><button type="button" disabled={loading||result.page<=1} onClick={()=>setPage(result.page-1)}>ก่อนหน้า</button><button type="button" disabled={loading||result.page>=result.pages} onClick={()=>setPage(result.page+1)}>ถัดไป</button></div></div>}
+      {(!!result?.total||onAdd) && result && <div className="list-pagination"><span>{result.total} รายการ · หน้า {result.page}/{result.pages}</span><div><button type="button" className="pagination-icon-button" aria-label="ก่อนหน้า" title="ก่อนหน้า" disabled={disabled||loading||result.page<=1} onClick={()=>setPage(result.page-1)}><Icon name="chevron" width="16" height="16" style={{transform:"rotate(180deg)"}}/></button><button type="button" className="pagination-icon-button" aria-label="ถัดไป" title="ถัดไป" disabled={disabled||loading||result.page>=result.pages} onClick={()=>setPage(result.page+1)}><Icon name="chevron" width="16" height="16"/></button>{onAdd&&<button type="button" className="primary" disabled={disabled||loading} onClick={onAdd}>เพิ่ม</button>}</div></div>}
       {values && table && result && result.total < new Set(values).size && <p className="err">มีรหัสที่ไม่พบในตารางอ้างอิง กรุณาตรวจสูตรหรือรายการที่เลือก</p>}
     </>}
   </section>;

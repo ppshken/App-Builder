@@ -47,14 +47,14 @@ async function main() {
     await expect(page.getByRole('heading', { name: 'Primary Navigation', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'เพิ่ม Menu Navigation', exact: true }).click();
     dialog = page.getByRole('region', { name: 'ตั้งค่า View', exact: true });
-    await dialog.getByLabel('ชื่อที่แสดงของ View', { exact: true }).fill('รายการงานทั้งหมด');
+    await dialog.getByLabel('ชื่อ View', { exact: true }).fill('รายการงานทั้งหมด');
     await dialog.getByRole('group', { name: 'รูปแบบหน้าจอ', exact: true }).getByRole('button', { name: 'ตาราง', exact: true }).click();
     await page.getByRole('button', { name: 'บันทึก View', exact: true }).click();
     await expect(page.getByRole('button', { name: 'แก้ไข View รายการงานทั้งหมด', exact: true })).toBeVisible();
     const views = await api('/api/views'), detail = views.find(v => v.kind === 'detail' && v.position === 'ref');
     await page.getByRole('button', { name: `แก้ไข View ${detail.label}`, exact: true }).click();
     dialog = page.getByRole('region', { name: 'ตั้งค่า View', exact: true });
-    await dialog.getByLabel('ชื่อที่แสดงของ View', { exact: true }).fill('รายละเอียดงาน');
+    await dialog.getByLabel('ชื่อ View', { exact: true }).fill('รายละเอียดงาน');
     await dialog.getByRole('button', { name: 'กำหนดเอง', exact: true }).click();
     await dialog.getByRole('checkbox', { name: 'รหัสงาน', exact: true }).uncheck();
     await dialog.getByRole('checkbox', { name: 'ผู้รับผิดชอบ', exact: true }).uncheck();

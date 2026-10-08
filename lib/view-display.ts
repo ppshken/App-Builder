@@ -1,8 +1,10 @@
+import {validateDataStyles,decorationReferences,changeDecorationColumn,type DataStyle} from "./data-decoration";
 import {validateSpecialDisplay,SPECIAL_COLUMN_KEYS} from "./special-view-config";
 import type { Column } from "./columns";
 export type FormFieldDisplay = { width?: "full" | "half"; section?: string; help?: string; placeholder?: string; multiline?: boolean };
 export type RelatedDisplay = { view?: string; title?: string; visible?: boolean; limit?: 0|5|10|20 };
 export type ViewDisplay = {
+  display_name?:string; data_styles?:Record<string,DataStyle>; table_row_padding?:number|null; table_line_height?:number;
   map_location?:string;map_image?:string;map_lat?:string;map_lng?:string;map_title?:string;map_zoom?:number;map_height?:number;map_fit?:boolean;
   chart_type?:'bar'|'horizontal'|'line'|'area'|'pie'|'donut';chart_category?:string;chart_value?:string;chart_aggregate?:'count'|'sum'|'avg'|'min'|'max';chart_sort?:'label'|'value_asc'|'value_desc';chart_limit?:number;chart_height?:number;chart_color?:string;chart_labels?:boolean;
   calendar_start?:string;calendar_end?:string;calendar_title?:string;calendar_color?:string;calendar_mode?:'month'|'week'|'day'|'agenda';calendar_week_start?:number;calendar_show_time?:boolean;
@@ -18,13 +20,17 @@ export type ViewDisplay = {
   form_after_save?:"back"|"detail"; form_columns?: 1 | 2; form_labels?: "top" | "left"; form_fields?: Record<string, FormFieldDisplay>;
   related?: Record<string, RelatedDisplay>;
 };
-export const DISPLAY_DEFAULTS = {map_location:"",map_image:"",map_lat:"",map_lng:"",map_title:"",map_zoom:12,map_height:420,map_fit:true,chart_type:"bar",chart_category:"",chart_value:"",chart_aggregate:"count",chart_sort:"value_desc",chart_limit:20,chart_height:360,chart_color:"",chart_labels:true,calendar_start:"",calendar_end:"",calendar_title:"",calendar_color:"",calendar_mode:"month",calendar_week_start:1,calendar_show_time:true,dashboard_views:[],dashboard_layout:"stack",dashboard_columns:2,dashboard_gap:16,dashboard_height:420,dashboard_titles:true, list_style: "compact", list_grid_columns: 3, list_grid_mobile_columns: 2, list_padding: 8, list_min_height: 78, list_gap: 0, list_radius: 12, image_column: "__auto__", image_shape: "square", image_size: "medium", title_column: "__auto__", summary_columns: null, show_summary_labels: true, list_buttons: "edit", table_density: "comfortable", table_wrap: false, row_click: "detail", row_action: "", detail_layout: "vertical", detail_columns: 1, detail_style: "plain", detail_image_mode: "inline", detail_cover_column: "__auto__", detail_cover_height: 240, detail_image_fit: "cover", detail_image_radius: 0, detail_padding: 18, detail_row_spacing: 14, detail_line_height: 1.7, detail_separator: "solid", detail_show_labels: true, detail_hide_empty: false, form_after_save:"back", form_columns: 1, form_labels: "top", form_fields: {}, related: {} } satisfies ViewDisplay;
+export const DISPLAY_DEFAULTS = {data_styles:{},table_row_padding:null,table_line_height:1.5,display_name:"",map_location:"",map_image:"",map_lat:"",map_lng:"",map_title:"",map_zoom:12,map_height:420,map_fit:true,chart_type:"bar",chart_category:"",chart_value:"",chart_aggregate:"count",chart_sort:"value_desc",chart_limit:20,chart_height:360,chart_color:"",chart_labels:true,calendar_start:"",calendar_end:"",calendar_title:"",calendar_color:"",calendar_mode:"month",calendar_week_start:1,calendar_show_time:true,dashboard_views:[],dashboard_layout:"stack",dashboard_columns:2,dashboard_gap:16,dashboard_height:420,dashboard_titles:true, list_style: "compact", list_grid_columns: 3, list_grid_mobile_columns: 2, list_padding: 8, list_min_height: 78, list_gap: 0, list_radius: 12, image_column: "__auto__", image_shape: "square", image_size: "medium", title_column: "__auto__", summary_columns: null, show_summary_labels: true, list_buttons: "edit", table_density: "comfortable", table_wrap: false, row_click: "detail", row_action: "", detail_layout: "vertical", detail_columns: 1, detail_style: "plain", detail_image_mode: "inline", detail_cover_column: "__auto__", detail_cover_height: 240, detail_image_fit: "cover", detail_image_radius: 0, detail_padding: 18, detail_row_spacing: 14, detail_line_height: 1.7, detail_separator: "solid", detail_show_labels: true, detail_hide_empty: false, form_after_save:"back", form_columns: 1, form_labels: "top", form_fields: {}, related: {} } satisfies ViewDisplay;
 export function displaySettings(value?: ViewDisplay, defaults?: ViewDisplay) { return { ...DISPLAY_DEFAULTS, ...defaults, ...value } as Required<ViewDisplay>; }
 export function validateDisplay(value: unknown, cols: Column[]): ViewDisplay {
   if (!value || typeof value !== "object" || Array.isArray(value) || JSON.stringify(value).length > 100000) throw new Error("รูปแบบหน้าจอไม่ถูกต้อง กรุณาเลือกการตั้งค่าจากหน้า View");
   validateSpecialDisplay(value as ViewDisplay,cols);
   const v = value as ViewDisplay, names = new Set(cols.map(c => c.name));
   if (Object.keys(v).some(k => !Object.hasOwn(DISPLAY_DEFAULTS, k))) throw new Error("ไม่รู้จักตัวเลือกรูปแบบหน้าจอ");
+  if(v.data_styles!==undefined)validateDataStyles(v.data_styles,cols);
+  if(v.table_row_padding!==undefined&&v.table_row_padding!==null&&(typeof v.table_row_padding!=="number"||!Number.isInteger(v.table_row_padding)||v.table_row_padding<0||v.table_row_padding>40))throw Error("ระยะขอบแถวตารางต้องเป็นจำนวนเต็ม 0–40");
+  if(v.table_line_height!==undefined&&(typeof v.table_line_height!=="number"||!Number.isFinite(v.table_line_height)||v.table_line_height<1||v.table_line_height>3))throw Error("ระยะห่างบรรทัดตารางต้องอยู่ระหว่าง 1–3");
+  if(v.display_name!==undefined&&(typeof v.display_name!=="string"||v.display_name.length>100))throw Error("Display Name ต้องเป็นข้อความไม่เกิน 100 ตัวอักษร");
   for (const [key, choices] of Object.entries({ list_style: ["compact", "card", "outlined", "striped", "grid"], image_shape: ["square", "round", "wide"], image_size: ["small", "medium", "large"], list_buttons: ["edit", "actions", "both", "none"], table_density: ["comfortable", "compact"], row_click: ["detail", "edit", "delete", "action", "none"], detail_layout: ["vertical", "horizontal"], detail_style: ["plain", "card"], detail_image_mode: ["inline", "cover"], detail_image_fit: ["cover", "contain"], detail_separator: ["solid", "dashed", "none"], form_after_save:["back","detail"], form_labels: ["top", "left"] })) if ((v as Record<string, unknown>)[key] !== undefined && (typeof (v as Record<string, unknown>)[key] !== "string" || !choices.includes((v as Record<string, unknown>)[key] as string))) throw new Error("ตัวเลือกรูปแบบหน้าจอไม่ถูกต้อง");
   for (const key of ["show_summary_labels", "table_wrap", "detail_show_labels", "detail_hide_empty"]) if ((v as Record<string, unknown>)[key] !== undefined && typeof (v as Record<string, unknown>)[key] !== "boolean") throw new Error("ตัวเลือกเปิด/ปิดรูปแบบหน้าจอไม่ถูกต้อง");
   for (const key of ["form_columns", "detail_columns"]) if ((v as Record<string, unknown>)[key] !== undefined && ![1, 2].includes((v as Record<string, unknown>)[key] as number)) throw new Error("จำนวนช่องต่อแถวต้องเป็น 1 หรือ 2");
@@ -56,9 +62,10 @@ export function validateDisplay(value: unknown, cols: Column[]): ViewDisplay {
   }
   return v;
 }
-export function displayColumnNames(value: ViewDisplay = {}) { return [...new Set([...SPECIAL_COLUMN_KEYS.map(k=>value[k]),value.title_column, value.image_column, value.detail_cover_column, ...(value.summary_columns || []), ...Object.keys(value.form_fields || {})].filter(n => n && n !== "__auto__"))] as string[]; }
+export function displayColumnNames(value: ViewDisplay = {}) { return [...new Set([...SPECIAL_COLUMN_KEYS.map(k=>value[k]),value.title_column, value.image_column, value.detail_cover_column, ...(value.summary_columns || []), ...Object.keys(value.form_fields || {}),...decorationReferences(value.data_styles)].filter(n => n && n !== "__auto__"))] as string[]; }
 export function changeDisplayColumn(value: ViewDisplay, old: string, next?: string): ViewDisplay {
   const result = { ...value };
+  if(result.data_styles)result.data_styles=changeDecorationColumn(result.data_styles,old,next);
   for(const key of SPECIAL_COLUMN_KEYS)if(result[key]===old)result[key]=next||"";
   if (result.title_column === old) result.title_column = next || "__auto__";
   if (result.image_column === old) result.image_column = next || "__auto__";
@@ -73,7 +80,7 @@ export type GlobalDisplayDefaults = Partial<Record<DisplayKind, ViewDisplay>>;
 export const GLOBAL_DISPLAY_KEYS: Record<DisplayKind, (keyof ViewDisplay)[]> = {
   map:["map_zoom","map_height","map_fit"],chart:["chart_type","chart_aggregate","chart_sort","chart_limit","chart_height","chart_color","chart_labels"],calendar:["calendar_mode","calendar_week_start","calendar_show_time"],dashboard:["dashboard_layout","dashboard_columns","dashboard_gap","dashboard_height","dashboard_titles"],
   list: ["list_grid_columns", "list_grid_mobile_columns", "list_padding", "list_min_height", "list_gap", "list_radius", "list_style", "image_column", "image_shape", "image_size", "show_summary_labels", "list_buttons"],
-  table: ["table_density", "table_wrap", "row_click", "list_buttons"],
+  table: ["table_row_padding","table_line_height","table_density", "table_wrap", "row_click", "list_buttons"],
   detail: ["detail_layout", "detail_columns", "image_size", "detail_style", "detail_image_mode", "detail_cover_height", "detail_image_fit", "detail_image_radius", "detail_padding", "detail_row_spacing", "detail_line_height", "detail_separator", "detail_show_labels", "detail_hide_empty"],
   form: ["form_columns", "form_labels", "form_after_save"],
 };
