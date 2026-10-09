@@ -1,0 +1,33 @@
+import type Database from "better-sqlite3";
+import {randomUUID} from "node:crypto";
+import {auditContext,withoutAudit} from "./audit-context";
+import {auditDiff,type AuditCategory} from "./audit-display";
+export const AUDIT_SCHEMA=`CREATE TABLE IF NOT EXISTS _audit_log(event_id TEXT PRIMARY KEY,request_id TEXT NOT NULL,occurred_at INTEGER NOT NULL,actor_id INTEGER NOT NULL,actor_name TEXT NOT NULL,actor_email TEXT NOT NULL,actor_role TEXT NOT NULL,category TEXT NOT NULL,entity_type TEXT NOT NULL,entity_key TEXT NOT NULL,entity_label TEXT NOT NULL,operation TEXT NOT NULL,source TEXT NOT NULL,changes_json TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS _audit_time ON _audit_log(occurred_at);
+CREATE INDEX IF NOT EXISTS _audit_category_time ON _audit_log(category,occurred_at);
+CREATE INDEX IF NOT EXISTS _audit_actor_time ON _audit_log(actor_email,occurred_at);
+CREATE INDEX IF NOT EXISTS _audit_request ON _audit_log(request_id);`;
+export const AUDIT_TABLES:Record<string,{category:AuditCategory;keys:string[]}>= {
+_automations:{category:"automations",keys:["name"]},_pdf_templates:{category:"pdf_templates",keys:["name"]},_tables:{category:"data",keys:["name"]},_columns:{category:"data",keys:["id"]},_views:{category:"views",keys:["name"]},_actions:{category:"actions",keys:["name"]},_slices:{category:"slices",keys:["name"]},_app_settings:{category:"settings",keys:["id"]},_users:{category:"users",keys:["id"]},_roles:{category:"users",keys:["name"]},_role_tables:{category:"users",keys:["role_name","table_name"]},_role_actions:{category:"users",keys:["role_name","action_name"]},_role_row_rules:{category:"users",keys:["role_name","table_name","operation"]},_user_setting_defs:{category:"user_settings",keys:["name"]}};
+const userFields=new Set(["id","name","email","role","active"]);
+export function auditTriggerDefinitions(db:Database.Database){const definitions:{name:string;table:string;sql:string}[]=[];
+for(const table of Object.keys(AUDIT_TABLES)){const fields=(db.pragma(`table_info('${table}')`) as {name:string}[]).map(c=>c.name).filter(n=>table==="_users"?userFields.has(n):n!=="list_reference_version"&&(table!=="_automations"||!["next_run_at","owner_id"].includes(n)));if(!fields.length)continue;if(fields.some(n=>!/^[a-z][a-z0-9_]*$/.test(n)))throw Error("ชื่อช่อง metadata ไม่ถูกต้อง");
+const json=(row:string)=>`json_object(${fields.map(n=>`'${n}',${row}."${n}"`).join(",")})`;
+for(const operation of ["INSERT","UPDATE","DELETE"]){const name=`_nocode_audit${table}_${operation.toLowerCase()}`;
+const sql=`CREATE TRIGGER "${name}" AFTER ${operation} ON "${table}" WHEN nocode_audit_enabled()=1 BEGIN INSERT INTO _audit_log(event_id,request_id,occurred_at,actor_id,actor_name,actor_email,actor_role,category,entity_type,entity_key,entity_label,operation,source,changes_json) SELECT json_extract(value,'$.event_id'),json_extract(value,'$.request_id'),json_extract(value,'$.occurred_at'),json_extract(value,'$.actor_id'),json_extract(value,'$.actor_name'),json_extract(value,'$.actor_email'),json_extract(value,'$.actor_role'),json_extract(value,'$.category'),json_extract(value,'$.entity_type'),json_extract(value,'$.entity_key'),json_extract(value,'$.entity_label'),json_extract(value,'$.operation'),json_extract(value,'$.source'),json_extract(value,'$.changes_json') FROM json_each(nocode_audit_entries('${table}','${operation.toLowerCase()}',${operation==="INSERT"?"NULL":json("OLD")},${operation==="DELETE"?"NULL":json("NEW")})); END`;
+definitions.push({name,table,sql});}}return definitions;}
+const flags=new Set(["enabled","reset_on_edit","required","is_virtual","is_label","is_key","is_editable","is_unique","gps_auto","is_part_of","active","builder","can_read","can_create","can_update","can_delete"]);
+function normalize(row:Record<string,unknown>|null){if(!row)return null;const out:Record<string,unknown>={};for(const [key,value] of Object.entries(row)){if(key==="id")continue;const target=key.endsWith("_json")?key.slice(0,-5):key;if(key.endsWith("_json")&&typeof value==="string"){try{out[target]=JSON.parse(value);}catch{out[target]=value;}}else out[target]=flags.has(key)&&value!=null?!!value:value;}return out;}
+export function auditEntries(table:string,operation:string,oldJson:string|null,newJson:string|null){const context=auditContext(),definition=AUDIT_TABLES[table];if(!context?.enabled||!definition)return [];
+const before=oldJson?JSON.parse(oldJson):null,after=newJson?JSON.parse(newJson):null,row=after||before;
+const changes=auditDiff(normalize(before),normalize(after));if(!changes.length)return [];
+const name=String(row.label||row.name||row.email||row.id||""),prefix=table==="_columns"?String(row.table_name)+" · ":table.startsWith("_role_")?String(row.role_name)+" · ":"";
+const base={event_id:"",request_id:context.requestId,occurred_at:Date.now(),actor_id:context.actor.id,actor_name:context.actor.name,actor_email:context.actor.email,actor_role:context.actor.role,category:definition.category,entity_type:table,entity_key:JSON.stringify(definition.keys.map(k=>row[k])),entity_label:prefix+name,operation:({insert:"create",update:"update",delete:"delete"} as Record<string,string>)[operation],source:context.source};
+if(table.startsWith("_role_"))base.entity_label=prefix+String(row.table_name||row.action_name||row.operation||"");
+const decorations=table==="_views"?changes.filter(c=>c.path[0]==="display"&&c.path[1]==="data_styles"):[];
+const regular=decorations.length?changes.filter(c=>!decorations.includes(c)):changes;
+return [...(regular.length?[{...base,event_id:randomUUID(),changes_json:JSON.stringify(regular)}]:[]),...(decorations.length?[{...base,event_id:randomUUID(),category:"decorations",changes_json:JSON.stringify(decorations)}]:[])];}
+export function registerAuditFunctions(db:Database.Database){db.function("nocode_audit_enabled",()=>auditContext()?.enabled?1:0);db.function("nocode_audit_entries",(table:string,operation:string,before:string|null,after:string|null)=>JSON.stringify(auditEntries(table,operation,before,after)));}
+export function installAuditing(db:Database.Database){registerAuditFunctions(db);
+withoutAudit(()=>db.transaction(()=>{for(const trigger of auditTriggerDefinitions(db)){db.exec(`DROP TRIGGER IF EXISTS "${trigger.name}"`);db.exec(trigger.sql);}})());}
+export function removeAuditTriggers(db:Database.Database){for(const {name} of db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name GLOB '_nocode_audit*'").all() as {name:string}[]){if(!/^_nocode_audit_[a-z_]+_(insert|update|delete)$/.test(name))throw Error("ชื่อประวัติไม่ถูกต้อง");db.exec(`DROP TRIGGER "${name}"`);}}

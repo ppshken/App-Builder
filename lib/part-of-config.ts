@@ -19,7 +19,7 @@ export function assertPartSchema(schema: Record<string, Column[]>) {
       for (const field of PART_FORMULA_FIELDS) {
         if (!c[field]?.trim()) continue;
         // These conditions run in the parent row; _THIS is the child ID list.
-        const probe = schema[parent].map((col, i) => ({...col, is_virtual: false,
+        const probe = schema[parent].map((col, i) => ({...col, is_virtual: false, reset_on_edit: false, reset_columns: [],
           virtual_expr: "", default_expr: "", required_if: "", editable_if: "",
           show_if: i === 0 && field !== "part_valid_if" ? c[field] : "",
           valid_if: i === 0 && field === "part_valid_if" ? c[field] : ""}));

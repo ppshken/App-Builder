@@ -1,5 +1,5 @@
 import { ICON_CATALOG, type IconName } from "./icons";
-export const ACTION_KINDS = { set: "เปลี่ยนค่าคอลัมน์", delete: "ลบแถวข้อมูล", copy: "คัดลอกแถวข้อมูล", add: "เพิ่มแถวข้อมูล", open_view: "เปิดหน้า View", open_url: "เปิดลิงก์", edit_form: "เปิดฟอร์มแก้ไขแถวนี้", new_form: "เปิดฟอร์มเพิ่มข้อมูล", call: "เปิดโทรศัพท์เพื่อโทรออก", sms: "เปิดข้อความ SMS", email: "เปิดอีเมล", grouped: "ทำหลาย Action ตามลำดับ", open_detail: "ดูรายละเอียดข้อมูล" } as const;
+export const ACTION_KINDS = { automation: "เริ่ม Automation", set: "เปลี่ยนค่าคอลัมน์", delete: "ลบแถวข้อมูล", copy: "คัดลอกแถวข้อมูล", add: "เพิ่มแถวข้อมูล", open_view: "เปิดหน้า View", open_url: "เปิดลิงก์", edit_form: "เปิดฟอร์มแก้ไขแถวนี้", new_form: "เปิดฟอร์มเพิ่มข้อมูล", call: "เปิดโทรศัพท์เพื่อโทรออก", sms: "เปิดข้อความ SMS", email: "เปิดอีเมล", grouped: "ทำหลาย Action ตามลำดับ", open_detail: "ดูรายละเอียดข้อมูล" } as const;
 export type ActionKind = keyof typeof ACTION_KINDS;
 export type ActionAppearance = {
     icon: IconName;
@@ -9,6 +9,7 @@ export type ActionAppearance = {
     icon_only: boolean;
 };
 export type ActionConfig = {
+    automation_name?:string;
     url_expr?: string;
     view_name?: string;
     actions?: string[];

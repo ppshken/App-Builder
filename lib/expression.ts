@@ -100,6 +100,45 @@ function tokenize(source: string): Token[] {
   tokens.push({ kind: "end", text: "", start: i, end: i });
   return tokens;
 }
+// Format validated tokens, retaining original literals and every grouping bracket.
+// This changes whitespace only; it never evaluates the expression.
+export function formatFormula(source:string):string {
+  parseExpression(source);
+  const tokens=tokenize(source).slice(0,-1),pairs=new Map<number,number>(),stack:number[]=[];
+  tokens.forEach((t,i)=>{if(t.text==='(')stack.push(i);else if(t.text===')')pairs.set(stack.pop()!,i);});
+  const indent=(depth:number)=>'  '.repeat(depth);
+  function render(start:number,end:number,depth:number):string {
+    let out='';
+    for(let i=start;i<end;i++) {
+      const t=tokens[i];
+      if(t.text==='(') {
+        const close=pairs.get(i)!,call=i>start&&tokens[i-1].kind==='word';
+        if(call) {
+          const ranges:[number,number][]=[];let begin=i+1;
+          for(let j=begin;j<close;j++) {if(tokens[j].text==='(')j=pairs.get(j)!;else if(tokens[j].text===','){ranges.push([begin,j]);begin=j+1;}}
+          if(begin<close)ranges.push([begin,close]);
+          const args=ranges.map(([a,b])=>render(a,b,depth+1));
+          const multiline=args.length>1||args.some(a=>a.includes('\n')||a.length>72);
+          out+=multiline?'(\n'+args.map(a=>indent(depth+1)+a).join(',\n')+'\n'+indent(depth)+')':'('+args.join(', ')+')';
+        }else out+='('+render(i+1,close,depth)+')';
+        i=close;continue;
+      }
+      if(t.kind==='op'&&t.text!=='.'&&t.text!==',') {
+        const previous=i>start?tokens[i-1]:undefined;
+        const unary=(t.text==='+'||t.text==='-')&&(!previous||(previous.kind==='op'&&previous.text!==')'));
+        out=unary?out+t.text:out.trimEnd()+' '+t.text+' ';continue;
+      }
+      if(t.text===','){out=out.trimEnd()+', ';continue;}
+      if(t.text==='.'){out=out.trimEnd()+'.';continue;}
+      out+=t.kind==='column'?'['+t.text+']':source.slice(t.start,t.end);
+    }
+    return out.trim();
+  }
+  const formatted=render(0,tokens.length,0);
+  // Keep the parser's existing limits and leave the caller's original text intact on failure.
+  parseExpression(formatted);
+  return formatted;
+}
 export function parseExpression(source: string): Node {
   if (typeof source !== "string" || !source.trim()) fail("กรุณากรอกสูตร");
   const tokens = tokenize(source);

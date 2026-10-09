@@ -1,3 +1,6 @@
+import {validateStoredWorkflows} from "./workflow-validation";
+import {registerAuditFunctions} from "./audit-schema";
+import {withoutAudit} from "./audit-context";
 import {assertPartSchema} from "./part-of-config";
 import {actionConfigExpressions} from "./action-config";
 import Database from "better-sqlite3";
@@ -58,7 +61,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(objects.some(o=>o.type==="trigger"||request.mode==="replace"&&(o.type==="view"||o.type==="index"&&o.sql&&!knownIndexes.has(o.name))))throw Error("ตารางนี้มี SQL View, Trigger หรือดัชนีที่เพิ่มนอกระบบ กรุณาจัดการส่วนนี้ก่อน เพื่อไม่ให้สูญหายระหว่างแปลง");
  if(!["replace","copy"].includes(request.mode)||!request.target||!Object.hasOwn(SQLTYPE,request.target.type||""))throw Error("กรุณาเลือกวิธีและชนิดข้อมูลปลายทาง");
  if(request.ref_match!==undefined&&!["id","key"].includes(request.ref_match))throw Error("วิธีจับคู่ Ref ไม่ถูกต้อง");
- const target:Column={...source,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
+ const target:Column={...source,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,file_path:request.target.type==='file'?source.file_path:null,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
  assertIdentifier(target.name);if(!target.label)throw Error("กรุณากรอกชื่อที่แสดงของคอลัมน์ใหม่");
  if(request.mode==="copy"&&(cols.length>=200||cols.some(c=>c.name===target.name)))throw Error("ชื่อคอลัมน์ใหม่ซ้ำหรือมีครบ 200 คอลัมน์แล้ว กรุณาใช้ชื่ออื่น");
  if(request.mode==="replace"&&target.type===source.type&&(request.target.ref_table||null)===(source.ref_table||null))throw Error("กรุณาเลือกชนิดข้อมูลใหม่ หรือเลือกคัดลอกไปคอลัมน์ใหม่");
@@ -81,8 +84,8 @@ function referenceResolver(database:Database.Database,target:Column,match:"id"|"
  return(value:unknown)=>{const rows=query.all(String(value)) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
 }
 function writeColumn(database:Database.Database,table:string,target:Column,copy:boolean){
- const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if",...FORMULA_FIELDS];
- const values=fields.map(field=>field==="max_length"?target.max_length??0:field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto","is_part_of"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
+ const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json",...FORMULA_FIELDS];
+ const values=fields.map(field=>field==="reset_columns_json"?JSON.stringify(target.reset_columns||[]):field==="max_length"?target.max_length??0:field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto","is_part_of","reset_on_edit"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
  if(copy)database.prepare(`INSERT INTO _columns(table_name,${fields.join(",")}) VALUES(${["?",...fields.map(()=>"?")].join(",")})`).run(table,...values);
  else database.prepare(`UPDATE _columns SET ${fields.map(field=>field+"=?").join(",")} WHERE table_name=? AND name=?`).run(...values,table,target.name);
 }
@@ -101,7 +104,7 @@ function writeConversion(database:Database.Database,table:string,request:Convers
 }
 function rowProblem(database:Database.Database,cols:Column[],raw:Record<string,unknown>,now:Date,context:ReturnType<typeof expressionContext>){
  try{const state=formState(cols,raw,now,"",context);const error=Object.values(state.errors)[0]||Object.values(state.validation)[0];if(error)return error;
-  for(const c of cols){const value=state.row[c.name];if(c.type==="image"&&value&&!database.prepare("SELECT 1 FROM _images WHERE id=?").get(String(value).slice(12)))return `ไม่พบรูปภาพของ "${c.label}"`;
+  for(const c of cols){const value=state.row[c.name];if(c.type==="file"&&value&&!database.prepare("SELECT 1 FROM _files WHERE id=?").get(String(value).slice(11)))return `ไม่พบไฟล์ของ "${c.label}"`;if(["image","signature"].includes(c.type)&&value&&!database.prepare("SELECT 1 FROM _images WHERE id=?").get(String(value).slice(12)))return `ไม่พบรูปภาพของ "${c.label}"`;
    if(c.type==="list"&&c.ref_table){if(database.prepare(`SELECT value FROM json_each(?) WHERE NOT EXISTS(SELECT 1 FROM "t_${c.ref_table}" WHERE CAST(id AS TEXT)=CAST(json_each.value AS TEXT)) LIMIT 1`).get(JSON.stringify(value||[])))return `List "${c.label}" อ้างอิงรหัสที่ไม่มีอยู่`;} }
  }catch(e){return (e as Error).message;}return "";
 }
@@ -133,6 +136,7 @@ export function previewConversion(database:Database.Database,table:string,reques
  // SQLite's documented workaround: https://sqlite.org/c3ref/deserialize.html
  snapshot[18]=1;snapshot[19]=1;
  const stage=new Database(snapshot);
+ registerAuditFunctions(stage);
  const report:ConversionReport={allowed:false,total:0,converted:0,failed:0,samples:[],issues:[],warnings:[],source,target,mode:request.mode};
  const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id");let timeLoss=0;
  try{
@@ -144,7 +148,7 @@ export function previewConversion(database:Database.Database,table:string,reques
   if(timeLoss)report.warnings.push(`${timeLoss} รายการจะเหลือเฉพาะวันที่ เวลาไม่ถูกเก็บในคอลัมน์ปลายทาง เลือกคัดลอกไปคอลัมน์ใหม่หากต้องการเก็บวัน–เวลาต้นฉบับ`);
   if(request.mode==="replace"&&source.type==="ref"&&(target.type!=="ref"||target.ref_table!==source.ref_table))report.warnings.push("Related และ Inline ของ Ref เดิมจะถูกนำออก ส่วน Ref ใหม่จะสร้าง Inline ให้อัตโนมัติ");
   if(report.failed)return report;
-  try{foreignKeyTransaction(stage,()=>{writeConversion(stage,table,request,source,target,values);checkDependencies(stage,table,report,database,now);});}
+  try{withoutAudit(()=>foreignKeyTransaction(stage,()=>{writeConversion(stage,table,request,source,target,values);checkDependencies(stage,table,report,database,now);validateStoredWorkflows(stage);}));}
   catch(e){report.failed++;const message=(e as Error).message;report.issues.push({table,message:message.includes("UNIQUE")?"แปลงแล้ว Key มีค่าซ้ำ เช่น 01 และ 1 กรุณาแก้ข้อมูลหรือคัดลอกไปคอลัมน์ใหม่":/[ก-๙]/.test(message)?message:"โครงสร้างปลายทางไม่ผ่านการตรวจ กรุณาตรวจ Key และ Ref"});}
   report.allowed=report.failed===0;return report;
  }finally{stage.close();}

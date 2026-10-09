@@ -1,4 +1,4 @@
-export const AUTH_TABLES = ["_users", "_sessions", "_auth_attempts", "_roles", "_role_tables", "_role_actions", "_image_uploads", "_user_setting_defs", "_user_setting_values", "_role_row_rules"];
+export const AUTH_TABLES = ["_users", "_sessions", "_auth_attempts", "_roles", "_role_tables", "_role_actions", "_image_uploads", "_file_uploads", "_user_setting_defs", "_user_setting_values", "_role_row_rules"];
 export const AUTH_SCHEMA = `
 CREATE TABLE IF NOT EXISTS _roles(name TEXT PRIMARY KEY,label TEXT NOT NULL UNIQUE,builder INTEGER NOT NULL DEFAULT 0);
 INSERT OR IGNORE INTO _roles VALUES('owner','เจ้าของแอป',1);
@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS _role_tables(role_name TEXT NOT NULL REFERENCES _role
 CREATE TABLE IF NOT EXISTS _role_actions(role_name TEXT NOT NULL REFERENCES _roles(name) ON DELETE CASCADE,action_name TEXT NOT NULL REFERENCES _actions(name) ON DELETE CASCADE,PRIMARY KEY(role_name,action_name));
 CREATE TABLE IF NOT EXISTS _users(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,email TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'owner' REFERENCES _roles(name),active INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS _sessions(token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES _users(id) ON DELETE CASCADE,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL,expires_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS _file_uploads(file_id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES _users(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS _image_uploads(image_id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES _users(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS _user_setting_defs(name TEXT PRIMARY KEY,label TEXT NOT NULL,type TEXT NOT NULL,options_json TEXT NOT NULL DEFAULT '[]',default_json TEXT NOT NULL DEFAULT 'null');
 CREATE TABLE IF NOT EXISTS _user_setting_values(user_id INTEGER NOT NULL REFERENCES _users(id) ON DELETE CASCADE,name TEXT NOT NULL REFERENCES _user_setting_defs(name) ON DELETE CASCADE,value_json TEXT NOT NULL,PRIMARY KEY(user_id,name));

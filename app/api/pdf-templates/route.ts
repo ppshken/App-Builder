@@ -1,0 +1,12 @@
+import {NextResponse} from 'next/server';
+import {withAuth} from '@/lib/auth-api';
+import {bad,errorMessage,errorStatus,readBody} from '@/lib/api';
+import {db} from '@/lib/db';
+import {pdfTemplates,savePdfTemplate,removePdfTemplate,workflowEnvironment} from '@/lib/workflows';
+import {validatePdfTemplate} from '@/lib/workflow-config';
+import {pdfHtml} from '@/lib/pdf-report';
+export const dynamic='force-dynamic';
+export const GET=withAuth(async()=>{try{return NextResponse.json(pdfTemplates());}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const POST=withAuth(async(req:Request)=>{try{const b=await readBody(req);if(b.op==='preview'){const t=validatePdfTemplate(b.template,workflowEnvironment());const id=Number(b.id);if(!Number.isSafeInteger(id)||id<1)throw Error('ระบุ id ข้อมูลตัวอย่างเป็นจำนวนเต็มบวก');const row=db.prepare('SELECT * FROM "t_'+t.table_name+'" WHERE id=?').get(id) as Record<string,any>|undefined;if(!row)throw Error('ไม่พบแถวข้อมูลตัวอย่าง');return NextResponse.json({html:pdfHtml(t,row)});}return NextResponse.json(savePdfTemplate(b,false));}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const PUT=withAuth(async(req:Request)=>{try{return NextResponse.json(savePdfTemplate(await readBody(req),true));}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const DELETE=withAuth(async(req:Request)=>{try{removePdfTemplate(new URL(req.url).searchParams.get('name')||'');return NextResponse.json({ok:true});}catch(e){return bad(errorMessage(e),errorStatus(e));}});

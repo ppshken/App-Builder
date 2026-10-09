@@ -3,12 +3,12 @@ import { normalizeCoordinates } from "./location";
 import { normalizeDateTime } from "./datetime";
 
 export const IDENT = /^[a-z][a-z0-9_]{0,40}$/;
-export const SQLTYPE: Record<string, string> = { text: "TEXT", longtext: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
+export const SQLTYPE: Record<string, string> = { color:"TEXT",signature:"TEXT",file:"TEXT",text: "TEXT", longtext: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
 export const UNIQUE_TYPES = ["text","longtext","number","decimal","date","datetime","image","yesno","enum","ref"];
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
-  name: string; label: string; type: string; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; options?: string | null; ref_table?: string | null;
+  name: string; label: string; type: string; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
   is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
 export const FORMULA_LABELS: Record<FormulaField, string> = {
@@ -16,7 +16,7 @@ export const FORMULA_LABELS: Record<FormulaField, string> = {
   editable_if: "แก้ไขเมื่อ (Editable_If)", valid_if: "ค่าต้องผ่านเงื่อนไข (Valid_If)", required_if: "จำเป็นเมื่อ (Required_If)",
 };
 export const blankColumn = (): Column => ({ name: "", label: "", type: "text", options: "", ref_table: "", required: false,
-  is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
+  reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
 export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");
@@ -54,6 +54,8 @@ export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<st
       } catch (e) { errors[`${c.name}.${field}`] = (e as Error).message; }
     }
   }
+    try { assertResetConfig(cols); } catch(e) { errors.reset_on_edit=(e as Error).message; }
+  for(const c of cols)if(c.reset_on_edit)graphs[c.name]=[...new Set([...(graphs[c.name]||[]),...(Array.isArray(c.reset_columns)?c.reset_columns:[])])];
   const done = new Set<string>(), visiting = new Set<string>();
   function check(name: string, path: string[]) {
     if (path.length >= 64) throw new Error("สูตรอ้างอิงต่อกันเกิน 64 ช่อง กรุณาลดการอ้างอิง");
@@ -72,6 +74,7 @@ export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<st
 export function assertFormulas(cols: Column[], schema?: FormulaSchema) {
   const errors = formulaErrors(cols, schema), first = Object.keys(errors)[0];
   if (first) {
+    if(first === "reset_on_edit")throw new Error(errors[first]);
     const [name, field] = first.split(".");
     throw new Error(`คอลัมน์ "${cols.find(c => c.name === name)?.label || name}" — ${FORMULA_LABELS[field as FormulaField]}: ${errors[first]}`);
   }
@@ -112,8 +115,10 @@ export function normalizeValue(c: Column, value: unknown): Value {
   if (c.type === "datetime") {
     try { return normalizeDateTime(value); } catch (e) { throw new Error(`"${c.label}": ${(e as Error).message}`); }
   }
-  if (c.type === "image" && !/^\/api\/images\/[a-f0-9-]{36}$/.test(value))
+  if (["image","signature"].includes(c.type) && !/^\/api\/images\/[a-f0-9-]{36}$/.test(value))
     throw new Error(`"${c.label}" ต้องเป็นรูปภาพที่อัปโหลด กรุณาเลือกรูปภาพ`);
+  if(c.type === "color"){if(!/^#[a-f0-9]{6}$/i.test(value))throw Error('"'+c.label+'" ต้องเป็นโค้ดสี เช่น #2563EB');return value.toUpperCase();}
+  if(c.type === "file"&&!/^\/api\/files\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value))throw Error('"'+c.label+'" ต้องเป็นไฟล์ที่อัปโหลด กรุณาเลือกไฟล์');
   if (c.type === "date") {
     const date = value.slice(0, 10), d = new Date(`${date}T00:00:00Z`);
     if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value) || !Number.isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== date)
@@ -167,15 +172,16 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
     const condition = (field: FormulaField, fallback: boolean) => {
       try {
         if (!c[field]?.trim()) return fallback;
-        const value = evaluateExpression(c[field]!, { ...row, _THIS: row[c.name] }, { ...context, now, userEmail, referenceListTable: field === "valid_if" && c.type === "list" && c.ref_table ? c.ref_table : undefined });
-        if (field === "valid_if" && ["enum", "enumlist", "list"].includes(c.type) && Array.isArray(value)) {
-          const allowed = c.type === "list" ? normalizeValue(c,value) as string[] : c.type === "enum" ? value.filter(v=>v!==null).map(String) : value;
+        const value = evaluateExpression(c[field]!, { id: null, ...row, _THIS: row[c.name] }, { ...context, now, userEmail, referenceListTable: field === "valid_if" && c.type === "list" && c.ref_table ? c.ref_table : undefined });
+        if (field === "valid_if" && ["enum", "enumlist", "list", "ref"].includes(c.type) && Array.isArray(value)) {
+          if (c.type === "ref" && value.some(v => (typeof v !== "string" && typeof v !== "number") || !String(v).trim() || !Number.isSafeInteger(Number(v)) || Number(v) < 1)) throw new Error("Valid_If ของ Ref ต้องคืนรายการ id ของตารางอ้างอิง เช่น SELECT(ตาราง[id], เงื่อนไข)");
+          const allowed = c.type === "ref" ? value.map(v => String(Number(v))) : c.type === "list" ? normalizeValue(c,value) as string[] : c.type === "enum" ? value.filter(v=>v!==null).map(String) : value;
           choices[c.name] = [...new Set(allowed)];
-          return c.type === "enum" ? isBlank(row[c.name])||allowed.includes(String(row[c.name])) : Array.isArray(row[c.name]) && (row[c.name] as string[]).every(v => allowed.includes(v));
+          return ["enum", "ref"].includes(c.type) ? isBlank(row[c.name])||allowed.includes(String(row[c.name])) : Array.isArray(row[c.name]) && (row[c.name] as string[]).every(v => allowed.includes(v));
         }
         return asBoolean(value);
       }
-      catch (e) { errors[c.name] = `${FORMULA_LABELS[field]}: ${(e as Error).message}`; return fallback; }
+      catch (e) { if (field === "valid_if" && c.type === "ref") choices[c.name] = []; errors[c.name] = `${FORMULA_LABELS[field]}: ${(e as Error).message}`; return fallback; }
     };
     editable[c.name] = !c.is_virtual && c.is_editable !== 0 && c.is_editable !== false;
     if (editable[c.name] && c.editable_if?.trim()) {
@@ -238,7 +244,7 @@ export function calculateInsertRow(cols: Column[], body: Record<string, unknown>
 // Row identity has one textual label and an optional image; formulas retain scalar labels.
 export function labelTextColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type!=="image")?.name??cols.find(c=>["text","longtext"].includes(c.type))?.name??"id";}
 export function labelImageColumn(cols:Column[]){return cols.find(c=>c.is_label&&c.type==="image")?.name;}
-export function assertLabels(cols:Column[]){if(cols.some(c=>c.is_label&&["enumlist","list","ref"].includes(c.type)))throw Error("Label ใช้กับช่องค่าเดียวหรือรูปภาพเท่านั้น");if(cols.filter(c=>c.is_label&&c.type!=="image").length>1)throw Error("เลือก Label ข้อความได้ 1 คอลัมน์ต่อตาราง");if(cols.filter(c=>c.is_label&&c.type==="image").length>1)throw Error("เลือก Label รูปภาพได้ 1 คอลัมน์ต่อตาราง");}
+export function assertLabels(cols:Column[]){if(cols.some(c=>c.is_label&&["enumlist","list","ref","signature","file"].includes(c.type)))throw Error("Label ใช้กับช่องค่าเดียวหรือรูปภาพเท่านั้น");if(cols.filter(c=>c.is_label&&c.type!=="image").length>1)throw Error("เลือก Label ข้อความได้ 1 คอลัมน์ต่อตาราง");if(cols.filter(c=>c.is_label&&c.type==="image").length>1)throw Error("เลือก Label รูปภาพได้ 1 คอลัมน์ต่อตาราง");}
 export function enumListImage(c:Column,value:string,context:ExpressionContext):string|undefined{try{const source=c.ref_table?{table:c.ref_table,column:""}:listSource(c.valid_if||"");if(!source)return;const data=context.getTable?context.getTable(source.table):context.tables?.[source.table];if(!data)return;const key=c.type==="list"?data.rows.find(r=>String(r.id)===value)?.[data.key]:data.key===source.column||c.ref_table?value:undefined;return key==null?undefined:data.labelImages?.[String(key)];}catch{return;}}
 
 export function normalizeMaxLength(type:string,value:unknown):number {
@@ -246,4 +252,35 @@ export function normalizeMaxLength(type:string,value:unknown):number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 1000000) throw Error("จำนวนตัวอักษรสูงสุดต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000 (0 คือไม่จำกัด)");
   if (!["text","longtext"].includes(type) && value !== 0) throw Error("จำกัดจำนวนตัวอักษรได้เฉพาะ Text และ Longtext");
   return value;
+}
+
+export function assertResetConfig(cols:Column[]) {
+  for(const c of cols) {
+    if(c.reset_on_edit!==undefined&&![true,false,0,1].includes(c.reset_on_edit))throw Error('Reset On Edit ต้องเป็นค่าเปิดหรือปิด');
+    if(c.reset_columns!==undefined&&(!Array.isArray(c.reset_columns)||c.reset_columns.length>200||c.reset_columns.some(n=>typeof n!=='string')))throw Error('คอลัมน์ที่เฝ้าดูต้องเป็นรายการชื่อคอลัมน์');
+    const watched=c.reset_columns||[];
+    if(new Set(watched).size!==watched.length)throw Error('คอลัมน์ที่เฝ้าดูซ้ำ กรุณาเลือกแต่ละคอลัมน์เพียงครั้งเดียว');
+    for(const name of watched)if(name==='id'||name===c.name||!cols.some(col=>col.name===name&&!col.is_virtual))throw Error('Reset On Edit ของ "'+c.label+'": เลือกคอลัมน์จริงอื่นที่มีอยู่ในตาราง ห้ามเลือก id หรือตัวเอง');
+    if(c.reset_on_edit&&(c.is_virtual||c.name==='id'||c.gps_auto))throw Error('Reset On Edit ใช้กับคอลัมน์ข้อมูลจริงที่มีสูตรค่าตั้งต้นเท่านั้น ไม่ใช้กับ id หรือ GPS อัตโนมัติ');
+    if(c.reset_on_edit&&!c.default_expr?.trim())throw Error('กรุณากำหนดสูตรค่าเริ่มต้นก่อนเปิด Reset On Edit ของ "'+c.label+'"');
+    if(c.reset_on_edit&&!watched.length)throw Error('กรุณาเลือกอย่างน้อย 1 คอลัมน์ที่เฝ้าดูสำหรับ "'+c.label+'"');
+  }
+}
+export function editResetTriggered(c:Column,cols:Column[],before:Record<string,unknown>,after:Record<string,unknown>) {
+  return !!c.reset_on_edit&&(c.reset_columns||[]).some(name=>{const watched=cols.find(col=>col.name===name);if(!watched)throw Error('ไม่พบคอลัมน์ที่เฝ้าดู ['+name+']');return JSON.stringify(normalizeValue(watched,before[name]))!==JSON.stringify(normalizeValue(watched,after[name]));});
+}
+export function applyEditResets(cols:Column[],before:Record<string,unknown>,after:Record<string,unknown>,now=new Date(),email='',context:ExpressionContext={}) {
+  const row={...after},reset=new Set<string>(),ordered:Column[]=[],visited=new Set<string>(),visiting=new Set<string>();
+  function visit(c:Column){if(visited.has(c.name))return;if(visiting.has(c.name))throw Error('Reset On Edit อ้างอิงวนกัน กรุณาแก้คอลัมน์ที่เฝ้าดูหรือสูตรค่าตั้งต้น');if(visiting.size>=64)throw Error("Reset On Edit อ้างอิงต่อกันเกิน 64 ช่อง กรุณาลดการอ้างอิง");visiting.add(c.name);
+    const source=c.is_virtual?c.virtual_expr:c.default_expr;
+    for(const name of [...(c.reset_on_edit?c.reset_columns||[]:[]),...(source?.trim()?references(source):[])]){const dependency=cols.find(col=>col.name===name);if(dependency)visit(dependency);}
+    visiting.delete(c.name);visited.add(c.name);if(c.reset_on_edit)ordered.push(c);
+  }
+  for(const c of cols.filter(c=>c.reset_on_edit))visit(c);
+  for(const c of ordered)if(editResetTriggered(c,cols,before,row)) {
+    const input={...row};delete input[c.name];
+    try{row[c.name]=calculateRow(cols,input,true,now,false,email,context).row[c.name];reset.add(c.name);}
+    catch(e){throw Error('คำนวณใหม่ของ "'+c.label+'" ไม่ได้: '+(e as Error).message);}
+  }
+  return {row,reset};
 }

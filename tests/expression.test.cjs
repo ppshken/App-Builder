@@ -209,3 +209,61 @@ test('Enum Valid_If supplies scalar choices from tables and enforces membership 
  });
 
 test('date formatter reuse preserves Bangkok midnight and each evaluation clock',()=>{const assert=require('node:assert/strict'),{evaluateExpression}=require('../.test-build/expression.js'),formula='CONCATENATE(TODAY(), " ", NOW(), " ", TODAY())';assert.equal(evaluateExpression(formula,{}, {now:new Date('2026-10-08T16:59:59Z')}),'2026-10-08 2026-10-08T23:59:59+07:00 2026-10-08');assert.equal(evaluateExpression(formula,{}, {now:new Date('2026-10-08T17:00:00Z')}),'2026-10-09 2026-10-09T00:00:00+07:00 2026-10-09');});
+
+ test('Ref SELECT excludes categories used by this parent and preserves the edited row', () => {
+ const tables={categories:{columns:['id','name'],key:'id',labels:{},rows:[{id:1,name:'front'},{id:2,name:'back'}]},photos:{columns:['id','inspection','category'],key:'id',labels:{},rows:[{id:10,inspection:1,category:1}]}};
+ const category={name:'category',label:'Category',type:'ref',ref_table:'categories',valid_if:'SELECT(categories[id], NOT(IN([id], SELECT(photos[category], AND([inspection] = [_THISROW].[inspection], [id] <> [_THISROW].[id])))))'};
+ const cols=[{name:'inspection',label:'Inspection',type:'ref',ref_table:'inspections'},category],ctx={tables};
+ const state=(raw,c=cols)=>formState(c,raw,new Date(),'',ctx);
+ assert.deepEqual(state({inspection:1,category:null}).choices.category,['2']);
+ assert.deepEqual(state({inspection:2,category:null}).choices.category,['1','2']);
+ assert.deepEqual(state({id:10,inspection:1,category:1}).choices.category,['1','2']);
+ assert.match(state({inspection:1,category:1}).validation.category,/Valid_If/);
+ assert.throws(()=>validateRow(cols,{inspection:1,category:1},new Date(),'',ctx),/Valid_If/);
+ assert.equal(state({inspection:1,category:2}).validation.category,undefined);
+ assert.equal(state({inspection:1,category:null}).validation.category,undefined);
+ assert.deepEqual(state({category:1},[{...category,valid_if:'LIST("01", 2, 2)'}]).choices.category,['1','2']);
+ assert.match(state({category:1},[{...category,valid_if:'LIST("front")'}]).errors.category,/id/);
+ assert.deepEqual(state({category:1},[{...category,valid_if:'LIST("front")'}]).choices.category,[]);
+ assert.equal(state({category:1},[{...category,valid_if:'TRUE'}]).validation.category,undefined);
+ assert.equal(Object.hasOwn(state({category:1},[{...category,valid_if:'TRUE'}]).choices,'category'),false);
+ assert.match(state({category:1},[{...category,valid_if:'FALSE'}]).validation.category,/Valid_If/);
+ assert.deepEqual(state({category:null},[{...category,valid_if:'LIST()'}]).choices.category,[]);
+ });
+
+test('pending child SELECT merges additions, edits and deletions without saving or leaking to other parents',()=>{
+ const {withDraftExpressionRows}=require('../.test-build/draft-expression');
+ const tables={categories:{columns:['id','name'],key:'id',labels:{},rows:[{id:1,name:'front'},{id:2,name:'back'},{id:3,name:'side'}]},photos:{columns:['id','inspection','category'],key:'id',labels:{},rows:[{id:10,inspection:1,category:1},{id:11,inspection:2,category:3}]}};
+ const formula='SELECT(categories[id], NOT(IN([id], SELECT(photos[category], AND([inspection] = [_THISROW].[inspection], [id] <> [_THISROW].[id])))))';
+ const cols=[{name:'inspection',label:'Inspection',type:'ref',ref_table:'inspections'},{name:'category',label:'Category',type:'ref',ref_table:'categories',valid_if:formula}];
+ const choices=(parentId,records,editingKey='new',id)=>formState(cols,{inspection:parentId,category:null,...(id?{id}:{})},new Date(),'',{tables:withDraftExpressionRows(tables,{table:'photos',column:'inspection',parentId,records,editingKey})}).choices.category;
+ const pending=[{key:'front',values:{category:1}}];
+ assert.deepEqual(choices(null,pending),['2','3']);
+ assert.deepEqual(choices(null,pending,'front'),['1','2','3']);
+ assert.deepEqual(choices(null,[...pending,{key:'back',values:{category:2}}]),['3']);
+ assert.deepEqual(choices(null,[]),['1','2','3']);
+ assert.deepEqual(choices(1,[{key:'saved',id:10,values:{category:2}}]),['1','3']);
+ assert.deepEqual(choices(1,[{key:'saved',id:10,values:{category:1},deleted:true}]),['1','2','3']);
+ assert.deepEqual(choices(1,[{key:'saved',id:10,values:{category:1}}],'saved',10),['1','2','3']);
+ assert.deepEqual(choices(2,[]),['1','2']);
+ assert.equal(tables.photos.rows.length,2);assert.equal(tables.photos.rows[0].category,1);
+ assert.equal(withDraftExpressionRows(tables),tables);
+ const ctx=withDraftExpressionRows(tables,{table:'photos',column:'inspection',parentId:null,editingKey:'new',records:pending});
+ assert.throws(()=>validateRow(cols,{inspection:null,category:1},new Date(),'',{tables:ctx}),/Valid_If/);
+});
+
+test('contextual INDEX defaults see pending siblings and dependent Ref selection resets on parent change',()=>{
+ const {withDraftExpressionRows,contextualFormDefaults,resetDependentRefChoices}=require('../.test-build/draft-expression');
+ const tables={categories:{columns:['id'],key:'id',labels:{},rows:[{id:1},{id:2},{id:3}]},photos:{columns:['id','inspection','category'],key:'id',labels:{},rows:[{id:10,inspection:1,category:1}]}};
+ const filter='SELECT(categories[id], NOT(IN([id], SELECT(photos[category], AND([inspection] = [_THISROW].[inspection], [id] <> [_THISROW].[id])))))';
+ const cols=[{name:'inspection',label:'Inspection',type:'ref',ref_table:'inspections'},{name:'category',label:'Category',type:'ref',ref_table:'categories',valid_if:filter,default_expr:'INDEX('+filter+', 1)'},{name:'token',label:'Token',type:'text',default_expr:'UNIQUEID()'}];
+ const ctx={tables:withDraftExpressionRows(tables,{table:'photos',column:'inspection',parentId:null,editingKey:'new',records:[{key:'front',values:{category:1}}]})};
+ assert.equal(contextualFormDefaults(cols,{inspection:null,category:1,token:'keep'},{inspection:null},now,'',ctx).category,2);
+ assert.equal(contextualFormDefaults(cols,{category:1,token:'keep'},{inspection:1},now,'',{tables}).category,2);
+ assert.equal(contextualFormDefaults(cols,{token:'keep'},{inspection:1,category:3},now,'',{tables}).category,3);
+ assert.equal(contextualFormDefaults(cols,{token:'keep'},{inspection:1},now,'',{tables}).token,'keep');
+ assert.equal(resetDependentRefChoices(cols,{inspection:1,category:1,token:'keep'},'inspection',now,'',{tables}).category,null);
+ assert.equal(resetDependentRefChoices(cols,{inspection:1,category:2},'inspection',now,'',{tables}).category,2);
+ assert.equal(resetDependentRefChoices(cols,{inspection:1,category:1},'token',now,'',{tables}).category,1);
+ assert.equal(resetDependentRefChoices(cols,{inspection:1,category:1},'category',now,'',{tables}).category,1);
+});

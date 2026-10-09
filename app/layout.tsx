@@ -21,7 +21,7 @@ export default async function Root({ children }: { children: React.ReactNode }) 
   if(path.split("?")[0]!=="/login"&&!user)redirect("/login?next="+encodeURIComponent(path));
   const access=user?accessFor(user):NO_ACCESS, page=path.split("?")[0];
   if(page==="/login"&&user)redirect(landingPage(user));
-  if(user&&page!=="/login"&&page!=="/run"&&(!access.builder||((page==="/users"||page==="/backups")&&!access.owner)))redirect("/run");
+  if(user&&page!=="/login"&&page!=="/run"&&(!access.builder||((page==="/users"||page==="/backups"||page==="/audit-log"||page==="/workflows")&&!access.owner)))redirect("/run");
   const settings=readAppSettings(!user),dark=settings.mode==="dark",colors=themeColors(settings,dark);
   const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(settings.font),"--app-font-weight":String(settings.font_weight),"--font-scale":String(settings.font_size/14)} as CSSProperties;
   const palettes=JSON.stringify({light:themeColors(settings,false),dark:themeColors(settings,true)}).replace(/</g,"\\u003c");

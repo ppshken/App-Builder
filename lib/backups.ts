@@ -1,3 +1,6 @@
+import {validateStoredWorkflows} from "./workflow-validation";
+import {auditTriggerDefinitions,installAuditing,removeAuditTriggers} from "./audit-schema";
+import {withoutAudit} from "./audit-context";
 import {assertPartSchema} from "./part-of-config";
 import {validateSpecialView} from "./special-view-config";
 import {actionConfigExpressions,ACTION_KINDS,appearance} from "./action-config";
@@ -12,7 +15,7 @@ import {DEFAULT_SETTINGS,validateSettings} from "./app-settings";
 import {validateDisplay} from "./view-display";
 import {migrateListReferences,assertStoredListReferences} from "./list-reference-migration";
 
-const META = ["_tables","_columns","_views","_slices","_actions","_app_settings","_images"];
+const META = ["_tables","_columns","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
 export type BackupInfo={name:string;size:number;created:string;reason:string};
@@ -21,12 +24,13 @@ export function backupFile(path:string,name:string){if(typeof name!=="string"||!
 function info(file:string):BackupInfo {const stat=lstatSync(file),name=basename(file);return {name,size:stat.size,created:stat.mtime.toISOString(),reason:name.startsWith("data.backup-manual-")?"สำรองด้วยตนเอง":name.startsWith("data.backup-restore-")?"ก่อนกู้คืนข้อมูล":name.startsWith("data.backup-schema-")?"ก่อนแก้โครงสร้างตาราง":"ก่อนอัปเดตระบบ"};}
 export function listBackups(path:string){const folder=backupFolder(path);return readdirSync(folder,{withFileTypes:true}).filter(f=>f.isFile()&&FILE_NAME.test(f.name)).map(f=>info(join(folder,f.name))).sort((a,b)=>b.created.localeCompare(a.created));}
 export function createBackup(db:Database.Database,path:string,reason:"manual"|"schema"|"restore"="manual"){const name=`data.backup-${reason}-${new Date().toISOString().replace(/[:.]/g,"-")}-${randomUUID()}.db`,file=join(backupFolder(path),name);try{db.prepare("VACUUM INTO ?").run(file);return info(file);}catch(e){if(existsSync(file))unlinkSync(file);throw e;}}
-export type RestoreSummary={tables:{name:string;label:string;rows:number}[];rows:number;images:number;views:number;appName:string};
+export type RestoreSummary={tables:{name:string;label:string;rows:number}[];rows:number;images:number;files:number;views:number;appName:string};
 type SchemaObject={name:string;type:string;sql:string|null;tbl_name:string};
 function objects(db:Database.Database){return db.prepare("SELECT name,type,sql,tbl_name FROM sqlite_master").all() as SchemaObject[];}
 function supportedTables(db:Database.Database) {
  const all=objects(db);
- if(all.some(o=>o.type==="view"||o.type==="trigger"))throw Error("ไฟล์นี้มี SQL View หรือ Trigger ที่ระบบกู้คืนยังไม่รองรับ กรุณาใช้ไฟล์สำรองของ No-code Builder");
+ const trustedTriggers=new Map(auditTriggerDefinitions(db).map(t=>[t.name,t.sql]));
+ if(all.some(o=>o.type==="view"||o.type==="trigger"&&o.sql?.trim()!==trustedTriggers.get(o.name)))throw Error("ไฟล์นี้มี SQL View หรือ Trigger ที่ระบบกู้คืนยังไม่รองรับ กรุณาใช้ไฟล์สำรองของ No-code Builder");
  if(!["_tables","_columns"].every(name=>all.some(o=>o.name===name&&o.type==="table")))throw Error("ไฟล์นี้ไม่ใช่ฐานข้อมูลของ No-code Builder");
  const tables=db.prepare("SELECT name,label FROM _tables ORDER BY name").all() as {name:string;label:string}[];
  if(tables.length>2000)throw Error("ไฟล์สำรองมีตารางมากเกินกว่าระบบกู้คืนรองรับ");
@@ -75,30 +79,37 @@ export function inspectBackup(sourceFile:string,stageFile:string):RestoreSummary
    for(const v of destination.prepare("SELECT table_name,columns_json,display_json FROM _views").all() as {table_name:string;columns_json:string;display_json:string}[]){if(!schemas[v.table_name])throw Error("View อ้างอิงตารางที่ไม่มีในไฟล์สำรอง");const names=JSON.parse(v.columns_json);if(!Array.isArray(names)||names.some(n=>!schemas[v.table_name].some(c=>c.name===n)))throw Error("คอลัมน์ของ View ในไฟล์สำรองไม่ถูกต้อง");validateDisplay(JSON.parse(v.display_json),schemas[v.table_name]);}
    const viewRegistry=destination.prepare("SELECT name,kind,position,display_json FROM _views").all() as any[];for(const v of viewRegistry)validateSpecialView(v.kind,JSON.parse(v.display_json),viewRegistry,v.name);
    for(const a of destination.prepare("SELECT * FROM _actions").all() as any[]){if(!Object.hasOwn(ACTION_KINDS,a.kind)||!schemas[a.table_name])throw Error("Action ในไฟล์สำรองไม่ถูกต้อง");appearance(JSON.parse(a.appearance_json||"{}"),a.kind);const config=JSON.parse(a.config_json||"{}"),values=JSON.parse(a.values_json||"{}");if(!values||typeof values!=="object"||Array.isArray(values))throw Error("สูตรค่าของ Action ในไฟล์สำรองไม่ถูกต้อง");for(const [name,formula] of Object.entries(values)){if(!schemas[a.table_name].some(c=>c.name===name&&!c.is_virtual))throw Error("Action อ้างอิงคอลัมน์ที่ไม่มีในไฟล์สำรอง");assertFormulas([...schemas[a.table_name],{name:"action_check",label:"Action",type:"text",show_if:formula as string}],schemas);}assertFormulas([...schemas[a.table_name],{name:"action_check",label:"Action",type:"text",show_if:a.condition_expr}],schemas);if(["open_url","call","sms","email"].includes(a.kind)){if(typeof config.url_expr!=="string"||!config.url_expr.trim())throw Error("Action ลิงก์ในไฟล์สำรองไม่มีสูตร");assertFormulas([...schemas[a.table_name],{name:"action_check",label:"Action",type:"text",show_if:config.url_expr}],schemas);}if(["open_view","edit_form","new_form","open_detail"].includes(a.kind)&&!destination.prepare("SELECT 1 FROM _views WHERE name=? AND position<>'inline'").get(config.view_name))throw Error("Action ในไฟล์สำรองเปิด View ที่ไม่มีอยู่");for(const formula of actionConfigExpressions(config))assertFormulas([...schemas[a.table_name],{name:"action_check",label:"Action",type:"text",show_if:formula}],schemas);if(a.kind==="new_form"){const target=destination.prepare("SELECT table_name FROM _views WHERE name=?").get(config.view_name) as any;for(const name of Object.keys(config.initial_values||{}))if(!schemas[target?.table_name]?.some(c=>c.name===name&&!c.is_virtual))throw Error("ค่าตั้งต้นฟอร์มอ้างอิงคอลัมน์ปลายทางที่ไม่มีอยู่");}if(a.kind==="grouped"){if(!Array.isArray(config.actions)||!config.actions.length||config.actions.length>10||new Set(config.actions).size!==config.actions.length)throw Error("ชุด Action ในไฟล์สำรองไม่ถูกต้อง");for(let i=0;i<config.actions.length;i++){const child=destination.prepare("SELECT * FROM _actions WHERE name=?").get(config.actions[i]) as any;if(!child||child.table_name!==a.table_name||!["set","copy","add","delete"].includes(child.kind)||child.kind==="delete"&&i!==config.actions.length-1)throw Error("ขั้นตอนในชุด Action ไม่ถูกต้อง");}}}
+   validateStoredWorkflows(destination);
    const raw=destination.prepare("SELECT * FROM _app_settings WHERE id=1").get() as any;if(!raw)throw Error("ไม่พบการตั้งค่าแอพในไฟล์สำรอง");validateSettings({...raw,display_defaults:JSON.parse(raw.display_defaults_json)},DEFAULT_SETTINGS);
   });
   if(destination.pragma("integrity_check",{simple:true})!=="ok")throw Error("ตรวจข้อมูลหลังเตรียมกู้คืนไม่ผ่าน กรุณาเลือกไฟล์สำรองอื่น");
   const resultTables=tables.map(t=>({...t,rows:(destination.prepare(`SELECT COUNT(*) AS n FROM "t_${t.name}"`).get() as {n:number}).n}));
-  return {tables:resultTables,rows:resultTables.reduce((n,t)=>n+t.rows,0),images:(destination.prepare("SELECT COUNT(*) AS n FROM _images").get() as {n:number}).n,views:(destination.prepare("SELECT COUNT(*) AS n FROM _views").get() as {n:number}).n,appName:(destination.prepare("SELECT name FROM _app_settings WHERE id=1").get() as {name:string}).name};
+  return {tables:resultTables,rows:resultTables.reduce((n,t)=>n+t.rows,0),files:(destination.prepare("SELECT COUNT(*) AS n FROM _files").get() as {n:number}).n,images:(destination.prepare("SELECT COUNT(*) AS n FROM _images").get() as {n:number}).n,views:(destination.prepare("SELECT COUNT(*) AS n FROM _views").get() as {n:number}).n,appName:(destination.prepare("SELECT name FROM _app_settings WHERE id=1").get() as {name:string}).name};
  }catch(e){if(e instanceof Error && /[ก-๙]/.test(e.message))throw e;throw Error("ไฟล์สำรองเสียหายหรือโครงสร้างไม่รองรับ กรุณาเลือกไฟล์สำรองของ No-code Builder");}finally{stage?.close();source.close();}
 }
 // Replace logical contents inside one SQLite transaction; keep the live file/connection intact.
 export function restoreBackup(db:Database.Database,path:string,stageFile:string){
  const stage=new Database(stageFile,{readonly:true,fileMustExist:true});try{
-  supportedTables(db);const tables=supportedTables(stage),schema=objects(stage),tableObjects=schema.filter(o=>o.type==="table"&&o.name!=="sqlite_sequence"&&!AUTH_TABLES.includes(o.name));
+  supportedTables(db);const tables=supportedTables(stage),schema=objects(stage),tableObjects=schema.filter(o=>o.type==="table"&&o.name!=="sqlite_sequence"&&!AUTH_TABLES.includes(o.name)&&o.name!=="_audit_log");
   const before=createBackup(db,path,"restore");
   db.prepare("ATTACH DATABASE ? AS restore_snapshot").run(stageFile);
-  try{foreignKeyTransaction(db,()=>{
-   for(const obj of objects(db).filter(o=>o.type==="table"&&o.name!=="sqlite_sequence"&&!AUTH_TABLES.includes(o.name)))db.prepare(`DROP TABLE "${obj.name}"`).run();
+  try{withoutAudit(()=>foreignKeyTransaction(db,()=>{
+   removeAuditTriggers(db);
+   for(const obj of objects(db).filter(o=>o.type==="table"&&o.name!=="sqlite_sequence"&&!AUTH_TABLES.includes(o.name)&&o.name!=="_audit_log"))db.prepare(`DROP TABLE "${obj.name}"`).run();
    for(const obj of tableObjects){if(!META.includes(obj.name)&&!tables.some(t=>`t_${t.name}`===obj.name))throw Error("โครงสร้างไฟล์ที่เตรียมกู้คืนไม่ถูกต้อง");db.exec(obj.sql!);const cols=(stage.pragma(`table_info('${obj.name}')`) as {name:string}[]).map(c=>`"${c.name}"`).join(",");db.prepare(`INSERT INTO main."${obj.name}"(${cols}) SELECT ${cols} FROM restore_snapshot."${obj.name}"`).run();}
    db.prepare("DELETE FROM main.sqlite_sequence WHERE name NOT IN ('_users','_sessions','_auth_attempts')").run();db.prepare("INSERT INTO main.sqlite_sequence(name,seq) SELECT name,seq FROM restore_snapshot.sqlite_sequence WHERE name NOT IN ('_users','_sessions','_auth_attempts')").run();
    db.prepare("DELETE FROM _sessions").run();
+   db.prepare("UPDATE _automations SET enabled=0").run();
+   db.prepare("UPDATE _automation_jobs SET status='cancelled',error='กู้คืนฐานข้อมูล กรุณาตรวจการตั้งค่าและสั่งงานใหม่' WHERE status IN ('queued','running')").run();
    db.prepare("DELETE FROM _role_row_rules WHERE table_name NOT IN (SELECT name FROM _tables)").run();
    db.prepare("DELETE FROM _role_tables WHERE table_name NOT IN (SELECT name FROM _tables)").run();
    db.prepare("DELETE FROM _role_actions WHERE action_name NOT IN (SELECT name FROM _actions)").run();
+   db.prepare("DELETE FROM _file_uploads WHERE file_id NOT IN (SELECT id FROM _files)").run();
    db.prepare("DELETE FROM _image_uploads WHERE image_id NOT IN (SELECT id FROM _images)").run();
-   for(const obj of schema.filter(o=>o.type==="index"&&o.sql&&!AUTH_TABLES.includes(o.tbl_name)))db.exec(obj.sql!);
-  });}finally{db.prepare("DETACH DATABASE restore_snapshot").run();}
+   if(stage.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get()){const fields=(db.pragma("table_info('_audit_log')") as {name:string}[]).map(c=>`"${c.name}"`).join(",");db.prepare(`INSERT OR IGNORE INTO main._audit_log(${fields}) SELECT ${fields} FROM restore_snapshot._audit_log`).run();}
+   for(const obj of schema.filter(o=>o.type==="index"&&o.sql&&!AUTH_TABLES.includes(o.tbl_name)&&o.tbl_name!=="_audit_log"))db.exec(obj.sql!);
+   installAuditing(db);
+  }));}finally{db.prepare("DETACH DATABASE restore_snapshot").run();}
   return before;
  }finally{stage.close();}
 }

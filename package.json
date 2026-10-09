@@ -21,7 +21,8 @@
     "test:grid": "node scripts/integration.cjs grid",
     "test:dropdown": "node scripts/integration.cjs dropdown",
     "test:permissions": "node scripts/integration.cjs permissions",
-    "test:user-formulas": "node scripts/integration.cjs userformulas"
+    "test:user-formulas": "node scripts/integration.cjs userformulas",
+    "test:workflows": "node scripts/integration.cjs workflows"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
@@ -29,7 +30,8 @@
     "leaflet": "^1.9.4",
     "next": "14.2.15",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "playwright": "1.63.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

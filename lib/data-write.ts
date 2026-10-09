@@ -1,11 +1,13 @@
+import {recordWorkflowEvent} from "./workflows";
 import {writeChildGroups,assertParentParts} from "./part-of-records";
 import { AuthError } from "./auth";
 import { db, columnsOf, tableExists } from "./db";
-import { calculateInsertRow, assertEditableChanges, validateRow } from "./columns";
+import { calculateInsertRow, applyEditResets, assertEditableChanges, validateRow } from "./columns";
 import { assertTablePermission, assertReferenceWrites, currentUser } from "./permissions";
 import { assertRowAllowed } from "./row-access";
 import { expressionContext } from "./expression-context";
 import { assertUniqueRow } from "./unique";
+import {checkFiles} from "./files";
 import { checkImages } from "./images";
 import { checkLists } from "./lists";
 import { cascadeEnumListValues } from "./enumlist-reference-updates";
@@ -34,11 +36,14 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         assertReferenceWrites(cols, candidate, old);
         if (old)
             assertEditableChanges(cols, old, candidate, now, email, context);
-        const row = validateRow(cols, candidate, now, email, context);
+        const resetCandidate=old?applyEditResets(cols,old,candidate,now,email,context).row:candidate;
+        assertReferenceWrites(cols, resetCandidate, old);
+        const row = validateRow(cols, resetCandidate, now, email, context);
         if (id)
             assertRowAllowed(table, row, "update");
         assertUniqueRow(db, table, cols, row, id);
         checkImages(cols, row);
+        checkFiles(cols,row);
         checkLists(cols, row);
         for(const c of cols.filter(c=>c.is_part_of&&c.ref_table)){for(const parentId of [old?.[c.name],row[c.name]])if(parentId)options.parents!.set(c.ref_table+":"+parentId,{table:c.ref_table!,id:Number(parentId)});}
         const validateParents=()=>{if(options.depth===0)for(const parent of options.parents!.values())assertParentParts(parent.table,parent.id);};
@@ -49,6 +54,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
             cascadeEnumListValues(db, table, cols, old!, row);
             writeChildGroups(table,id,body.__children,options);
             validateParents();
+            recordWorkflowEvent(table,"update",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(id) as Record<string,any>,old);
             return { id, ok: true };
         }
         const result = keys.length ? db.prepare(`INSERT INTO "t_${table}"(${keys.map(k => `"${k}"`).join(',')}) VALUES(${keys.map(k => '@' + k).join(',')})`).run(values) : db.prepare(`INSERT INTO "t_${table}" DEFAULT VALUES`).run();
@@ -56,6 +62,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         assertRowAllowed(table, { ...row, id: newId }, "create");
         writeChildGroups(table,newId,body.__children,options);
         validateParents();
+        recordWorkflowEvent(table,"create",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(newId) as Record<string,any>);
         return { id: newId };
     })();
 }

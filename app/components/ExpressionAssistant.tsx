@@ -1,9 +1,10 @@
 "use client";
+import FormulaEditor from "@/app/components/FormulaEditor";
 import {useAuth} from "./AuthProvider";
 import SearchSelect from "@/app/components/SearchSelect";
 import { useEffect, useRef, useState } from "react";
 import { calculateRow, Column, FormulaField, FORMULA_LABELS, formulaErrors, normalizeValue, refTablesOf } from "@/lib/columns";
-import { asBoolean, evaluateExpression, references } from "@/lib/expression";
+import { asBoolean, evaluateExpression, references, formatFormula } from "@/lib/expression";
 import EditorDialog from "./EditorDialog";
 import Icon from "./Icon";
 const EXAMPLES: { name: string; formula: string; fields?: FormulaField[] }[] = [
@@ -33,7 +34,9 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
   const candidate = columns.map(c => c.name === column.name ? { ...c, [field]: source } : c);
   const independentError = () => { try { if (!source.trim()) return "กรุณากรอกสูตร"; const names = new Set(["id", ...columns.map(c=>c.name)]); for (const n of references(source)) if (!names.has(n)) return `ไม่พบคอลัมน์ [${n}]`; return ""; } catch(e) { return (e as Error).message; } };
   const error = contextLabel ? independentError() : source.trim() ? formulaErrors(candidate, tables.length ? Object.fromEntries(tables.filter(t => t.columns).map(t => [t.name, t.columns!])) : undefined)[`${column.name}.${field}`] : field === "virtual_expr" ? "ช่องคำนวณต้องมีสูตร" : "";
-  const change = (value: string) => { setSource(value); setResult(null); };
+  const [formatError,setFormatError]=useState("");
+  const change = (value: string) => { setSource(value); setResult(null); setFormatError(""); };
+  const format=()=>{try{change(formatFormula(source));requestAnimationFrame(()=>{input.current?.focus();input.current?.setSelectionRange(0,0);});}catch(e){setFormatError("จัดรูปแบบสูตรไม่ได้: "+(e as Error).message);}};
   const insert = (value: string) => {
     const start = input.current?.selectionStart ?? source.length, end = input.current?.selectionEnd ?? source.length;
     change(source.slice(0, start) + value + source.slice(end));
@@ -47,15 +50,16 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
       const options = { ...expressionUser, tables: data, userEmail: sampleEmail, refTables: refTablesOf(columns) };
       const { row } = calculateRow(columns, samples, true, new Date(), true, sampleEmail, options);
       const value = evaluateExpression(source, { ...row, _THIS: row[column.name] ?? null }, options);
-      if (["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enum","enumlist","list"].includes(column.type) && Array.isArray(value))) asBoolean(value);
+      if (["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enum","enumlist","list","ref"].includes(column.type) && Array.isArray(value))) asBoolean(value);
       else if (!["show_if", "valid_if", "required_if"].includes(field)) normalizeValue(column, value);
       setResult({ value: value === null ? "ค่าว่าง" : typeof value === "boolean" ? value ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(value) ? JSON.stringify(value) : String(value) });
     } catch (e) { setResult({ error: e instanceof Error ? e.message : "ทดสอบสูตรไม่ได้" }); }
   };
   return <EditorDialog title="ตัวช่วยเขียนสูตร" subtitle={contextLabel || `${column.label || column.name} · ${FORMULA_LABELS[field]}`} onClose={onClose} wide
     footer={<><button onClick={onClose}>ยกเลิก</button><button className="primary" disabled={!!error} onClick={() => onApply(source.trim())}><Icon name="check"/>ใช้สูตรนี้</button></>}>
-    <label className="field-label" htmlFor="assistant-source">สูตร</label>
-    <textarea ref={input} id="assistant-source" className="formula-source" rows={4} spellCheck={false} autoFocus value={source} placeholder="เช่น [qty] * [price]" aria-invalid={!!error} onChange={e => change(e.target.value)} />
+    <div className="formula-source-heading"><label className="field-label" htmlFor="assistant-source">สูตร</label><button type="button" className="formula-format-button" aria-label="จัดรูปแบบสูตร" title="จัดบรรทัดและเยื้องสูตรให้อ่านง่าย" disabled={!source.trim()} onClick={format}>{"<>"}</button></div>
+    <FormulaEditor ref={input} id="assistant-source" className="formula-source" rows={4} spellCheck={false} autoFocus value={source} placeholder="เช่น [qty] * [price]" aria-invalid={!!error} onChange={e => change(e.target.value)} />
+    {formatError&&<p className="err" role="alert">{formatError}</p>}
     <div className={`syntax-status ${error ? "err" : "success"}`} role="status"><Icon name={error ? "close" : "check"}/>{error || (source.trim() ? "รูปแบบสูตรถูกต้อง" : "ยังไม่ได้กำหนดสูตร")}</div>
     <p className="hint">ใช้ชื่อในระบบใน [ ] และใส่ข้อความในเครื่องหมายคำพูด ค่าทดสอบด้านล่างไม่บันทึกลงตาราง</p>
     <div className="assistant-tabs" role="tablist" aria-label="เครื่องมือสูตร">{[["columns", "คอลัมน์"], ["tables", "ตาราง"], ["account", "บัญชีและค่าตั้งค่า"], ["examples", "ตัวอย่าง"], ["test", "ลองคำนวณ"]].map(([value, label]) => <button key={value} role="tab" aria-selected={tab === value} onClick={() => setTab(value)}>{label}</button>)}</div>

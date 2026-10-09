@@ -1,16 +1,13 @@
+import {enqueueManual} from "./workflows";
 import {deleteRecord} from "./delete-record";
 import {writeRecord} from "./data-write";
 import {communicationUrl,safeActionUrl,type ActionAppearance,type ActionConfig,type ActionKind,actionPermission} from "./action-config";
 import {assertRowAllowed,rowAllowed} from "./row-access";
 import {canRead,canExecuteAction,assertReferenceWrites,assertTablePermission} from "./permissions";
-import {assertUniqueRow} from "./unique";
-import {cascadeEnumListValues} from "./enumlist-reference-updates";
 import { columnsOf, db, tableExists } from "./db";
-import { normalizeValue, assertIdentifier, assertEditableChanges, calculateRow, validateRow, assertFormulas, refTablesOf, evaluateColumnExpression } from "./columns";
+import { normalizeValue, assertIdentifier, calculateRow, assertFormulas, refTablesOf, evaluateColumnExpression } from "./columns";
 import { asBoolean, evaluateExpression, references, tableReferences, ExpressionContext } from "./expression";
-import { checkImages } from "./images";
 import { expressionContext } from "./expression-context";
-import { checkLists, checkListDelete } from "./lists";
 export type Slice = { name: string; label: string; table_name: string; filter_expr: string; columns: string[] };
 export type RowAction = { name: string; label: string; table_name: string; kind: ActionKind;config?:ActionConfig;appearance?:ActionAppearance; condition_expr: string; values: Record<string, string>; confirmation: string };
 export function checkFormula(table: string, source: unknown) {
@@ -46,6 +43,7 @@ export function executeAction(name: string, id: number, userEmail: string, slice
     const { row } = calculateRow(cols, old, false, now, false, userEmail, context);
     if (slice && !matches(slice.filter_expr, row, userEmail, t, context)) throw new Error("แถวนี้ไม่อยู่ใน Slice ที่เปิดอยู่");
     if (!matches(a.condition_expr, row, userEmail, t, context)) throw new Error("แถวนี้ไม่ตรงเงื่อนไขของ Action กรุณาโหลดข้อมูลใหม่");
+    if(a.kind==="automation")return {ok:true,job_id:enqueueManual(a.config?.automation_name||"",id),message:"เพิ่มงาน Automation ในคิวแล้ว"};
     if(a.kind==="grouped"){const names=a.config?.actions;if(!Array.isArray(names)||!names.length||names.length>10)throw Error("เลือก Action 1–10 รายการ");for(let i=0;i<names.length;i++){const child=actions().find(item=>item.name===names[i]);if(!child||child.table_name!==t||!["set","add","copy","delete"].includes(child.kind)||child.kind==="delete"&&i!==names.length-1)throw Error("Action ย่อยต้องเป็นการเปลี่ยน/เพิ่ม/คัดลอกข้อมูลในตารางเดียวกัน และลบได้เฉพาะขั้นตอนสุดท้าย");executeAction(child.name,id,userEmail,sliceName);}return {ok:true,deleted:actions().find(item=>item.name===names[names.length-1])?.kind==="delete"};}
     if(["call","sms","email"].includes(a.kind))return {ok:true,url:communicationUrl(a.kind,evaluateExpression(a.config?.url_expr||'""',row,{...context,userEmail,refTables:refTablesOf(cols)}))};
     if(a.kind==="open_url")return {ok:true,url:safeActionUrl(evaluateExpression(a.config?.url_expr||'""',row,{...context,userEmail,refTables:refTablesOf(cols)}))};
@@ -61,17 +59,7 @@ export function executeAction(name: string, id: number, userEmail: string, slice
         if (!c) throw new Error("Action อ้างอิงคอลัมน์ที่แก้ไขไม่ได้ กรุณาแก้การตั้งค่า Action");
         candidate[column] = evaluateColumnExpression(c,expr,row,{ ...context, refTables: refTablesOf(cols), now, userEmail });
       }
-      assertReferenceWrites(cols,candidate,old);
-      assertEditableChanges(cols, old, candidate, now, userEmail, context);
-      assertRowAllowed(t,candidate,"update");
-      const valid = validateRow(cols, candidate, now, userEmail, context);
-      assertUniqueRow(db,t,cols,valid,id);
-      checkImages(cols, valid);
-      checkLists(cols, valid);
-      const physical = cols.filter(c => !c.is_virtual);
-      const values = Object.fromEntries(physical.map(c => [c.name, ["enumlist","list"].includes(c.type) ? JSON.stringify(valid[c.name] ?? []) : valid[c.name]]));
-      if (physical.length) db.prepare(`UPDATE "t_${t}" SET ${physical.map(c => `"${c.name}"=@${c.name}`).join(",")} WHERE id=@__id`).run({ ...values, __id: id });
-      cascadeEnumListValues(db,t,cols,old,valid);
+      writeRecord(t,Object.fromEntries(Object.keys(a.values).map(name=>[name,candidate[name]])),id);
     }
     return { ok: true };
   })();

@@ -2,7 +2,7 @@ import {assertImageAccess} from "./permissions";
 import { db } from "./db";
 import type { Column } from "./columns";
 export function checkImages(cols: Column[], row: Record<string, unknown>) {
-  for (const c of cols.filter(c => c.type === "image" && !c.is_virtual)) {
+  for (const c of cols.filter(c => ["image","signature"].includes(c.type) && !c.is_virtual)) {
     const value = row[c.name];
     if(typeof value==="string"&&value)assertImageAccess(value.slice("/api/images/".length));
     if (typeof value === "string" && value && !db.prepare("SELECT 1 FROM _images WHERE id=?").get(value.slice("/api/images/".length)))

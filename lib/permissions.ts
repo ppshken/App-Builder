@@ -21,7 +21,7 @@ export function assertTablePermission(table:string,operation:keyof TableAccess){
 export function canExecuteAction(action:{name:string;table_name:string;kind:string}){const a=currentAccess();return tableAccess(a,action.table_name).read && tableAccess(a,action.table_name)[actionPermission(action.kind)] && (a.owner||a.builder||a.actions.includes(action.name));}
 export function assertImageAccess(id:string){
  const access=currentAccess();if(access.owner||access.builder)return;
- let referenced=false;for(const {name} of db.prepare("SELECT name FROM _tables").all() as {name:string}[])for(const c of columnsOf(name).filter(c=>c.type==="image"&&!c.is_virtual)){
+ let referenced=false;for(const {name} of db.prepare("SELECT name FROM _tables").all() as {name:string}[])for(const c of columnsOf(name).filter(c=>["image","signature"].includes(c.type)&&!c.is_virtual)){
   const rows=db.prepare('SELECT * FROM "t_'+name+'" WHERE "'+c.name+'"=?').all('/api/images/'+id) as any[];if(rows.length){referenced=true;if(canRead(name)&&rows.some(row=>rowAllowed(name,row)))return;}
  }
  if(!referenced && Object.values(access.tables).some(t=>t.read&&(t.create||t.update)) && db.prepare("SELECT 1 FROM _image_uploads WHERE image_id=? AND user_id=?").get(id,currentUser()?.id))return;
@@ -30,3 +30,5 @@ export function assertImageAccess(id:string){
 
 import type {Column} from "./columns";
 export function assertReferenceWrites(cols:Column[],row:Record<string,unknown>,before:Record<string,unknown>={}){for(const c of cols.filter(c=>!c.is_virtual&&c.ref_table&&(c.type==="ref"||c.type==="list"))){const normalize=(v:unknown)=>{if(c.type==="list"&&typeof v==="string"){try{return JSON.parse(v);}catch{}}return v;};const value=normalize(row[c.name]),old=normalize(before[c.name]);if(value!=null&&value!==""&&(!Array.isArray(value)||value.length)&&JSON.stringify(value)!==JSON.stringify(old))assertTablePermission(c.ref_table!,"read");if(value!=null&&value!==""&&JSON.stringify(value)!==JSON.stringify(old)){for(const id of Array.isArray(value)?value:[value]){const target=db.prepare(`SELECT * FROM "t_${c.ref_table}" WHERE id=?`).get(id) as any;if(target)assertRowAllowed(c.ref_table!,target);}}}}
+
+export function assertFileAccess(id:string){const access=currentAccess();if(access.owner||access.builder)return;let referenced=false;for(const {name} of db.prepare("SELECT name FROM _tables").all() as {name:string}[])for(const c of columnsOf(name).filter(c=>c.type==="file"&&!c.is_virtual)){const rows=db.prepare('SELECT * FROM "t_'+name+'" WHERE "'+c.name+'"=?').all('/api/files/'+id) as Record<string,any>[];if(rows.length){referenced=true;if(canRead(name)&&rows.some(row=>rowAllowed(name,row)))return;}}if(!referenced&&Object.values(access.tables).some(t=>t.read&&(t.create||t.update))&&db.prepare('SELECT 1 FROM _file_uploads WHERE file_id=? AND user_id=?').get(id,currentUser()?.id))return;throw new AuthError('ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้',403);}

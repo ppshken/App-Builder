@@ -56,3 +56,22 @@ test('data changed before entering the write transaction cannot be converted usi
  const db=fixture();try{table(db,'items',[text],[{value:'1'}]);const request={column:'value',mode:'replace',target:{type:'decimal'}},fingerprint=conversionFingerprint(db);assert.equal(previewConversion(db,'items',request).allowed,true);db.prepare("UPDATE t_items SET value='2'").run();assert.throws(()=>applyConversion(db,'items',request,fingerprint),/ข้อมูลเปลี่ยน/);assert.equal(db.prepare('SELECT value FROM t_items').get().value,'2');assert.equal(db.prepare("SELECT type FROM _columns WHERE name='value'").get().type,'text');assert.equal(db.pragma('foreign_keys',{simple:true}),1);
  }finally{db.close();}
 });
+
+test('audited databases allow empty Image to Signature conversion without auditing previews',()=>{
+ const {installAuditing}=require('../.test-build/audit-schema.js');
+ const {withAuditActor}=require('../.test-build/audit-context.js');
+ const db=fixture();try{
+ table(db,'inspection',[{name:'title',type:'text',is_label:1},{name:'driver_signature',type:'image'}],[{id:3,title:'สาม',driver_signature:null},{id:4,title:'สี่',driver_signature:null}]);
+ installAuditing(db);
+ withAuditActor({id:1,name:'Owner',email:'owner@example.com',role:'owner'},'conversion-test',()=>{
+ const request={column:'driver_signature',mode:'replace',target:{type:'signature'}},fingerprint=conversionFingerprint(db);
+ const report=previewConversion(db,'inspection',request);
+ assert.equal(report.allowed,true,JSON.stringify(report));assert.equal(report.converted,2);
+ assert.equal(conversionFingerprint(db),fingerprint);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _audit_log').get().n,0);
+ applyConversion(db,'inspection',request,fingerprint);
+ assert.deepEqual(db.prepare('SELECT id,driver_signature FROM t_inspection ORDER BY id').all(),[{id:3,driver_signature:null},{id:4,driver_signature:null}]);
+ assert.equal(db.prepare("SELECT type FROM _columns WHERE name='driver_signature'").get().type,'signature');
+ assert.ok(db.prepare('SELECT COUNT(*) AS n FROM _audit_log').get().n>0);
+ });
+ }finally{db.close();}
+});

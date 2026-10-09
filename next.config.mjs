@@ -1,1 +1,1 @@
-export default { distDir: process.env.NOCODE_BUILD_DIR || ".next", experimental: { serverComponentsExternalPackages: ["better-sqlite3"] } };
+export default { distDir: process.env.NOCODE_BUILD_DIR || ".next", experimental: { instrumentationHook:true, serverComponentsExternalPackages: ["better-sqlite3","playwright","playwright-core"] } };

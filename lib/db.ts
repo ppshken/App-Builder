@@ -1,3 +1,4 @@
+import {installAuditing} from "./audit-schema";
 ﻿import Database from "better-sqlite3";
 import { resolve } from "node:path";
 import { labelTextColumn, IDENT, SQLTYPE, Column } from "./columns";
@@ -7,16 +8,16 @@ export const databasePath = process.env.NOCODE_DB_PATH ? resolve(process.env.NOC
 const path = databasePath;
 export function databaseGeneration(){return (globalThis as any).__nocodeDbGeneration || 0;}
 export function markDatabaseRestored(){(globalThis as any).__nocodeDbGeneration = databaseGeneration()+1;}
-const schemaVersion = "part-of-forms-v1";
+const schemaVersion = "file-paths-v1";
 const g = globalThis as typeof globalThis & { __nocodeDb?: { path: string; db: Database.Database; version?: string } };
 function connection() {
   if (!g.__nocodeDb || g.__nocodeDb.path !== path) {
     const opened = new Database(path);
-    try { initializeDatabase(opened, path); }
+    try { initializeDatabase(opened, path); installAuditing(opened); }
     catch (e) { opened.close(); throw e; }
     g.__nocodeDb = { path, db: opened, version: schemaVersion };
   } else if (g.__nocodeDb.version !== schemaVersion) {
-    initializeDatabase(g.__nocodeDb.db, path);
+    initializeDatabase(g.__nocodeDb.db, path); installAuditing(g.__nocodeDb.db);
     g.__nocodeDb.version = schemaVersion;
   }
   return g.__nocodeDb.db;

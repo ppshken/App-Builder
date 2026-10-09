@@ -1,3 +1,6 @@
+import {fileFolder} from './file-storage';
+import {WORKFLOW_SCHEMA} from "./workflow-schema";
+import {AUDIT_SCHEMA,registerAuditFunctions} from "./audit-schema";
 import {assertPartColumn} from "./part-of-config";
 import {imageFolder} from "./media-settings";
 import {AUTH_SCHEMA,migrateAuthRoles} from "./auth-schema";
@@ -5,14 +8,16 @@ import type Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {assertUniqueColumn,assertUniqueData,uniqueNonBlankSql} from "./unique";
-import { normalizeMaxLength, assertLabels, assertIdentifier, Column, FORMULA_FIELDS, SQLTYPE } from "./columns";
+import { normalizeMaxLength, assertResetConfig, assertLabels, assertIdentifier, Column, FORMULA_FIELDS, SQLTYPE } from "./columns";
 import { migrateListReferences } from "./list-reference-migration";
 
 export function readColumns(db: Database.Database, table: string): Column[] {
   assertIdentifier(table);
-  const cols = db.prepare("SELECT * FROM _columns WHERE table_name=? ORDER BY pos,id").all(table) as Column[];
+  const cols = db.prepare("SELECT * FROM _columns WHERE table_name=? ORDER BY pos,id").all(table) as (Column & {reset_columns_json?:string|null})[];
+  for(const c of cols){try{c.reset_columns=JSON.parse(c.reset_columns_json||'[]');}catch{throw Error('รายการคอลัมน์ที่เฝ้าดูไม่ถูกต้อง');}delete c.reset_columns_json;}
+  assertResetConfig(cols);
   for (const c of cols) {
-    assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);
+    assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);if(c.file_path)fileFolder(c.file_path);
     assertUniqueColumn(c);
     if (!Object.hasOwn(SQLTYPE, c.type)) throw new Error(`ชนิดข้อมูลของ "${c.label}" ไม่รองรับ`);
     if (c.type === "ref" || (["list", "enum", "enumlist"].includes(c.type) && c.ref_table)) assertIdentifier(c.ref_table);
@@ -79,6 +84,7 @@ export function foreignKeyTransaction(db: Database.Database, work: () => void) {
   } finally { db.pragma("foreign_keys = ON"); }
 }
 export function initializeDatabase(db: Database.Database, path: string) {
+  registerAuditFunctions(db);
   db.pragma("foreign_keys = ON");
   db.exec(`
     CREATE TABLE IF NOT EXISTS _tables(name TEXT PRIMARY KEY,label TEXT NOT NULL);
@@ -90,7 +96,9 @@ export function initializeDatabase(db: Database.Database, path: string) {
       UNIQUE(table_name,name));
   `);
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
-  const missing = ["is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if"].filter(name => !existing.has(name));
+  const missing = ["is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
+  const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
+  const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
   const actionFields=new Set((db.pragma("table_info('_actions')") as {name:string}[]).map(c=>c.name));
   const needActionConfig=!actionFields.has("config_json");
@@ -105,6 +113,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needVisibility = !viewFields.has("show_if");
   const needDisplay = !viewFields.has("display_json");
   const needInline = !viewFields.has("inline_ref");
+  const needFiles = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_files'").get() || !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_file_uploads'").get();
   const needImages = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_images'").get();
   const needImagePath=!(db.pragma("table_info('_images')") as {name:string}[]).some(c=>c.name==="storage_path");
   const needSettings = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_app_settings'").get();
@@ -118,18 +127,19 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
       mkdirSync(folder, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      db.prepare("VACUUM INTO ?").run(join(folder, `data.before-${needRowRules && !needRoles && !needAuth ? "row-permissions-actions" : needUserSettings && !needRoles && !needAuth ? "user-settings" : needRoles && !needAuth && !missing.length && !missingSettingsOptions.length ? "permissions" : needAuth && !missing.length && !needViews && !needFeatures && !needSettings && !missingSettingsOptions.length ? "authentication" : needListReferences && !missing.length && !needSettings && missingSettingsOptions.every(([name])=>name==="list_reference_version") ? "list-reference-ids" : missing.includes("is_part_of") ? "part-of" : missing.includes("max_length") ? "text-length" : missing.includes("gps_auto") ? "locations" : missing.includes("virtual_expr") ? "expressions" : missing.includes("is_editable") ? "editable-columns" : missing.includes("is_unique") ? "unique-columns" : missing.includes("list_limit") ? "related-lists" : needFeatures ? "slices-actions" : needViews || missing.length ? "views" : needSettings ? "app-settings" : needImages ? "images" : missingViewOptions.length ? "view-options" : needVisibility ? "view-visibility" : needDisplay ? "view-display" : needInline ? "inline-views" : missingSettingsOptions.some(([name])=>name==="display_defaults_json") ? "display-defaults" : "app-appearance"}-${stamp}.db`));
+      db.prepare("VACUUM INTO ?").run(join(folder, `data.before-${missing.includes("file_path") && !needSettings ? "file-paths" : needWorkflows && !needSettings ? "automation" : needFiles && !needImages ? "attachments" : missing.includes("reset_on_edit") ? "reset-on-edit" : needAudit && !needSettings ? "audit-log" : needRowRules && !needRoles && !needAuth ? "row-permissions-actions" : needUserSettings && !needRoles && !needAuth ? "user-settings" : needRoles && !needAuth && !missing.length && !missingSettingsOptions.length ? "permissions" : needAuth && !missing.length && !needViews && !needFeatures && !needSettings && !missingSettingsOptions.length ? "authentication" : needListReferences && !missing.length && !needSettings && missingSettingsOptions.every(([name])=>name==="list_reference_version") ? "list-reference-ids" : missing.includes("is_part_of") ? "part-of" : missing.includes("max_length") ? "text-length" : missing.includes("gps_auto") ? "locations" : missing.includes("virtual_expr") ? "expressions" : missing.includes("is_editable") ? "editable-columns" : missing.includes("is_unique") ? "unique-columns" : missing.includes("list_limit") ? "related-lists" : needFeatures ? "slices-actions" : needViews || missing.length ? "views" : needSettings ? "app-settings" : needImages ? "images" : missingViewOptions.length ? "view-options" : needVisibility ? "view-visibility" : needDisplay ? "view-display" : needInline ? "inline-views" : missingSettingsOptions.some(([name])=>name==="display_defaults_json") ? "display-defaults" : "app-appearance"}-${stamp}.db`));
     }
     foreignKeyTransaction(db, () => {
-      if (needAuth || needUserSettings || needRowRules) db.exec(AUTH_SCHEMA);
+      if(needWorkflows)db.exec(WORKFLOW_SCHEMA);
+      if (needFiles || needAuth || needUserSettings || needRowRules) db.exec(AUTH_SCHEMA);
       if (needRoles) migrateAuthRoles(db);
-      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["is_unique","gps_auto","max_length","is_part_of"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : "TEXT"}`).run();
+      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["is_unique","gps_auto","max_length","is_part_of","reset_on_edit"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "reset_columns_json" ? "TEXT NOT NULL DEFAULT '[]'" : "TEXT"}`).run();
       if (needViews) {
         db.exec(`CREATE TABLE _views(name TEXT PRIMARY KEY,label TEXT NOT NULL,table_name TEXT NOT NULL REFERENCES _tables(name) ON DELETE CASCADE,kind TEXT NOT NULL,position TEXT NOT NULL,pos INTEGER NOT NULL DEFAULT 0,columns_json TEXT NOT NULL DEFAULT '[]',sort_column TEXT NOT NULL DEFAULT 'id',sort_dir TEXT NOT NULL DEFAULT 'desc');`);
         for (const t of tables) {
@@ -148,6 +158,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if (needSettings) db.exec(`CREATE TABLE _app_settings(id INTEGER PRIMARY KEY CHECK(id=1),name TEXT NOT NULL,icon TEXT NOT NULL,color TEXT NOT NULL,mode TEXT NOT NULL);
         INSERT INTO _app_settings VALUES(1,'No-code Builder','grid','blue','auto');`);
       for (const [name,definition] of missingSettingsOptions) db.prepare(`ALTER TABLE _app_settings ADD COLUMN ${name} ${definition}`).run();
+      if(needFiles)db.exec("CREATE TABLE IF NOT EXISTS _files(id TEXT PRIMARY KEY,name TEXT NOT NULL,mime TEXT NOT NULL,data BLOB NOT NULL)");
       if (needImages) db.exec("CREATE TABLE _images(id TEXT PRIMARY KEY,mime TEXT NOT NULL,data BLOB NOT NULL)");
       if(needImagePath)db.exec("ALTER TABLE _images ADD COLUMN storage_path TEXT NOT NULL DEFAULT ''");
       for (const name of rebuild) rebuildTable(db, name);
@@ -156,5 +167,6 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if (needListReferences) migrateListReferences(db);
     });
   }
+  db.exec(AUDIT_SCHEMA);
   db.pragma("journal_mode = WAL");
 }

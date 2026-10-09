@@ -1,3 +1,4 @@
+import {fileFolder} from './file-storage';
 import {assertPartColumn,assertPartSchema} from "./part-of-config";
 import {imageFolder} from "./media-settings";
 import { normalizeMaxLength, assertLabels, assertFormulas, assertIdentifier, Column, FORMULA_FIELDS, SQLTYPE, FormulaSchema } from "./columns";
@@ -17,7 +18,8 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
     if(raw.gps_auto&&(raw.type!=="latlong"||raw.is_virtual))throw Error("ตำแหน่งปัจจุบันใช้กับช่องพิกัดที่กรอกข้อมูลจริงเท่านั้น");
     if(raw.gps_auto&&typeof raw.default_expr==="string"&&raw.default_expr.trim())throw Error("ช่องตำแหน่งปัจจุบันไม่ใช้สูตรค่าเริ่มต้น กรุณาลบสูตรก่อนเปิด GPS");
     assertPartColumn(raw);
-    const c: Column = {is_part_of:raw.is_part_of?1:0,part_show_if:raw.part_show_if?.trim()||null,part_add_if:raw.part_add_if?.trim()||null,part_valid_if:raw.part_valid_if?.trim()||null, max_length:normalizeMaxLength(raw.type,raw.max_length), gps_auto:raw.gps_auto?1:0,image_path:raw.type==="image"?imageFolder(raw.image_path??""):null,name: raw.name, label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : raw.name,
+    if(raw.reset_on_edit!==undefined&&![true,false,0,1].includes(raw.reset_on_edit))throw Error("Reset On Edit ต้องเป็นค่าเปิดหรือปิด");
+    const c: Column = {reset_on_edit:raw.reset_on_edit?1:0,reset_columns:raw.reset_columns??[],is_part_of:raw.is_part_of?1:0,part_show_if:raw.part_show_if?.trim()||null,part_add_if:raw.part_add_if?.trim()||null,part_valid_if:raw.part_valid_if?.trim()||null, max_length:normalizeMaxLength(raw.type,raw.max_length), gps_auto:raw.gps_auto?1:0,file_path:raw.type==='file'&&!raw.is_virtual?fileFolder(raw.file_path??''):null,image_path:raw.type==="image"?imageFolder(raw.image_path??""):null,name: raw.name, label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : raw.name,
       is_unique: raw.is_unique ? 1 : 0, is_editable: raw.is_virtual || raw.is_editable === 0 || raw.is_editable === false ? 0 : 1, type: raw.type, required: raw.required ? 1 : 0, pos, is_virtual: raw.is_virtual ? 1 : 0, is_key: raw.is_key ? 1 : 0, is_label: raw.is_label ? 1 : 0,
       options: ["enum", "enumlist"].includes(raw.type) && typeof raw.options === "string" ? [...new Set(raw.options.split(",").map((o: string) => o.trim()).filter(Boolean))].join(",") : null,
       ref_table: ["ref", "list", "enum", "enumlist"].includes(raw.type) ? raw.ref_table || null : null, list_limit: raw.list_limit ?? 5 };
@@ -45,12 +47,12 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
   return cols;
 }
 export function insertColumn(table: string, c: Column) {
-  db.prepare(`INSERT INTO _columns(table_name,name,label,type,options,ref_table,required,pos,is_virtual,is_key,is_label,list_limit,is_editable,is_unique,image_path,gps_auto,max_length,is_part_of,part_show_if,part_add_if,part_valid_if,${FORMULA_FIELDS.join(",")}) VALUES(${Array(21 + FORMULA_FIELDS.length).fill("?").join(",")})`)
-    .run(table, c.name, c.label, c.type, c.options ?? null, c.ref_table ?? null, c.required ? 1 : 0, c.pos ?? 0, c.is_virtual ? 1 : 0, c.is_key ? 1 : 0, c.is_label ? 1 : 0, c.list_limit ?? 5, c.is_editable === 0 || c.is_editable === false ? 0 : 1, c.is_unique ? 1 : 0, c.image_path||null, c.gps_auto?1:0, c.max_length??0,c.is_part_of?1:0,c.part_show_if||null,c.part_add_if||null,c.part_valid_if||null, ...FORMULA_FIELDS.map(f => c[f] ?? null));
+  db.prepare(`INSERT INTO _columns(table_name,name,label,type,options,ref_table,required,pos,is_virtual,is_key,is_label,list_limit,is_editable,is_unique,image_path,file_path,gps_auto,max_length,is_part_of,part_show_if,part_add_if,part_valid_if,reset_on_edit,reset_columns_json,${FORMULA_FIELDS.join(",")}) VALUES(${Array(24 + FORMULA_FIELDS.length).fill("?").join(",")})`)
+    .run(table, c.name, c.label, c.type, c.options ?? null, c.ref_table ?? null, c.required ? 1 : 0, c.pos ?? 0, c.is_virtual ? 1 : 0, c.is_key ? 1 : 0, c.is_label ? 1 : 0, c.list_limit ?? 5, c.is_editable === 0 || c.is_editable === false ? 0 : 1, c.is_unique ? 1 : 0, c.image_path||null, c.file_path||null, c.gps_auto?1:0, c.max_length??0,c.is_part_of?1:0,c.part_show_if||null,c.part_add_if||null,c.part_valid_if||null,c.reset_on_edit?1:0,JSON.stringify(c.reset_columns||[]), ...FORMULA_FIELDS.map(f => c[f] ?? null));
 }
 export function saveColumn(table: string, c: Column) {
-  db.prepare(`UPDATE _columns SET label=?,options=?,ref_table=?,list_limit=?,required=?,is_key=?,is_label=?,is_editable=?,is_unique=?,image_path=?,gps_auto=?,max_length=?,is_part_of=?,part_show_if=?,part_add_if=?,part_valid_if=?,${FORMULA_FIELDS.map(f => `${f}=?`).join(",")} WHERE table_name=? AND name=?`)
-    .run(c.label, c.options ?? null, c.ref_table ?? null, c.list_limit ?? 5, c.required ? 1 : 0, c.is_key ? 1 : 0, c.is_label ? 1 : 0, c.is_editable === 0 || c.is_editable === false ? 0 : 1, c.is_unique ? 1 : 0, c.image_path||null, c.gps_auto?1:0, c.max_length??0,c.is_part_of?1:0,c.part_show_if||null,c.part_add_if||null,c.part_valid_if||null, ...FORMULA_FIELDS.map(f => c[f] ?? null), table, c.name);
+  db.prepare(`UPDATE _columns SET label=?,options=?,ref_table=?,list_limit=?,required=?,is_key=?,is_label=?,is_editable=?,is_unique=?,image_path=?,file_path=?,gps_auto=?,max_length=?,is_part_of=?,part_show_if=?,part_add_if=?,part_valid_if=?,reset_on_edit=?,reset_columns_json=?,${FORMULA_FIELDS.map(f => `${f}=?`).join(",")} WHERE table_name=? AND name=?`)
+    .run(c.label, c.options ?? null, c.ref_table ?? null, c.list_limit ?? 5, c.required ? 1 : 0, c.is_key ? 1 : 0, c.is_label ? 1 : 0, c.is_editable === 0 || c.is_editable === false ? 0 : 1, c.is_unique ? 1 : 0, c.image_path||null, c.file_path||null, c.gps_auto?1:0, c.max_length??0,c.is_part_of?1:0,c.part_show_if||null,c.part_add_if||null,c.part_valid_if||null,c.reset_on_edit?1:0,JSON.stringify(c.reset_columns||[]), ...FORMULA_FIELDS.map(f => c[f] ?? null), table, c.name);
 }
 export function assertKeyData(table: string, cols: Column[]) {
   const key = cols.find(c => c.is_key);

@@ -1,3 +1,4 @@
+import {workflowDependency} from "@/lib/workflow-dependencies";
 import {actionConfigExpressions} from "@/lib/action-config";
 import {errorStatus} from "@/lib/api";
 import {withAuth} from "@/lib/auth-api";
@@ -57,11 +58,12 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
         break;
       }
       case "rename_column": {
+        const dependentWorkflow=workflowDependency(t,b.name);if(dependentWorkflow)throw Error("เปลี่ยนชื่อไม่ได้: "+dependentWorkflow+" ใช้คอลัมน์นี้อยู่ กรุณาปรับการตั้งค่าก่อน");
         if (!found) return bad("ไม่พบคอลัมน์", 404);
         assertIdentifier(b.new_name);
         if (cols.some(c => c.name === b.new_name)) return bad("มีคอลัมน์ชื่อนี้แล้ว");
         const renamed = cols.map(c => {
-          const out = { ...c, name: c.name === found.name ? b.new_name : c.name };
+          const out = { ...c, reset_columns:(c.reset_columns||[]).map(n=>n===found.name?b.new_name:n), name: c.name === found.name ? b.new_name : c.name };
           for (const field of FORMULA_FIELDS) out[field] = renameReference(renameReference(renameDereference(c[field] || "", t, found.name, b.new_name, refTablesOf(cols), referenceSchemas()), found.name, b.new_name), found.name, b.new_name, t);
           return out;
         });
@@ -80,6 +82,7 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
         break;
       }
       case "drop_column": {
+        const dependentWorkflow=workflowDependency(t,b.name);if(dependentWorkflow)throw Error("ลบไม่ได้: "+dependentWorkflow+" ใช้คอลัมน์นี้อยู่ กรุณาปรับการตั้งค่าก่อน");
         if (!found) return bad("ไม่พบคอลัมน์", 404);
         if (cols.length === 1) return bad("ต้องเหลืออย่างน้อย 1 คอลัมน์");
         if (found.is_key) return bad("กรุณายกเลิก Key หรือเลือก Key อื่นก่อนลบคอลัมน์นี้");
@@ -87,11 +90,13 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
         if (external) return bad(`ลบไม่ได้: สูตรของ "${external}" ใช้ ${t}[${found.name}] อยู่ กรุณาแก้สูตรก่อน`);
         const dependent = slices().find(s => s.table_name === t && references(s.filter_expr).includes(found.name))?.label || actions(t).find(a => Object.hasOwn(a.values, found.name) || [a.condition_expr,...actionConfigExpressions(a.config||{}), ...Object.values(a.values)].some(expr => expr.trim() && references(expr).includes(found.name)))?.label;
         if (dependent) return bad(`ลบไม่ได้: Slice หรือ Action "${dependent}" ใช้ [${found.name}] อยู่ กรุณาแก้การตั้งค่าก่อน`);
+        const resetUse=cols.find(c=>c.name!==found.name&&c.reset_on_edit&&c.reset_columns?.includes(found.name));if(resetUse)return bad(`ลบไม่ได้: Reset On Edit ของ "${resetUse.label}" เฝ้าดู [${found.name}] อยู่ กรุณาเปลี่ยนคอลัมน์ที่เฝ้าดูก่อน`);
         const used = cols.find(c => c.name !== found.name && FORMULA_FIELDS.some(f => c[f]?.trim() && references(c[f]!).includes(found.name)));
         if (used) return bad(`ลบไม่ได้: สูตรของ "${used.label}" ใช้ [${found.name}] อยู่ กรุณาแก้สูตรก่อน`);
         backupBeforeSchema();
         foreignKeyTransaction(db, () => {
           db.prepare("DELETE FROM _columns WHERE table_name=? AND name=?").run(t, found.name);
+          for(const c of cols.filter(c=>c.name!==found.name&&!c.reset_on_edit&&c.reset_columns?.includes(found.name)))saveColumn(t,{...c,reset_columns:c.reset_columns!.filter(n=>n!==found.name)});
           if (!found.is_virtual) rebuild(t);
           updateViewColumns(t, found.name); changeRelatedReference(t,found.name);
           for (const s of slices().filter(s => s.table_name === t)) db.prepare("UPDATE _slices SET columns_json=? WHERE name=?").run(JSON.stringify(s.columns.filter(n => n !== found.name)), s.name);
