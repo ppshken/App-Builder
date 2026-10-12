@@ -3,7 +3,8 @@ node_modules
 .next
 .next-tests
 .next-check
-backups/
+# Ignore generated database backups only, not app/backups or app/api/backups.
+/backups/
 .test-build/
 .test-data/
 *.tsbuildinfo
