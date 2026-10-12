@@ -1,3 +1,4 @@
+import {rowVersion} from "./row-version";
 import {db,columnsOf} from './db';import {labelTextColumn,labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';import {canRead} from './permissions';type Row=Record<string,any>;
 export function readRows(table: string, cols: Column[], now: Date, userEmail = "", context = expressionContext(now, userEmail), rawRows?: Row[]): Row[] {
   const label = labelTextColumn(cols),image=labelImageColumn(cols);
@@ -8,7 +9,7 @@ export function readRows(table: string, cols: Column[], now: Date, userEmail = "
       catch(e) { errors[c.name]=(e as Error).message; }
     }
     const businessKey=cols.find(c=>c.is_key);
-    return { ...row, __permissions:{update:rowAllowed(table,raw,"update"),delete:rowAllowed(table,raw,"delete")}, __label: row[label] ?? raw.id, __image:image?row[image]??null:null, __key: businessKey ? row[businessKey.name] ?? null : null, ...(Object.keys(errors).length ? { __errors: errors } : {}) };
+    return { ...row, __version:rowVersion(table,cols,raw), __permissions:{update:rowAllowed(table,raw,"update"),delete:rowAllowed(table,raw,"delete")}, __label: row[label] ?? raw.id, __image:image?row[image]??null:null, __key: businessKey ? row[businessKey.name] ?? null : null, ...(Object.keys(errors).length ? { __errors: errors } : {}) };
   });
 }
 

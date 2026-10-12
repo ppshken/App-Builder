@@ -27,6 +27,7 @@ async function main(){
  await page.getByRole('button',{name:'แก้ไขคอลัมน์ Name',exact:true}).click();await page.getByRole('dialog',{name:'แก้ไขคอลัมน์ Name',exact:true}).getByRole('button',{name:/เขียนสูตร.*เริ่มต้น/}).click();await expect(input).toHaveValue(source);
  await page.setViewportSize({width:390,height:844});await expect(input).toBeVisible();assert.ok(await editor.evaluate(el=>el.getBoundingClientRect().width<=window.innerWidth));await page.screenshot({path:'artifacts/formula-editor-mobile.png'});
  await page.evaluate(()=>document.documentElement.dataset.mode='dark');const dark=await editor.locator('.formula-token-function').first().evaluate(el=>getComputedStyle(el).color);assert.notEqual(dark,colors[0]);await page.screenshot({path:'artifacts/formula-editor-dark.png'});assert.deepEqual(errors,[]);
+
  console.log('PASS: token colors, compact line spacing, multiline/undo, both scroll axes, incomplete syntax, unchanged saved formula, mobile width and dark mode');
  }finally{await browser.close();}
 }main().catch(e=>{console.error(e);process.exitCode=1;});

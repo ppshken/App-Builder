@@ -22,8 +22,8 @@ const EXAMPLES: { name: string; formula: string; fields?: FormulaField[] }[] = [
   { name: "ตัวเลขตั้งแต่ศูนย์ขึ้นไป", formula: "[_THIS] >= 0", fields: ["valid_if"] },
   { name: "แสดงเสมอ / เงื่อนไขเป็นจริง", formula: "TRUE" }, { name: "เงื่อนไขเป็นเท็จ", formula: "FALSE" },
 ];
-export default function ExpressionAssistant({ column, columns, field, onApply, onClose, contextLabel, tables = [] }: {
-  column: Column; columns: Column[]; field: FormulaField; onApply: (value: string) => void; onClose: () => void; contextLabel?: string; tables?: { name: string; label: string; columns?: Column[] }[];
+export default function ExpressionAssistant({ column, columns, field, onApply, onClose, contextLabel, tables = [], busy=false, saveError="", applyLabel="ใช้สูตรนี้" }: {
+  column: Column; columns: Column[]; field: FormulaField; onApply: (value: string) => void|Promise<void>; busy?:boolean;saveError?:string;applyLabel?:string; onClose: () => void; contextLabel?: string; tables?: { name: string; label: string; columns?: Column[] }[];
 }) {
   const [source, setSource] = useState(column[field] || ""), [tab, setTab] = useState("columns"), [samples, setSamples] = useState<Record<string, any>>({});
   const {user,expressionUser}=useAuth();
@@ -55,10 +55,11 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
       setResult({ value: value === null ? "ค่าว่าง" : typeof value === "boolean" ? value ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(value) ? JSON.stringify(value) : String(value) });
     } catch (e) { setResult({ error: e instanceof Error ? e.message : "ทดสอบสูตรไม่ได้" }); }
   };
-  return <EditorDialog title="ตัวช่วยเขียนสูตร" subtitle={contextLabel || `${column.label || column.name} · ${FORMULA_LABELS[field]}`} onClose={onClose} wide
-    footer={<><button onClick={onClose}>ยกเลิก</button><button className="primary" disabled={!!error} onClick={() => onApply(source.trim())}><Icon name="check"/>ใช้สูตรนี้</button></>}>
-    <div className="formula-source-heading"><label className="field-label" htmlFor="assistant-source">สูตร</label><button type="button" className="formula-format-button" aria-label="จัดรูปแบบสูตร" title="จัดบรรทัดและเยื้องสูตรให้อ่านง่าย" disabled={!source.trim()} onClick={format}>{"<>"}</button></div>
-    <FormulaEditor ref={input} id="assistant-source" className="formula-source" rows={4} spellCheck={false} autoFocus value={source} placeholder="เช่น [qty] * [price]" aria-invalid={!!error} onChange={e => change(e.target.value)} />
+  return <EditorDialog title="ตัวช่วยเขียนสูตร" subtitle={contextLabel || `${column.label || column.name} · ${FORMULA_LABELS[field]}`} onClose={onClose} busy={busy} wide
+    footer={<><button disabled={busy} onClick={onClose}>ยกเลิก</button><button className="primary" disabled={!!error||busy} onClick={() => onApply(source.trim())}><Icon name="check"/>{busy?"กำลังบันทึก…":applyLabel}</button></>}>
+    {saveError&&<p className="error-banner" role="alert">{saveError}</p>}
+    <div className="formula-source-heading"><label className="field-label" htmlFor="assistant-source">สูตร</label><button type="button" className="formula-format-button" aria-label="จัดรูปแบบสูตร" title="จัดบรรทัดและเยื้องสูตรให้อ่านง่าย" disabled={busy||!source.trim()} onClick={format}>{"<>"}</button></div>
+    <FormulaEditor columns={columns} tables={tables} ref={input} disabled={busy} id="assistant-source" className="formula-source" rows={4} spellCheck={false} autoFocus value={source} placeholder="เช่น [qty] * [price]" aria-invalid={!!error} onChange={e => change(e.target.value)} />
     {formatError&&<p className="err" role="alert">{formatError}</p>}
     <div className={`syntax-status ${error ? "err" : "success"}`} role="status"><Icon name={error ? "close" : "check"}/>{error || (source.trim() ? "รูปแบบสูตรถูกต้อง" : "ยังไม่ได้กำหนดสูตร")}</div>
     <p className="hint">ใช้ชื่อในระบบใน [ ] และใส่ข้อความในเครื่องหมายคำพูด ค่าทดสอบด้านล่างไม่บันทึกลงตาราง</p>

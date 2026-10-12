@@ -55,6 +55,9 @@ async function write(req: Request, existing: boolean, preview = false) {
     if (!Array.isArray(b.columns) || b.columns.length > 200 || b.columns.some((c: unknown) => typeof c !== "string" || !names.has(c))) throw new Error("คอลัมน์ของมุมมองไม่ถูกต้อง กรุณาเลือกจากตารางนี้");
     if (b.sort_column !== "id" && !names.has(b.sort_column)) throw new Error("คอลัมน์เรียงข้อมูลไม่ถูกต้อง");
     if (!["asc", "desc"].includes(b.sort_dir) || !Number.isSafeInteger(b.pos) || b.pos < 0 || b.pos > 9999) throw new Error("ลำดับมุมมองต้องเป็น 0–9999");
+    const rawMenuGroup=b.menu_group===undefined?previous?.menu_group??"":b.menu_group;
+    if(typeof rawMenuGroup!=="string"||rawMenuGroup.length>100)throw Error("ชื่อกรุ๊ปเมนูต้องเป็นข้อความไม่เกิน 100 ตัวอักษร");
+    const menuGroup=b.position==="menu"?rawMenuGroup.trim():"";
     const icon = b.icon ?? previous?.icon ?? "", group = b.group_column ?? previous?.group_column ?? "", groupDir = b.group_dir ?? previous?.group_dir ?? "asc";
     if (icon !== "" && !VIEW_ICONS.some(([name]) => name === icon)) throw new Error("ไอคอนไม่ถูกต้อง กรุณาเลือกจากรายการ");
     if (group !== "" && group !== "id" && !names.has(group)) throw new Error("คอลัมน์จัดกลุ่มไม่ถูกต้อง กรุณาเลือกจากตารางหรือ Slice นี้");
@@ -66,11 +69,12 @@ async function write(req: Request, existing: boolean, preview = false) {
     if(existing&&(!["list","table","map","chart","calendar"].includes(b.kind)||b.position==="inline")&&db.prepare("SELECT 1 FROM _views WHERE name<>? AND EXISTS(SELECT 1 FROM json_each(json_extract(display_json,'$.dashboard_views')) WHERE value=?)").get(b.name,b.name))throw Error("View นี้ถูกใช้ในแดชบอร์ดอื่น กรุณานำออกก่อนเปลี่ยนชนิดหรือตำแหน่ง");
     const showIf = validateViewCondition(b.show_if === undefined ? previous?.show_if ?? "" : b.show_if, Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, columnsOf(t.name)])));
     if (showIf) viewIsVisible(showIf, { ...expressionContext(), userEmail:"" });
+    if(display.form_saved_action&&!(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.form_saved_action,b.table_name)))throw Error("กรุณาเลือก Action ของตารางนี้สำหรับหลังบันทึกฟอร์ม");
     if (display.row_click === "action" && !(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.row_action || "", b.table_name))) throw new Error("กรุณาเลือก Action ของตารางนี้สำหรับการคลิกแถว");
-    if(preview)return NextResponse.json({view:runtimeViewName({...b,label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,icon,group_column:group,group_dir:groupDir,display,show_if:showIf}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
-    const args = [b.label.trim(), b.table_name, b.kind, b.position, b.pos, JSON.stringify([...new Set(b.columns)]), b.sort_column, b.sort_dir, slice?.name || null, icon, group, groupDir, JSON.stringify(display), showIf, inlineRef, b.name];
-    if (existing) db.prepare("UPDATE _views SET label=?,table_name=?,kind=?,position=?,pos=?,columns_json=?,sort_column=?,sort_dir=?,slice_name=?,icon=?,group_column=?,group_dir=?,display_json=?,show_if=?,inline_ref=? WHERE name=?").run(...args);
-    else db.prepare("INSERT INTO _views(label,table_name,kind,position,pos,columns_json,sort_column,sort_dir,slice_name,icon,group_column,group_dir,display_json,show_if,inline_ref,name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(...args);
+    if(preview)return NextResponse.json({view:runtimeViewName({...b,label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,menu_group:menuGroup,icon,group_column:group,group_dir:groupDir,display,show_if:showIf}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
+    const args = [b.label.trim(), b.table_name, b.kind, b.position, b.pos, JSON.stringify([...new Set(b.columns)]), b.sort_column, b.sort_dir, slice?.name || null, icon, group, groupDir, JSON.stringify(display), showIf, inlineRef, menuGroup, b.name];
+    if (existing) db.prepare("UPDATE _views SET label=?,table_name=?,kind=?,position=?,pos=?,columns_json=?,sort_column=?,sort_dir=?,slice_name=?,icon=?,group_column=?,group_dir=?,display_json=?,show_if=?,inline_ref=?,menu_group=? WHERE name=?").run(...args);
+    else db.prepare("INSERT INTO _views(label,table_name,kind,position,pos,columns_json,sort_column,sort_dir,slice_name,icon,group_column,group_dir,display_json,show_if,inline_ref,menu_group,name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(...args);
     return NextResponse.json({ ok: true });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }

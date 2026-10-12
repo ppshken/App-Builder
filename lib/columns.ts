@@ -8,7 +8,7 @@ export const UNIQUE_TYPES = ["text","longtext","number","decimal","date","dateti
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
-  name: string; label: string; type: string; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
+  name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
   is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
 export const FORMULA_LABELS: Record<FormulaField, string> = {
@@ -125,7 +125,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
       throw new Error(`"${c.label}" ต้องเป็นวันที่ที่ถูกต้อง เช่น 2026-10-05`);
     return date;
   }
-  if (c.type === "enum" && !c.valid_if?.trim() && !c.ref_table && !(c.options || "").split(",").map(o => o.trim()).includes(value))
+  if (c.type === "enum" && !!c.options?.trim() && !c.valid_if?.trim() && !c.ref_table && !(c.options || "").split(",").map(o => o.trim()).includes(value))
     throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
   return value;
 }
@@ -194,7 +194,7 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
     if (c.is_key && typeof row[c.name] === "string" && !(row[c.name] as string).trim()) validation[c.name] = `Key "${c.label}" ต้องไม่ว่าง`;
     if (!condition("valid_if", true) && !validation[c.name]) validation[c.name] = `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
     // A boolean Valid_If still uses the fixed options; a list Valid_If supplies its own options.
-    if (["enum","enumlist"].includes(c.type) && !Object.hasOwn(choices, c.name)) {
+    if (["enum","enumlist"].includes(c.type) && !Object.hasOwn(choices, c.name) && (c.type!=="enum"||!!c.options?.trim()||!!c.ref_table)) {
       const data = c.ref_table ? (context.getTable ? context.getTable(c.ref_table) : context.tables?.[c.ref_table]) : undefined;
       choices[c.name] = c.ref_table ? [...new Set((data?.rows || []).map(r=>r[data!.key]).filter(v=>v!=null).map(String))] : (c.options || "").split(",").map(v => v.trim()).filter(Boolean);
       if ((c.type==="enum"&&!isBlank(row[c.name])&&!choices[c.name].includes(String(row[c.name])))||(Array.isArray(row[c.name]) && (row[c.name] as string[]).some(v => !choices[c.name].includes(v)))) validation[c.name] = `"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`;

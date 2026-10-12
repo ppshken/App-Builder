@@ -16,7 +16,16 @@ import {validateViewCondition,viewIsVisible} from "./view-visibility";
 
 export type ConversionRequest={column:string;mode:"replace"|"copy";target:Partial<Column>;ref_match?:"id"|"key"};
 export type ConversionReport={allowed:boolean;total:number;converted:number;failed:number;samples:{id:number;before:string;after:string}[];issues:{table:string;id?:number;before?:string;message:string}[];warnings:string[];source:Column;target:Column;mode:"replace"|"copy"};
-export function conversionFingerprint(database:Database.Database){return createHash("sha256").update(database.serialize()).digest("hex");}
+// Hash logical conversion inputs, never SQLite pages, sessions, audit or queue progress.
+export function conversionFingerprint(database:Database.Database,table?:string,request?:ConversionRequest){
+ const hash=createHash('sha256');const add=(name:string,rows:unknown)=>hash.update(JSON.stringify([name,rows]));
+ const metadata=['_tables','_columns','_views','_slices','_actions','_pdf_templates','_role_row_rules','_user_setting_defs'];
+ for(const name of metadata)if(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name)){const rows=database.prepare('SELECT * FROM "'+name+'"').all();add(name,rows.map(row=>JSON.stringify(row)).sort());}
+ if(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automations'").get())add('_automations',database.prepare('SELECT name,label,table_name,enabled,event,config_json,owner_id FROM _automations ORDER BY name').all());
+ const tables=(database.prepare('SELECT name FROM _tables ORDER BY name').all() as {name:string}[]).map(t=>t.name);const names=table?[table,request?.target.ref_table].filter((name):name is string=>!!name):tables;
+ for(const name of [...new Set(names)].sort()){assertIdentifier(name);if(!tables.includes(name))throw Error('ไม่พบตารางที่เกี่ยวข้องกับการแปลง');add('schema:'+name,database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get('t_'+name));add('data:'+name,database.prepare('SELECT * FROM "t_'+name+'" ORDER BY id').all());}
+ return hash.digest('hex');
+}
 function shown(value:unknown){const text=typeof value==="string"?value:JSON.stringify(value)??"ว่าง";return text.length>180?text.slice(0,180)+"…":text;}
 function decimalIdentity(text:string){
  const match=/^([+-]?)(\d*\.?\d+)(?:[eE]([+-]?\d+))?$/.exec(text);if(!match)throw Error("ต้องเป็นตัวเลข เช่น 1250 หรือ 12.50 ห้ามมีข้อความหรือเครื่องหมายคั่นหลักพัน");
@@ -70,7 +79,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  target.ref_table=["ref","list","enum","enumlist"].includes(target.type)?request.target.ref_table||null:null;
  if(target.ref_table){assertIdentifier(target.ref_table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(target.ref_table))throw Error("ไม่พบตารางอ้างอิงปลายทาง");}
  if(target.type==="ref"&&!target.ref_table)throw Error("กรุณาเลือกตารางอ้างอิงปลายทาง");
- if(["enum","enumlist"].includes(target.type)&&!target.options&&!target.ref_table&&!target.valid_if)throw Error("กรุณากำหนดตัวเลือก หรือสูตร Valid_If สำหรับ Enum หรือ EnumList");
+ if(target.type==="enumlist"&&!target.options&&!target.ref_table&&!target.valid_if)throw Error("กรุณากำหนดตัวเลือก เลือกตารางอ้างอิง หรือใช้สูตรดึงตัวเลือกสำหรับ Enum หรือ EnumList · ไม่บังคับ Valid_If");
  if(target.is_key&&!["text","longtext","number","decimal","enum"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Key ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Key อื่นก่อน");
  if(target.is_label&&(source.type==="image")!==(target.type==="image"))throw Error("กรุณายกเลิก Label ก่อนแปลงระหว่างรูปภาพกับชนิดอื่น เพื่อรักษา Label ข้อความและรูปภาพอย่างละหนึ่งช่อง");
  if(target.is_label&&["ref","list","enumlist"].includes(target.type))throw Error("ชนิดนี้ใช้เป็น Label ไม่ได้ กรุณาคัดลอกไปคอลัมน์ใหม่หรือเลือก Label อื่นก่อน");
@@ -84,7 +93,7 @@ function referenceResolver(database:Database.Database,target:Column,match:"id"|"
  return(value:unknown)=>{const rows=query.all(String(value)) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
 }
 function writeColumn(database:Database.Database,table:string,target:Column,copy:boolean){
- const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json",...FORMULA_FIELDS];
+ const fields=["name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json","input_mode","button_limit",...FORMULA_FIELDS];
  const values=fields.map(field=>field==="reset_columns_json"?JSON.stringify(target.reset_columns||[]):field==="max_length"?target.max_length??0:field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto","is_part_of","reset_on_edit"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
  if(copy)database.prepare(`INSERT INTO _columns(table_name,${fields.join(",")}) VALUES(${["?",...fields.map(()=>"?")].join(",")})`).run(table,...values);
  else database.prepare(`UPDATE _columns SET ${fields.map(field=>field+"=?").join(",")} WHERE table_name=? AND name=?`).run(...values,table,target.name);
@@ -158,7 +167,7 @@ export function applyConversion(database:Database.Database,table:string,request:
  const {source,target}=prepare(database,table,request),resolve=referenceResolver(database,target,request.ref_match||"id");
  const values=(database.prepare(`SELECT id,"${source.name}" AS value FROM "t_${table}" ORDER BY id`).all() as {id:number;value:unknown}[]).map(row=>({id:row.id,value:convertValue(source,target,row.value,resolve)}));
  foreignKeyTransaction(database,()=>{
-  if(expectedFingerprint&&conversionFingerprint(database)!==expectedFingerprint)throw Error("ข้อมูลเปลี่ยนหลังตรวจ กรุณาตรวจการแปลงใหม่ก่อนยืนยัน");
+  if(expectedFingerprint&&conversionFingerprint(database,table,request)!==expectedFingerprint)throw Error("ข้อมูลเปลี่ยนหลังตรวจ กรุณาตรวจการแปลงใหม่ก่อนยืนยัน");
   writeConversion(database,table,request,source,target,values);
  });
  return target;

@@ -8,7 +8,7 @@ export const databasePath = process.env.NOCODE_DB_PATH ? resolve(process.env.NOC
 const path = databasePath;
 export function databaseGeneration(){return (globalThis as any).__nocodeDbGeneration || 0;}
 export function markDatabaseRestored(){(globalThis as any).__nocodeDbGeneration = databaseGeneration()+1;}
-const schemaVersion = "file-paths-v1";
+const schemaVersion = "menu-groups-v1";
 const g = globalThis as typeof globalThis & { __nocodeDb?: { path: string; db: Database.Database; version?: string } };
 function connection() {
   if (!g.__nocodeDb || g.__nocodeDb.path !== path) {

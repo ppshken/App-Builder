@@ -1,0 +1,23 @@
+"use client";
+import {useEffect,useId,useRef,useState} from "react";
+import {createPortal} from "react-dom";
+import RecordLabel from "./RecordLabel";
+import SearchSelect from "./SearchSelect";
+type Option={value:string;label:string;image?:string;disabled?:boolean};
+type Props={id:string;label:string;options:Option[];selected:string[];multiple:boolean;mode:string;limit:number;disabled?:boolean;describedBy?:string;invalid?:boolean;required?:boolean;onChange:(values:string[])=>void};
+export default function ChoiceInput({id,label,options,selected,multiple,mode,limit,disabled,describedBy,invalid,required,onChange}:Props){
+ const [open,setOpen]=useState(false),[query,setQuery]=useState("");const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),search=useRef<HTMLInputElement>(null),uid=useId();
+ useEffect(()=>{if(!open)return;dialog.current?.showModal();search.current?.focus();return()=>{dialog.current?.close();trigger.current?.focus({preventScroll:true});};},[open]);
+ useEffect(()=>{if(disabled)setOpen(false);},[disabled]);
+ const choose=(o:Option)=>{if(disabled)return;if(o.disabled&&!selected.includes(o.value))return;onChange(multiple?selected.includes(o.value)?selected.filter(v=>v!==o.value):[...selected,o.value]:selected.includes(o.value)?[]:[o.value]);if(!multiple)setOpen(false);};
+ const option=(o:Option)=><label key={o.value} className={`choice-input-option ${selected.includes(o.value)?"is-selected":""}`}><input type={multiple?"checkbox":"radio"} name={multiple?undefined:uid} checked={selected.includes(o.value)} disabled={disabled||!!o.disabled&&!selected.includes(o.value)} onChange={()=>choose(o)}/><RecordLabel text={o.label} image={o.image}/>{o.disabled&&<small className="err">ไม่อยู่ในตัวเลือกปัจจุบัน</small>}</label>;
+ if(mode!=="button"&&!multiple)return <SearchSelect id={id} aria-label={label} aria-describedby={describedBy} aria-invalid={invalid} aria-required={required} disabled={disabled} value={selected[0]??""} onChange={e=>onChange(e.target.value?[e.target.value]:[])}><option value="">เลือกค่า</option>{options.map(o=><option key={o.value} value={o.value} disabled={o.disabled} data-image={o.image}>{o.label}{o.disabled?" · ไม่อยู่ในตัวเลือกปัจจุบัน":""}</option>)}</SearchSelect>;
+ const visible=options.slice(0,Math.max(1,Math.min(5,limit)));
+ return <div id={id} className={`choice-input ${mode==="button"?"choice-input-button-mode":""}`} role="group" aria-label={label} aria-describedby={describedBy} aria-invalid={invalid}>
+  {mode==="button"&&<div className="choice-input-buttons">{visible.map(option)}{!options.length&&<p className="hint">ไม่มีรายการที่ตรงกับเงื่อนไข</p>}</div>}
+  {(mode!=="button"||options.length>visible.length)&&<button ref={trigger} type="button" disabled={disabled} className={mode==="button"?"choice-input-more":"search-select-trigger"} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setQuery("");setOpen(true);}}>{mode==="button"?"เพิ่มเติม":selected.length?`เลือกแล้ว ${selected.length} รายการ` :"เลือกค่า"}</button>}
+  {multiple&&mode!=="button"&&selected.length>0&&<div className="choice-input-selected">{selected.map(v=><span key={v}>{options.find(o=>o.value===v)?.label||v}<button type="button" disabled={disabled} aria-label={`ยกเลิก ${options.find(o=>o.value===v)?.label||v}`} onClick={()=>onChange(selected.filter(x=>x!==v))}>×</button></span>)}</div>}
+  {mode==="button"&&selected.length>0&&<div className="choice-input-selected"><button type="button" disabled={disabled} onClick={()=>onChange([])}>ล้างค่า</button></div>}
+  {open&&createPortal(<dialog ref={dialog} className="search-select-dialog choice-input-dialog" aria-labelledby={uid+"-title"} onCancel={e=>{e.preventDefault();e.stopPropagation();setOpen(false);}} onKeyDown={e=>e.stopPropagation()}><header><h2 id={uid+"-title"}>{label}</h2><button type="button" aria-label="ปิดรายการตัวเลือก" onClick={()=>setOpen(false)}>ปิด</button></header><div className="search-select-search"><input ref={search} type="search" aria-label="ค้นหาตัวเลือก" placeholder="ค้นหารายการ…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="choice-input-popup-options">{options.filter(o=>o.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).map(option)}{!options.some(o=>o.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))&&<p role="status">ไม่พบรายการ</p>}</div><footer>{multiple&&<button type="button" onClick={()=>onChange(options.filter(o=>!o.disabled).map(o=>o.value))}>เลือกทั้งหมด</button>}<button type="button" onClick={()=>setOpen(false)}>เสร็จสิ้น</button></footer></dialog>,document.body)}
+ </div>;
+}

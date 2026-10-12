@@ -1,3 +1,4 @@
+import {rowVersion} from "./row-version";
 import {actionPermission} from "./action-config";
 import {visibleRawRows,hasRowRule,assertRowAllowed,rowAllowed} from "./row-access";
 import {canRead,assertTablePermission,canExecuteAction} from "./permissions";
@@ -87,6 +88,7 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
     if(!viewIsVisible(stored.show_if,{...context,userEmail,now:new Date()}))throw new Error("Inline View นี้ถูกซ่อนด้วย Show_If");
     view={...stored,columns:JSON.parse(stored.columns_json),display:JSON.parse(stored.display_json)};
   }
+  if(view&&query.has("summary")){const mode=query.get("summary");if(!["count","sum","none"].includes(mode||""))throw Error("รูปแบบสรุปข้อมูลไม่ถูกต้อง");const sum=query.get("sum_column")||"";if(mode==="sum"&&!cols.some(c=>c.name===sum&&!c.is_virtual&&["number","decimal"].includes(c.type)))throw Error("กรุณาเลือกคอลัมน์ผลรวมที่เป็นตัวเลขจริง");view={...view,display:{...view.display,group_summary:mode as "count"|"sum"|"none",group_sum_column:sum}};}
   const selected=view ? visibleColumns(cols,view.columns) : [];
   const rowActions=view ? db.prepare("SELECT name,condition_expr,kind FROM _actions WHERE table_name=?").all(table) as {name:string;condition_expr:string;kind:string}[] : [];
   const extra=view ? [...displayColumnNames(view.display),view.group_column||"",(!view.display?.image_column || view.display.image_column==="__auto__") ? cols.find(c=>c.type==="image")?.name || "" : ""] : [];
@@ -104,7 +106,12 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
     }
     const allowedActions=rowActions.filter(a=>{try{return canExecuteAction({...a,table_name:table}) && rowAllowed(table,raw,["copy","add","new_form"].includes(a.kind)?"read":actionPermission(a.kind)) && asBoolean(evaluateExpression(a.condition_expr,row,{...context,refTables:refTablesOf(cols),userEmail}));}catch{return false;}}).map(a=>a.name);
     const businessKey=cols.find(c=>c.is_key)?.name;
-    return {id:raw.id,key:String(raw.id),business_key:businessKey ? String(raw[businessKey] ?? "") : null,label:String(row[label] ?? raw.id),image:image?row[image]??null:null,...(view ? {values:row,errors,allowedActions,permissions:{update:rowAllowed(table,raw,"update"),delete:rowAllowed(table,raw,"delete")}} : {})};
+    return {id:raw.id,key:String(raw.id),business_key:businessKey ? String(raw[businessKey] ?? "") : null,label:String(row[label] ?? raw.id),image:image?row[image]??null:null,...(view ? {values:{...row,__version:rowVersion(table,cols,raw)},errors,allowedActions,permissions:{update:rowAllowed(table,raw,"update"),delete:rowAllowed(table,raw,"delete")}} : {})};
   });
-  return {rows,total,page,pages,limit,...(view ? {columns:selected,source_columns:cols} : {})};
+  let summary:{sum?:number;label?:string;groups?:Record<string,{count:number;sum?:number}>}|undefined;
+  if(view){const mode=view.display?.group_summary||"count",sumCol=mode==="sum"?cols.find(c=>c.name===view!.display?.group_sum_column&&!c.is_virtual&&["number","decimal"].includes(c.type)):undefined;summary={};if(sumCol){summary.sum=(db.prepare('SELECT COALESCE(SUM("'+sumCol.name+'"),0) AS value FROM "t_'+table+'"'+where).get(...bindings) as {value:number}).value;summary.label=sumCol.label;}
+  const groupCol=view.group_column==="id"?"id":group;if(mode!=="none"&&groupCol&&rows.length){const values=[...new Set(rows.map(r=>(r.values as Record<string,any>|undefined)?.[groupCol]??null))],nonNull=values.filter(v=>v!==null),part='("'+groupCol+'" IN (SELECT value FROM json_each(?))'+(values.includes(null)?' OR "'+groupCol+'" IS NULL':'')+')',groupWhere=where+(where?' AND ':' WHERE ')+part;const grouped=db.prepare('SELECT "'+groupCol+'" AS key,COUNT(*) AS count'+(sumCol?',COALESCE(SUM("'+sumCol.name+'"),0) AS sum':'')+' FROM "t_'+table+'"'+groupWhere+' GROUP BY "'+groupCol+'"').all(...bindings,JSON.stringify(nonNull)) as {key:unknown;count:number;sum?:number}[];summary.groups=Object.fromEntries(grouped.map(g=>[JSON.stringify(g.key??null),{count:g.count,...(sumCol?{sum:g.sum}:{})}]));}}
+  let can_add:boolean|undefined;
+  if(mode==="related"&&owner&&id){const link=cols.find(c=>c.name===column&&c.type==="ref"&&!c.is_virtual&&c.ref_table===owner);can_add=true;if(link?.is_part_of){try{const parentCols=columnsOf(owner),raw=db.prepare('SELECT * FROM "t_'+owner+'" WHERE id=?').get(Number(id)) as Record<string,any>,parent=calculateRow(parentCols,raw,false,new Date(),false,userEmail,context).row;const ids=link.part_valid_if?.trim()||link.part_add_if?.trim()? (db.prepare('SELECT id FROM "t_'+table+'" WHERE "'+link.name+'"=?').all(Number(id)) as {id:number}[]).map(r=>String(r.id)):[];const options={...context,refTables:refTablesOf(parentCols),userEmail};const allows=(source:string|null|undefined,list:string[])=>!source?.trim()||asBoolean(evaluateExpression(source,{...parent,_THIS:list},options));can_add=allows(link.part_add_if,ids)&&allows(link.part_valid_if,[...ids,"__new_related_record__"]);}catch{can_add=false;}}}
+  return {rows,total,page,pages,limit,...(can_add!==undefined?{can_add}:{}),...(summary?{summary}:{}),...(view ? {columns:selected,source_columns:cols} : {})};
 }

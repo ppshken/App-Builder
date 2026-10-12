@@ -17,6 +17,7 @@ export function readColumns(db: Database.Database, table: string): Column[] {
   for(const c of cols){try{c.reset_columns=JSON.parse(c.reset_columns_json||'[]');}catch{throw Error('รายการคอลัมน์ที่เฝ้าดูไม่ถูกต้อง');}delete c.reset_columns_json;}
   assertResetConfig(cols);
   for (const c of cols) {
+    if(c.input_mode!=null&&!["button","dropdown"].includes(c.input_mode))throw Error("Input mode ไม่ถูกต้อง");if(c.button_limit!=null&&(!Number.isInteger(c.button_limit)||c.button_limit<1||c.button_limit>5))throw Error("จำนวนปุ่มต้องเป็น 1–5 รายการ");
     assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);if(c.file_path)fileFolder(c.file_path);
     assertUniqueColumn(c);
     if (!Object.hasOwn(SQLTYPE, c.type)) throw new Error(`ชนิดข้อมูลของ "${c.label}" ไม่รองรับ`);
@@ -96,7 +97,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       UNIQUE(table_name,name));
   `);
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
-  const missing = ["is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
+  const missing = ["input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
   const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
   const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
@@ -109,7 +110,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needFeatures = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_slices'").get();
   const needSliceSource = needViews || !(db.pragma("table_info('_views')") as { name: string }[]).some(c => c.name === "slice_name");
   const viewFields = new Set((db.pragma("table_info('_views')") as { name: string }[]).map(c => c.name));
-  const missingViewOptions = ["icon", "group_column", "group_dir"].filter(name => !viewFields.has(name));
+  const missingViewOptions = ["icon", "group_column", "group_dir", "menu_group"].filter(name => !viewFields.has(name));
   const needVisibility = !viewFields.has("show_if");
   const needDisplay = !viewFields.has("display_json");
   const needInline = !viewFields.has("inline_ref");
@@ -139,7 +140,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if(needWorkflows)db.exec(WORKFLOW_SCHEMA);
       if (needFiles || needAuth || needUserSettings || needRowRules) db.exec(AUTH_SCHEMA);
       if (needRoles) migrateAuthRoles(db);
-      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["is_unique","gps_auto","max_length","is_part_of","reset_on_edit"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "reset_columns_json" ? "TEXT NOT NULL DEFAULT '[]'" : "TEXT"}`).run();
+      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["is_unique","gps_auto","max_length","is_part_of","reset_on_edit"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "button_limit" ? "INTEGER" : name === "reset_columns_json" ? "TEXT NOT NULL DEFAULT '[]'" : "TEXT"}`).run();
       if (needViews) {
         db.exec(`CREATE TABLE _views(name TEXT PRIMARY KEY,label TEXT NOT NULL,table_name TEXT NOT NULL REFERENCES _tables(name) ON DELETE CASCADE,kind TEXT NOT NULL,position TEXT NOT NULL,pos INTEGER NOT NULL DEFAULT 0,columns_json TEXT NOT NULL DEFAULT '[]',sort_column TEXT NOT NULL DEFAULT 'id',sort_dir TEXT NOT NULL DEFAULT 'desc');`);
         for (const t of tables) {

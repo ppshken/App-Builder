@@ -1,3 +1,4 @@
+import {saveFormRecord} from '@/lib/form-save';
 import {deleteRecord} from "@/lib/delete-record";
 import {readRows} from "@/lib/view-records";
 import {writeRecord} from "@/lib/data-write";
@@ -77,8 +78,8 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     return NextResponse.json(rows.slice(0, 500));
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }
-async function handlePOST(req:Request,{params}:{params:{table:string}}){try{return NextResponse.json(writeRecord(params.table,await readBody(req)));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
-async function handlePUT(req:Request,{params}:{params:{table:string}}){try{const id=new URL(req.url).searchParams.get("id");if(!id||!/^[1-9]\d*$/.test(id))return bad("ไม่พบข้อมูล",404);return NextResponse.json(writeRecord(params.table,await readBody(req),Number(id)));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
+async function handlePOST(req:Request,{params}:{params:{table:string}}){try{return NextResponse.json(saveFormRecord(params.table,await readBody(req),undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req)));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
+async function handlePUT(req:Request,{params}:{params:{table:string}}){try{const id=new URL(req.url).searchParams.get("id");if(!id||!/^[1-9]\d*$/.test(id))return bad("ไม่พบข้อมูล",404);return NextResponse.json(saveFormRecord(params.table,await readBody(req),Number(id),new URL(req.url).searchParams.get("form_view"),previewEmail(req)));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
 async function handleDELETE(req: Request, { params }: { params: { table: string } }) {
   const t = params.table, id = new URL(req.url).searchParams.get("id");
   try {

@@ -53,7 +53,7 @@ test('preview handles committed WAL rows without touching the live database jour
  }finally{db.close();}
 });
 test('data changed before entering the write transaction cannot be converted using an old preview',()=>{
- const db=fixture();try{table(db,'items',[text],[{value:'1'}]);const request={column:'value',mode:'replace',target:{type:'decimal'}},fingerprint=conversionFingerprint(db);assert.equal(previewConversion(db,'items',request).allowed,true);db.prepare("UPDATE t_items SET value='2'").run();assert.throws(()=>applyConversion(db,'items',request,fingerprint),/ข้อมูลเปลี่ยน/);assert.equal(db.prepare('SELECT value FROM t_items').get().value,'2');assert.equal(db.prepare("SELECT type FROM _columns WHERE name='value'").get().type,'text');assert.equal(db.pragma('foreign_keys',{simple:true}),1);
+ const db=fixture();try{table(db,'items',[text],[{value:'1'}]);const request={column:'value',mode:'replace',target:{type:'decimal'}},fingerprint=conversionFingerprint(db,'items',request);assert.equal(previewConversion(db,'items',request).allowed,true);db.prepare("UPDATE t_items SET value='2'").run();assert.throws(()=>applyConversion(db,'items',request,fingerprint),/ข้อมูลเปลี่ยน/);assert.equal(db.prepare('SELECT value FROM t_items').get().value,'2');assert.equal(db.prepare("SELECT type FROM _columns WHERE name='value'").get().type,'text');assert.equal(db.pragma('foreign_keys',{simple:true}),1);
  }finally{db.close();}
 });
 
@@ -64,10 +64,10 @@ test('audited databases allow empty Image to Signature conversion without auditi
  table(db,'inspection',[{name:'title',type:'text',is_label:1},{name:'driver_signature',type:'image'}],[{id:3,title:'สาม',driver_signature:null},{id:4,title:'สี่',driver_signature:null}]);
  installAuditing(db);
  withAuditActor({id:1,name:'Owner',email:'owner@example.com',role:'owner'},'conversion-test',()=>{
- const request={column:'driver_signature',mode:'replace',target:{type:'signature'}},fingerprint=conversionFingerprint(db);
+ const request={column:'driver_signature',mode:'replace',target:{type:'signature'}},fingerprint=conversionFingerprint(db,'inspection',request);
  const report=previewConversion(db,'inspection',request);
  assert.equal(report.allowed,true,JSON.stringify(report));assert.equal(report.converted,2);
- assert.equal(conversionFingerprint(db),fingerprint);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _audit_log').get().n,0);
+ assert.equal(conversionFingerprint(db,'inspection',request),fingerprint);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _audit_log').get().n,0);
  applyConversion(db,'inspection',request,fingerprint);
  assert.deepEqual(db.prepare('SELECT id,driver_signature FROM t_inspection ORDER BY id').all(),[{id:3,driver_signature:null},{id:4,driver_signature:null}]);
  assert.equal(db.prepare("SELECT type FROM _columns WHERE name='driver_signature'").get().type,'signature');
@@ -75,3 +75,5 @@ test('audited databases allow empty Image to Signature conversion without auditi
  });
  }finally{db.close();}
 });
+
+ test('conversion fingerprints ignore background writes but detect source and Ref mapping changes',()=>{const db=fixture();try{table(db,'items',[text],[{value:'12'}]);table(db,'unrelated',[text],[{value:'old'}]);const request={column:'value',mode:'replace',target:{type:'decimal'}},before=conversionFingerprint(db,'items',request);db.prepare("UPDATE t_unrelated SET value='new'").run();db.exec("CREATE TABLE background_noise(id INTEGER PRIMARY KEY,value TEXT);INSERT INTO background_noise VALUES(1,'noise')");assert.equal(conversionFingerprint(db,'items',request),before);assert.equal(previewConversion(db,'items',request).allowed,true);applyConversion(db,'items',request,before);assert.equal(db.prepare('SELECT value FROM t_items').get().value,12);const refRequest={column:'value',mode:'replace',target:{type:'ref',ref_table:'unrelated'}};const refBefore=conversionFingerprint(db,'items',refRequest);db.prepare("UPDATE t_unrelated SET value='changed mapping'").run();assert.notEqual(conversionFingerprint(db,'items',refRequest),refBefore);}finally{db.close();}});

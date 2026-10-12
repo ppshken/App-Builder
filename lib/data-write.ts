@@ -1,3 +1,4 @@
+import {assertRowVersion} from "./row-version";
 import {recordWorkflowEvent} from "./workflows";
 import {writeChildGroups,assertParentParts} from "./part-of-records";
 import { AuthError } from "./auth";
@@ -26,6 +27,8 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         throw Error("เปลี่ยน id ไม่ได้ เพราะใช้เชื่อมข้อมูล กรุณาแก้รหัสในคอลัมน์ Key แทน");
     return db.transaction(() => {
         const old = id ? db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(id) as Record<string, any> | undefined : undefined;
+        if(old)assertRowAllowed(table,old,"update");
+        if(id)assertRowVersion(table,cols,old,body.__version);
         if (id && !old)
             throw new AuthError("ไม่พบข้อมูล", 404);
         if (old)
@@ -64,5 +67,5 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         validateParents();
         recordWorkflowEvent(table,"create",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(newId) as Record<string,any>);
         return { id: newId };
-    })();
+    }).immediate();
 }
