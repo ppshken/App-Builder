@@ -162,13 +162,33 @@ export function calculateRow(cols: Column[], raw: Record<string, unknown>, defau
   if (Object.hasOwn(raw, "id")) row.id = raw.id as Value;
   return { row, errors };
 }
-export function formState(cols: Column[], raw: Record<string, unknown>, now = new Date(), userEmail = "", context: ExpressionContext = {}, original?: Record<string, unknown>) {
+// Selected field checks still resolve their row/virtual dependencies, while
+// unrelated fields keep their own formulas and validation out of this pass.
+function formCalculationColumns(cols: Column[], selected: Column[]) {
+  const needed = new Set(selected.map(c => c.name)), byName = new Map(cols.map(c => [c.name, c]));
+  const add = (source: string | null | undefined) => {
+    if (!source?.trim()) return;
+    try { for (const name of references(source)) needed.add(name); }
+    catch { /* The field check below reports malformed formulas. */ }
+  };
+  for (const c of selected) for (const field of ["show_if", "required_if", "editable_if", "valid_if"] as const) add(c[field]);
+  // Set iteration includes new dependencies and bounds cycles by column name.
+  for (const name of needed) {
+    const c = byName.get(name);
+    if (c?.is_virtual) add(c.virtual_expr);
+  }
+  return cols.filter(c => needed.has(c.name));
+}
+export function formState(cols: Column[], raw: Record<string, unknown>, now = new Date(), userEmail = "", context: ExpressionContext = {}, original?: Record<string, unknown>, selectedNames?: readonly string[]) {
   context = { ...context, refTables: refTablesOf(cols) };
-  const { row, errors } = calculateRow(cols, raw, false, now, true, userEmail, context);
-  const before = original ? calculateRow(cols, original, false, now, true, userEmail, context).row : undefined;
+  const selected = selectedNames ? new Set(selectedNames) : undefined;
+  const fields = selected ? cols.filter(c => selected.has(c.name)) : cols;
+  const calculation = selected ? formCalculationColumns(cols, fields) : cols;
+  const { row, errors } = calculateRow(calculation, raw, false, now, true, userEmail, context);
+  const before = original ? calculateRow(calculation, original, false, now, true, userEmail, context).row : undefined;
   const visible: Record<string, boolean> = {}, required: Record<string, boolean> = {}, validation: Record<string, string> = {};
   const choices: Record<string, string[]> = {}, editable: Record<string, boolean> = {};
-  for (const c of cols) {
+  for (const c of fields) {
     const condition = (field: FormulaField, fallback: boolean) => {
       try {
         if (!c[field]?.trim()) return fallback;

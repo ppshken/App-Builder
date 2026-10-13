@@ -1,10 +1,10 @@
 import {saveFormRecord} from '@/lib/form-save';
 import {deleteRecord} from "@/lib/delete-record";
-import {readRows} from "@/lib/view-records";
+import {readRows,withReferenceLabels} from "@/lib/view-records";
 import {writeRecord} from "@/lib/data-write";
 import {visibleRawRows,hasRowRule,rowAllowed,assertRowAllowed} from "@/lib/row-access";
 import {errorStatus} from "@/lib/api";
-import {canRead,assertTablePermission,assertReferenceWrites} from "@/lib/permissions";
+import {assertTablePermission,assertReferenceWrites} from "@/lib/permissions";
 import {withAuth} from "@/lib/auth-api";
 import {parseFilters,matchesFilters,filterSql} from "@/lib/data-filters";
 import {cascadeEnumListValues} from "@/lib/enumlist-reference-updates";
@@ -55,16 +55,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       if (!/^[1-9]\d*$/.test(wantedId)) return bad("รหัสแถวไม่ถูกต้อง");
       rows = rows.filter(r => r.id === Number(wantedId));
     }
-    const refMaps = new Map<string, Map<number, {label:unknown;image:unknown}>>();
-    for (const c of cols.filter(c => c.type === "ref" && canRead(c.ref_table!))) {
-      if (!refMaps.has(c.ref_table!)) {
-        if (!tableExists(c.ref_table!)) throw new Error(`ไม่พบตารางอ้างอิงของ "${c.label}"`);
-        const refColumns=cols.filter(other=>other.type==="ref"&&other.ref_table===c.ref_table),ids=[...new Set(rows.flatMap(row=>refColumns.map(other=>row[other.name])).filter(id=>id!=null))],rawRefs:Row[]=[];
-        for(let offset=0;offset<ids.length;offset+=500){const batch=ids.slice(offset,offset+500);rawRefs.push(...db.prepare('SELECT * FROM "t_'+c.ref_table+'" WHERE id IN ('+batch.map(()=>'?').join(',')+')').all(...batch) as Row[]);}
-        refMaps.set(c.ref_table!,new Map(readRows(c.ref_table!,columnsOf(c.ref_table!),now,userEmail,context,rawRefs).map(row=>[row.id,{label:row.__label,image:row.__image}])));
-      }
-      for (const row of rows) { const label=refMaps.get(c.ref_table!)!.get(row[c.name]);row[`${c.name}__label`]=label?.label??null;row[`${c.name}__image`]=label?.image??null; }
-    }
+    rows = withReferenceLabels(t, cols, rows, now, userEmail, context);
     if(!fast)rows=rows.filter(row=>matchesFilters(row,filters,cols));
     const q = (u.searchParams.get("q") || "").toLocaleLowerCase();
     if (q&&!fast) rows = rows.filter(r => cols.some(c => String(c.type === "ref" ? r[`${c.name}__label`] ?? "" : r[c.name] ?? "").toLocaleLowerCase().includes(q)));

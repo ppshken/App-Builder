@@ -27,14 +27,37 @@ export function contextualFormDefaults(columns:Column[],serverValues:Record<stri
 }
 export function resetDependentRefChoices(columns:Column[],raw:Record<string,any>,changed:string,now:Date,email:string,context:ExpressionContext) {
   const next={...raw};
-  function depends(source:string,target:string,seen=new Set<string>()):boolean {
-    return references(source).some(name=>{if(name===target)return true;if(seen.has(name))return false;seen.add(name);const c=columns.find(c=>c.name===name);return !!(c?.is_virtual&&c.virtual_expr&&depends(c.virtual_expr,target,seen));});
+  const byName=new Map(columns.map(c=>[c.name,c])), parsed=new Map<string,string[]>();
+  function refs(source:string) {
+    if(!parsed.has(source)) {
+      try { parsed.set(source,references(source)); }
+      catch { parsed.set(source,[]); } // Invalid field formulas are reported by formState.
+    }
+    return parsed.get(source)!;
   }
+  const candidates=columns.filter(c=>c.type==='ref'&&!c.is_virtual&&c.is_editable!==0&&c.is_editable!==false&&c.name!==changed&&c.valid_if?.trim()&&next[c.name]!=null&&next[c.name]!=='');
+  const dependencies=new Map(candidates.map(c=>{
+    const needed=new Set(refs(c.valid_if!));
+    for(const name of needed){const dependency=byName.get(name);if(dependency?.is_virtual&&dependency.virtual_expr)for(const ref of refs(dependency.virtual_expr))needed.add(ref);}
+    return [c.name,needed] as const;
+  }));
+  const intersects=(c:Column,names:Set<string>)=>[...dependencies.get(c.name)!].some(name=>names.has(name));
+  // Include downstream selectors that may be invalidated by a cleared Ref.
+  const affected=new Set([changed]);
+  for(let pass=0;pass<candidates.length;pass++) {
+    let added=false;
+    for(const c of candidates)if(!affected.has(c.name)&&intersects(c,affected)){affected.add(c.name);added=true;}
+    if(!added)break;
+  }
+  const relevant=candidates.filter(c=>affected.has(c.name));
+  if(!relevant.length)return next;
   // Recheck chains of dependent selectors until all remaining selections agree.
   const changedNames=new Set([changed]);
   for(let pass=0;pass<columns.length;pass++) {
-    const state=formState(columns,next,now,email,context);let cleared=false;
-    for(const c of columns)if(c.type==='ref'&&!c.is_virtual&&state.editable[c.name]&&c.name!==changed&&c.valid_if?.trim()&&!state.errors[c.name]&&[...changedNames].some(name=>depends(c.valid_if!,name))&&Object.hasOwn(state.choices,c.name)&&next[c.name]!=null&&next[c.name]!==''&&!state.choices[c.name].includes(String(next[c.name]))) {
+    const active=relevant.filter(c=>next[c.name]!=null&&next[c.name]!=='');
+    if(!active.some(c=>intersects(c,changedNames)))break;
+    const state=formState(columns,next,now,email,context,undefined,active.map(c=>c.name));let cleared=false;
+    for(const c of active)if(state.editable[c.name]&&!state.errors[c.name]&&intersects(c,changedNames)&&Object.hasOwn(state.choices,c.name)&&!state.choices[c.name].includes(String(next[c.name]))) {
       next[c.name]=null;changedNames.add(c.name);cleared=true;
     }
     if(!cleared)break;

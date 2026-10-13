@@ -2,8 +2,9 @@ import {rowVersion} from "./row-version";
 import {actionPermission} from "./action-config";
 import {visibleRawRows,hasRowRule,assertRowAllowed,rowAllowed} from "./row-access";
 import {canRead,assertTablePermission,canExecuteAction} from "./permissions";
-import { db, columnsOf, labelCol, tableExists } from "./db";
-import { labelImageColumn,calculateRow, Column } from "./columns";
+import { db, columnsOf, tableExists } from "./db";
+import { labelTextColumn,labelImageColumn,calculateRow, Column } from "./columns";
+import {loadReferenceLabels} from "./reference-labels";
 import { expressionContext } from "./expression-context";
 import { references, evaluateExpression, asBoolean } from "./expression";
 import { refTablesOf } from "./columns";
@@ -80,7 +81,7 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
   const limit = Number(limitText), total = (db.prepare(`SELECT COUNT(*) AS total FROM "t_${table}"${where}`).get(...bindings) as {total:number}).total;
   const pages = limit ? Math.max(1, Math.ceil(total/limit)) : 1, page = Math.min(Number(pageText),pages);
   // Filter and page in SQLite before calculating labels. Never fetch all rows to slice in JavaScript.
-  const label = labelCol(table), image=labelImageColumn(cols), key = listKey(table), context = expressionContext(new Date(),userEmail);
+  const now = new Date(), label = labelTextColumn(cols), image=labelImageColumn(cols), key = listKey(table), context = expressionContext(now,userEmail);
   let view:AppView|undefined;
   if(query.has("view")) {
     const stored=db.prepare("SELECT * FROM _views WHERE name=? AND position='inline'").get(query.get("view")) as any;
@@ -97,12 +98,14 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
   const group=cols.find(c=>c.name===view?.group_column && !c.is_virtual)?.name;
   const order=group ? `"${group}" ${view?.group_dir==="desc"?"DESC":"ASC"},` : "";
   // Virtual labels may depend on other columns; fetch just the requested page of complete rows.
-  const rows = (db.prepare(`SELECT * FROM "t_${table}"${where} ORDER BY ${order}"${sort}" ${dir},id ${dir} LIMIT ? OFFSET ?`).all(...bindings, limit || -1, limit ? (page-1)*limit : 0) as Record<string,unknown>[]).map(raw => {
-    const {row,errors} = calculateRow(labelColumns(cols,[key,label,...(image?[image]:[]),...needed]),raw,false,new Date(),true,userEmail,context);
-    if(view) for(const c of cols.filter(c=>needed.includes(c.name) && c.type==="ref" && row[c.name] && canRead(c.ref_table!))) {
-      const target=c.ref_table!,targetCols=columnsOf(target),targetLabel=labelCol(target),targetImage=labelImageColumn(targetCols);
-      const targetRow=db.prepare(`SELECT * FROM "t_${target}" WHERE id=?`).get(row[c.name]) as Record<string,unknown>|undefined;
-      if(targetRow&&rowAllowed(target,targetRow)){const labeled=calculateRow(labelColumns(targetCols,[targetLabel,...(targetImage?[targetImage]:[])]),targetRow,false,new Date(),true,userEmail,context).row;row[`${c.name}__label`]=labeled[targetLabel];row[`${c.name}__image`]=targetImage?labeled[targetImage]??null:null;}
+  const calculation = labelColumns(cols,[key,label,...(image?[image]:[]),...needed]);
+  const prepared = (db.prepare(`SELECT * FROM "t_${table}"${where} ORDER BY ${order}"${sort}" ${dir},id ${dir} LIMIT ? OFFSET ?`).all(...bindings, limit || -1, limit ? (page-1)*limit : 0) as Record<string,unknown>[]).map(raw => ({raw,...calculateRow(calculation,raw,false,now,true,userEmail,context)}));
+  const refColumns = view ? cols.filter(c=>needed.includes(c.name) && c.type==="ref" && prepared.some(({row})=>row[c.name])) : [];
+  const refLabels = loadReferenceLabels(refColumns,prepared.map(({row})=>row),now,userEmail,context);
+  const rows = prepared.map(({raw,row,errors}) => {
+    for (const c of refColumns) {
+      const labeled = refLabels.get(c.ref_table!)?.get(row[c.name] as number);
+      if (labeled) {row[`${c.name}__label`]=labeled.label as any;row[`${c.name}__image`]=labeled.image as any;}
     }
     const allowedActions=rowActions.filter(a=>{try{return canExecuteAction({...a,table_name:table}) && rowAllowed(table,raw,["copy","add","new_form"].includes(a.kind)?"read":actionPermission(a.kind)) && asBoolean(evaluateExpression(a.condition_expr,row,{...context,refTables:refTablesOf(cols),userEmail}));}catch{return false;}}).map(a=>a.name);
     const businessKey=cols.find(c=>c.is_key)?.name;

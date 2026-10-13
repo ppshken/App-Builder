@@ -12,10 +12,10 @@ async function main(){
  const group=records=>[{table:'pc_child',column:'parent',records}],record=(key,category)=>({key,values:{name:key,category}});
  await api('/api/data/pc_parent','POST',{name:'duplicate batch',__children:group([record('one',1),record('two',1)])},400);
  assert.equal((await api('/api/data/pc_parent')).length,0);assert.equal((await api('/api/data/pc_child')).length,0);
- const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ const browser=await chromium.launch({channel:process.env.NOCODE_TEST_BROWSER||'msedge',headless:true}),page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
  try{
  await page.goto(base+'/run?view='+parentForm.name);await page.locator('#data-name').fill('New inspection');
- const dialog=()=>page.getByRole('dialog',{name:'Photos · รายการลูก',exact:true});
+ const dialog=()=>page.locator('.runtime-child-screen');
  const open=async()=>{await page.getByRole('button',{name:'เพิ่มรายการลูก',exact:true}).click();await expect(dialog()).toBeVisible();};
  const allowed=async()=>{await dialog().locator('#data-part-pc_child-category').click();const popup=page.locator('.search-select-dialog');await expect(popup).toBeVisible();return popup.locator('select').evaluate(el=>Array.from(el.options).filter(o=>o.value&&!o.disabled).map(o=>o.value));};
  const closeChoices=async()=>{await page.locator('.search-select-dialog').press('Escape');};

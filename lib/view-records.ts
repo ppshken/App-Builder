@@ -1,5 +1,5 @@
 import {rowVersion} from "./row-version";
-import {db,columnsOf} from './db';import {labelTextColumn,labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';import {canRead} from './permissions';type Row=Record<string,any>;
+import {db} from './db';import {labelTextColumn,labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';type Row=Record<string,any>;
 export function readRows(table: string, cols: Column[], now: Date, userEmail = "", context = expressionContext(now, userEmail), rawRows?: Row[]): Row[] {
   const label = labelTextColumn(cols),image=labelImageColumn(cols);
   return visibleRawRows(table,rawRows ?? db.prepare(`SELECT * FROM "t_${table}"`).all() as Row[]).map(raw => {
@@ -13,4 +13,4 @@ export function readRows(table: string, cols: Column[], now: Date, userEmail = "
   });
 }
 
-export function withReferenceLabels(table:string,cols:Column[],rows:Row[],now:Date,email:string,context=expressionContext(now,email)){for(const c of cols.filter(c=>c.type==='ref'&&canRead(c.ref_table!))){const ids=[...new Set(rows.map(r=>r[c.name]).filter(x=>x!=null))],raw:Row[]=[];for(let i=0;i<ids.length;i+=500){const batch=ids.slice(i,i+500);raw.push(...db.prepare('SELECT * FROM "t_'+c.ref_table+'" WHERE id IN ('+batch.map(()=>'?').join(',')+')').all(...batch) as Row[]);}const labels=new Map(readRows(c.ref_table!,columnsOf(c.ref_table!),now,email,context,raw).map(r=>[r.id,{label:r.__label,image:r.__image}]));for(const row of rows){row[c.name+'__label']=labels.get(row[c.name])?.label??null;row[c.name+'__image']=labels.get(row[c.name])?.image??null;}}return rows;}
+export {withReferenceLabels} from "./reference-labels";
