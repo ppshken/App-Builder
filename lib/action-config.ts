@@ -2,6 +2,7 @@ import { ICON_CATALOG, type IconName } from "./icons";
 export const ACTION_KINDS = { automation: "เริ่ม Automation", set: "เปลี่ยนค่าคอลัมน์", delete: "ลบแถวข้อมูล", copy: "คัดลอกแถวข้อมูล", add: "เพิ่มแถวข้อมูล", open_view: "เปิดหน้า View", open_url: "เปิดลิงก์", edit_form: "เปิดฟอร์มแก้ไขแถวนี้", new_form: "เปิดฟอร์มเพิ่มข้อมูล", call: "เปิดโทรศัพท์เพื่อโทรออก", sms: "เปิดข้อความ SMS", email: "เปิดอีเมล", grouped: "ทำหลาย Action ตามลำดับ", open_detail: "ดูรายละเอียดข้อมูล" } as const;
 export type ActionKind = keyof typeof ACTION_KINDS;
 export type ActionAppearance = {
+    position?:"primary"|"prominent"|"inline"|"hide";
     icon: IconName;
     style: "solid" | "outline" | "text";
     color: string;
@@ -17,8 +18,8 @@ export type ActionConfig = {
     initial_values?: Record<string,string>;
 };
 export function actionPermission(kind:string):"read"|"create"|"update"|"delete" {return kind==="delete"?"delete":["copy","add","new_form"].includes(kind)?"create":["set","edit_form"].includes(kind)?"update":"read";}
-export function appearance(value: any, kind: string = "set"): ActionAppearance { const a = { icon: kind === "call" ? "phone" : kind === "sms" ? "message" : kind === "email" ? "mail" : kind === "edit_form" ? "edit" : kind === "new_form" ? "plus" : kind === "grouped" ? "list" : kind === "delete" ? "trash" : kind === "copy" ? "copy" : kind === "add" ? "plus" : kind.startsWith("open_") ? "external" : "check", style: "outline", color: "", size: "normal", icon_only: false, ...value }; if (!ICON_CATALOG.some(i => i.name === a.icon) || !['solid', 'outline', 'text'].includes(a.style) || !['small', 'normal', 'large'].includes(a.size) || typeof a.icon_only !== "boolean" || typeof a.color !== "string" || a.color !== "" && !/^#[a-f\d]{6}$/i.test(a.color))
-    throw Error("รูปแบบปุ่มไม่ถูกต้อง กรุณาเลือกไอคอน สไตล์ ขนาด และสี #RRGGBB"); return a; }
+export function appearance(value: any, kind: string = "set"): ActionAppearance { const a = { icon: kind === "call" ? "phone" : kind === "sms" ? "message" : kind === "email" ? "mail" : kind === "edit_form" ? "edit" : kind === "new_form" ? "plus" : kind === "grouped" ? "list" : kind === "delete" ? "trash" : kind === "copy" ? "copy" : kind === "add" ? "plus" : kind.startsWith("open_") ? "external" : "check", style: "outline", color: "", size: "normal", icon_only: false, ...value }; if (a.position!==undefined&&!['primary','prominent','inline','hide'].includes(a.position) || !ICON_CATALOG.some(i => i.name === a.icon) || !['solid', 'outline', 'text'].includes(a.style) || !['small', 'normal', 'large'].includes(a.size) || typeof a.icon_only !== "boolean" || typeof a.color !== "string" || a.color !== "" && !/^#[a-f\d]{6}$/i.test(a.color))
+    throw Error("รูปแบบปุ่มไม่ถูกต้อง กรุณาเลือกไอคอน สไตล์ ขนาด และสี #RRGGBB"); if(a.position==="primary")a.icon_only=true;return a; }
 export function safeActionUrl(value: unknown) { if (typeof value !== "string" || value.length > 2000)
     throw Error("ลิงก์ต้องเป็นข้อความไม่เกิน 2,000 ตัวอักษร"); if (value.startsWith("/") && !value.startsWith("//") && !/[\\\r\n]/.test(value))
     return value; try {

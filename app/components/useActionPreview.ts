@@ -1,0 +1,6 @@
+"use client";
+import {useEffect,useState} from 'react';
+import {useAuth} from './AuthProvider';
+import {appearance,ACTION_KINDS} from '@/lib/action-config';
+import type {RowAction} from '@/lib/automation';
+export function useActionPreview(saved:RowAction[],table:string){const {access}=useAuth(),[draft,setDraft]=useState<RowAction|null>(null);useEffect(()=>{if(!access.builder||window.parent===window)return;const receive=(event:MessageEvent)=>{if(event.source!==window.parent||event.origin!==location.origin||event.data?.type!=='nocode:action-preview-draft')return;const action=event.data.action;if(!action){setDraft(null);return;}try{if(typeof action.name!=='string'||typeof action.table_name!=='string'||typeof action.label!=='string'||typeof action.condition_expr!=='string'||!Object.hasOwn(ACTION_KINDS,action.kind))return;appearance(action.appearance,action.kind);setDraft(action);}catch{}};window.addEventListener('message',receive);window.parent.postMessage({type:'nocode:action-preview-ready'},location.origin);return()=>window.removeEventListener('message',receive);},[access.builder]);const active=draft?.table_name===table?draft:null;return {actions:active?[...saved.filter(a=>a.name!==active.name),active]:saved,isPreview:(action:RowAction)=>active?.name===action.name};}

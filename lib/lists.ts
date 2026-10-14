@@ -105,7 +105,7 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
   const rows = prepared.map(({raw,row,errors}) => {
     for (const c of refColumns) {
       const labeled = refLabels.get(c.ref_table!)?.get(row[c.name] as number);
-      if (labeled) {row[`${c.name}__label`]=labeled.label as any;row[`${c.name}__image`]=labeled.image as any;}
+      if (labeled) {row[`${c.name}__label`]=labeled.label as any;row[`${c.name}__image`]=labeled.image as any;if(labeled.decoration)row[`${c.name}__decoration`]=labeled.decoration as any;}
     }
     const allowedActions=rowActions.filter(a=>{try{return canExecuteAction({...a,table_name:table}) && rowAllowed(table,raw,["copy","add","new_form"].includes(a.kind)?"read":actionPermission(a.kind)) && asBoolean(evaluateExpression(a.condition_expr,row,{...context,refTables:refTablesOf(cols),userEmail}));}catch{return false;}}).map(a=>a.name);
     const businessKey=cols.find(c=>c.is_key)?.name;

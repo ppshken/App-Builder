@@ -831,6 +831,596 @@ export const EXTRA_ICONS = [
   ["camera-off","ปิดกล้อง","สื่อ","M2 2l20 20M6 6H2v15h16M10 3h6l3 3h3v11M9 9a4 4 0 0 0 6 6"],
   ["radio","วิทยุ","สื่อ","M2 8h20v13H2ZM3 8l16-6M10 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0M14 12h5M14 16h5"]
 ] as const;
-export const ICON_CATALOG = [...[["grid","ภาพรวม"],["table","ตาราง"],["settings","ตั้งค่า"],["plus","เพิ่ม"],["search","ค้นหา"],["chevron","ถัดไป"],["back","ย้อนกลับ"],["close","ปิด"],["edit","ฟอร์ม"],["trash","ลบ"],["check","เครื่องหมายถูก"],["menu","เมนู"],["list","รายการ"],["database","ข้อมูล"],["formula","สูตร"],["eye","รายละเอียด"],["phone","มือถือ"],["tablet","แท็บเล็ต"],["monitor","จอคอมพิวเตอร์"],["refresh","รีเฟรช"],["external","เปิดหน้าต่าง"],["home","บ้าน"],["users","ผู้ใช้"],["calendar","ปฏิทิน"],["folder","แฟ้ม"],["tag","ป้ายกำกับ"]].map(([name,label]) => ({name,label,category:"พื้นฐาน"})), ...EXTRA_ICONS.map(([name,label,category]) => ({name,label,category}))];
+export const SOLID_ICONS = [
+  [
+    "home-solid",
+    "บ้าน · Solid",
+    "พื้นฐาน",
+    "M12 2 1 11h3v11h6v-7h4v7h6V11h3Z"
+  ],
+  [
+    "user-solid",
+    "บุคคล · Solid",
+    "ผู้คน",
+    "M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10M2 22v-2a10 8 0 0 1 20 0v2Z"
+  ],
+  [
+    "heart-solid",
+    "หัวใจ · Solid",
+    "ผู้คน",
+    "M12 21 3 12C-3 4 7-1 12 6c5-7 15-2 9 6Z"
+  ],
+  [
+    "star-solid",
+    "ดาว · Solid",
+    "พื้นฐาน",
+    "m12 1 3.4 7 7.6 1.1-5.5 5.4 1.3 7.5-6.8-3.6L5.2 22l1.3-7.5L1 9.1 7 8Z"
+  ],
+  [
+    "check-circle-solid",
+    "สำเร็จ · Solid",
+    "เวลาและสถานะ",
+    "M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22M10 17l-5-5 2-2 3 3 7-7 2 2Z"
+  ],
+  [
+    "close-circle-solid",
+    "ยกเลิก · Solid",
+    "เวลาและสถานะ",
+    "M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22M6 8l2-2 4 4 4-4 2 2-4 4 4 4-2 2-4-4-4 4-2-2 4-4Z"
+  ],
+  [
+    "warning-solid",
+    "แจ้งเตือน · Solid",
+    "เวลาและสถานะ",
+    "M12 1 0 22h24ZM11 8h2v7h-2ZM11 17h2v2h-2Z"
+  ],
+  [
+    "info-solid",
+    "ข้อมูลเพิ่มเติม · Solid",
+    "พื้นฐาน",
+    "M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22M11 10h2v8h-2ZM11 6h2v2h-2Z"
+  ],
+  [
+    "clock-solid",
+    "นาฬิกา · Solid",
+    "เวลาและสถานะ",
+    "M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22M11 5h2v6h5v2h-7Z"
+  ],
+  [
+    "tag-solid",
+    "ป้ายกำกับ · Solid",
+    "พื้นฐาน",
+    "M2 2h10l11 11-10 10L2 12ZM6 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "folder-solid",
+    "แฟ้ม · Solid",
+    "พื้นฐาน",
+    "M2 4h8l3 3h9v14H2Z"
+  ],
+  [
+    "file-solid",
+    "เอกสาร · Solid",
+    "พื้นฐาน",
+    "M4 1h10l6 6v16H4ZM14 2v6h5"
+  ],
+  [
+    "calendar-solid",
+    "ปฏิทิน · Solid",
+    "เวลาและสถานะ",
+    "M5 1h2v3h10V1h2v3h3v19H2V4h3ZM4 9v12h16V9Z"
+  ],
+  [
+    "monitor-solid",
+    "จอคอมพิวเตอร์ · Solid",
+    "เทคโนโลยี",
+    "M1 2h22v16h-9v3h5v2H5v-2h5v-3H1ZM3 4v12h18V4Z"
+  ],
+  [
+    "camera-solid",
+    "กล้อง · Solid",
+    "สื่อ",
+    "M2 6h5l2-4h6l2 4h5v16H2ZM12 8a6 6 0 1 0 0 12 6 6 0 0 0 0-12M12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
+  ],
+  [
+    "image-solid",
+    "รูปภาพ · Solid",
+    "สื่อ",
+    "M2 2h20v20H2ZM4 18h16l-6-8-4 6-3-4ZM7 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "pin-solid",
+    "ตำแหน่ง · Solid",
+    "พื้นฐาน",
+    "M12 1a9 9 0 0 0-9 9c0 6 9 13 9 13s9-7 9-13a9 9 0 0 0-9-9M12 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
+  ],
+  [
+    "mail-solid",
+    "อีเมล · Solid",
+    "พื้นฐาน",
+    "M1 4h22v16H1ZM2 5l10 8L22 5l-1-1-9 7-9-7Z"
+  ],
+  [
+    "bell-solid",
+    "กระดิ่ง · Solid",
+    "พื้นฐาน",
+    "M12 1a2 2 0 0 0-2 2 7 7 0 0 0-5 7v6l-3 3h20l-3-3v-6a7 7 0 0 0-5-7 2 2 0 0 0-2-2M9 21h6a3 3 0 0 1-6 0"
+  ],
+  [
+    "lock-solid",
+    "ล็อก · Solid",
+    "ผู้คน",
+    "M5 10V7a7 7 0 0 1 14 0v3h3v13H2V10ZM8 10h8V7a4 4 0 0 0-8 0ZM11 15h2v5h-2Z"
+  ],
+  [
+    "shield-solid",
+    "โล่ความปลอดภัย · Solid",
+    "ผู้คน",
+    "M12 1 2 5v7c0 6 10 11 10 11s10-5 10-11V5Z"
+  ],
+  [
+    "play-solid",
+    "เล่น · Solid",
+    "สื่อ",
+    "M5 2v20l18-10Z"
+  ],
+  [
+    "trash-solid",
+    "ลบ · Solid",
+    "พื้นฐาน",
+    "M8 1h8v3h6v3H2V4h6ZM4 9h16l-1 14H5ZM8 11h2v9H8ZM14 11h2v9h-2Z"
+  ],
+  [
+    "edit-solid",
+    "แก้ไข · Solid",
+    "พื้นฐาน",
+    "M16 1l7 7L9 22l-8 1 1-8ZM4 16l4 4 12-12-4-4Z"
+  ],
+  [
+    "plus-solid",
+    "เพิ่ม · Solid",
+    "พื้นฐาน",
+    "M10 2h4v8h8v4h-8v8h-4v-8H2v-4h8Z"
+  ],
+  [
+    "check-solid",
+    "เครื่องหมายถูก · Solid",
+    "พื้นฐาน",
+    "m1 12 3-3 5 5L20 3l3 3L9 21Z"
+  ],
+  [
+    "close-solid",
+    "ปิด · Solid",
+    "พื้นฐาน",
+    "m3 1 9 9 9-9 2 2-9 9 9 9-2 2-9-9-9 9-2-2 9-9-9-9Z"
+  ],
+  [
+    "chevron-solid",
+    "ถัดไป · Solid",
+    "พื้นฐาน",
+    "m7 2 10 10L7 22l-3-3 7-7-7-7Z"
+  ],
+  [
+    "back-solid",
+    "ย้อนกลับ · Solid",
+    "พื้นฐาน",
+    "m12 2 3 3-5 5h13v4H10l5 5-3 3L2 12Z"
+  ],
+  [
+    "arrow-up-solid",
+    "ลูกศรขึ้น · Solid",
+    "พื้นฐาน",
+    "m12 1 10 10-3 3-5-5v14h-4V9l-5 5-3-3Z"
+  ],
+  [
+    "arrow-down-solid",
+    "ลูกศรลง · Solid",
+    "พื้นฐาน",
+    "m12 23 10-10-3-3-5 5V1h-4v14l-5-5-3 3Z"
+  ],
+  [
+    "menu-solid",
+    "เมนู · Solid",
+    "พื้นฐาน",
+    "M2 3h20v4H2ZM2 10h20v4H2ZM2 17h20v4H2Z"
+  ],
+  [
+    "list-solid",
+    "รายการ · Solid",
+    "พื้นฐาน",
+    "M1 3h4v4H1ZM8 3h15v4H8ZM1 10h4v4H1ZM8 10h15v4H8ZM1 17h4v4H1ZM8 17h15v4H8Z"
+  ],
+  [
+    "grid-solid",
+    "ภาพรวม · Solid",
+    "พื้นฐาน",
+    "M2 2h8v8H2ZM14 2h8v8h-8ZM2 14h8v8H2ZM14 14h8v8h-8Z"
+  ],
+  [
+    "table-solid",
+    "ตาราง · Solid",
+    "พื้นฐาน",
+    "M2 2h20v20H2ZM4 8v5h5V8ZM11 8v5h9V8ZM4 15v5h5v-5ZM11 15v5h9v-5Z"
+  ],
+  [
+    "search-solid",
+    "ค้นหา · Solid",
+    "พื้นฐาน",
+    "M10 1a9 9 0 1 0 5.6 16l6 6 2.4-2.4-6-6A9 9 0 0 0 10 1M10 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12"
+  ],
+  [
+    "eye-solid",
+    "รายละเอียด · Solid",
+    "พื้นฐาน",
+    "M0 12C6 0 18 0 24 12c-6 12-18 12-24 0M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
+  ],
+  [
+    "phone-solid",
+    "มือถือ · Solid",
+    "พื้นฐาน",
+    "M5 1h14v22H5ZM7 4v14h10V4ZM10 20h4v1h-4Z"
+  ],
+  [
+    "tablet-solid",
+    "แท็บเล็ต · Solid",
+    "พื้นฐาน",
+    "M1 3h22v18H1ZM6 5v14h15V5ZM3 10h1v4H3Z"
+  ],
+  [
+    "external-solid",
+    "เปิดหน้าต่าง · Solid",
+    "พื้นฐาน",
+    "M13 1h10v10h-3V6L10 16l-2-2L18 4h-5ZM1 5h9v3H4v12h12v-6h3v9H1Z"
+  ],
+  [
+    "download-solid",
+    "ดาวน์โหลด · Solid",
+    "ทั่วไป",
+    "M10 1h4v12l4-4 3 3-9 9-9-9 3-3 4 4ZM1 20h22v3H1Z"
+  ],
+  [
+    "upload-solid",
+    "อัปโหลด · Solid",
+    "ทั่วไป",
+    "M10 19h4V7l4 4 3-3-9-9-9 9 3 3 4-4ZM1 20h22v3H1Z"
+  ],
+  [
+    "copy-solid",
+    "คัดลอก · Solid",
+    "ทั่วไป",
+    "M1 1h16v3H4v13H1ZM7 7h16v16H7Z"
+  ],
+  [
+    "clipboard-solid",
+    "งานที่ต้องทำ · Solid",
+    "งาน",
+    "M8 1h8v4h5v18H3V5h5ZM8 7h8v2H8ZM6 12h12v2H6ZM6 17h12v2H6Z"
+  ],
+  [
+    "database-solid",
+    "ข้อมูล · Solid",
+    "พื้นฐาน",
+    "M2 5a10 4 0 1 1 20 0 10 4 0 1 1-20 0M2 9c5 4 15 4 20 0v5c-5 4-15 4-20 0ZM2 17c5 4 15 4 20 0v3c0 5-20 5-20 0Z"
+  ],
+  [
+    "briefcase-solid",
+    "กระเป๋างาน · Solid",
+    "งาน",
+    "M7 1h10v4h6v17H1V5h6ZM9 3v2h6V3ZM2 11v2h8v3h4v-3h8v-2H2Z"
+  ],
+  [
+    "building-solid",
+    "สำนักงาน · Solid",
+    "งาน",
+    "M3 1h18v22h-7v-5h-4v5H3ZM6 4h3v3H6ZM15 4h3v3h-3ZM6 10h3v3H6ZM15 10h3v3h-3Z"
+  ],
+  [
+    "warehouse-solid",
+    "คลังสินค้า · Solid",
+    "ธุรกิจ",
+    "M0 8 12 1l12 7v15h-4V11H4v12H0ZM6 13h12v3H6ZM6 18h12v5H6Z"
+  ],
+  [
+    "car-solid",
+    "รถยนต์ · Solid",
+    "การเดินทาง",
+    "M5 3h14l3 8v10h-4v-3H6v3H2V11ZM6 5l-2 6h16l-2-6ZM5 13a2 2 0 1 0 0 4 2 2 0 0 0 0-4M19 13a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "truck-solid",
+    "รถบรรทุก · Solid",
+    "การเดินทาง",
+    "M1 3h13v13h2V7h4l4 6v7h-2a3 3 0 0 1-6 0H8a3 3 0 0 1-6 0H1ZM18 9v4h4l-3-4ZM5 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4M19 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "bus-solid",
+    "รถโดยสาร · Solid",
+    "การเดินทาง",
+    "M4 1h16v19h-2v3h-3v-3H9v3H6v-3H4ZM6 4v8h12V4ZM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4M17 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "package-solid",
+    "กล่องสินค้า · Solid",
+    "ธุรกิจ",
+    "M12 1 1 6v12l11 5 11-5V6ZM3 7l8 4v9h2v-9l8-4-2-1-7 3-7-3Z"
+  ],
+  [
+    "shopping-cart-solid",
+    "รถเข็นสินค้า · Solid",
+    "ธุรกิจ",
+    "M0 1h4l2 4h18l-3 11H7L3 4H0ZM8 18a3 3 0 1 0 0 6 3 3 0 0 0 0-6M19 18a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
+  ],
+  [
+    "shopping-bag-solid",
+    "ถุงสินค้า · Solid",
+    "ธุรกิจ",
+    "M6 7V6a6 6 0 0 1 12 0v1h4v16H2V7ZM9 7h6V6a3 3 0 0 0-6 0Z"
+  ],
+  [
+    "wallet-solid",
+    "กระเป๋าเงิน · Solid",
+    "ธุรกิจ",
+    "M1 3h21v5H1ZM1 10h22v11H1ZM15 13v5h7v-5ZM17 14h2v2h-2Z"
+  ],
+  [
+    "credit-card-solid",
+    "บัตรเครดิต · Solid",
+    "ธุรกิจ",
+    "M1 3h22v4H1ZM1 10h22v11H1ZM4 15h6v3H4Z"
+  ],
+  [
+    "receipt-solid",
+    "ใบเสร็จ · Solid",
+    "ธุรกิจ",
+    "M3 1l3 2 3-2 3 2 3-2 3 2 3-2v22l-3-2-3 2-3-2-3 2-3-2-3 2ZM6 6h12v2H6ZM6 11h12v2H6ZM6 16h8v2H6Z"
+  ],
+  [
+    "chart-solid",
+    "กราฟแท่ง · Solid",
+    "พื้นฐาน",
+    "M2 13h5v10H2ZM9 7h5v16H9ZM16 1h5v22h-5Z"
+  ],
+  [
+    "pie-chart-solid",
+    "กราฟวงกลม · Solid",
+    "พื้นฐาน",
+    "M13 0v11h11A11 11 0 0 0 13 0M10 2a11 11 0 1 0 12 12H10Z"
+  ],
+  [
+    "message-solid",
+    "ข้อความ · Solid",
+    "สื่อสาร",
+    "M1 2h22v16H9l-8 6ZM5 6h14v2H5ZM5 11h10v2H5Z"
+  ],
+  [
+    "send-solid",
+    "ส่งข้อความ · Solid",
+    "สื่อสาร",
+    "M0 0l24 12L0 24l3-10 12-2L3 10Z"
+  ],
+  [
+    "key-solid",
+    "กุญแจสิทธิ์ · Solid",
+    "ผู้คน",
+    "M8 1a7 7 0 1 0 5 12l3 3v4h4v3h4v-6L14 7a7 7 0 0 0-6-6M6 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
+  ],
+  [
+    "unlock-solid",
+    "ปลดล็อก · Solid",
+    "ผู้คน",
+    "M5 10V7a7 7 0 0 1 14 0h-3a4 4 0 0 0-8 0v3h14v13H2V10ZM11 15h2v5h-2Z"
+  ],
+  [
+    "users-solid",
+    "ผู้ใช้ · Solid",
+    "พื้นฐาน",
+    "M8 1a4 4 0 1 0 0 8 4 4 0 0 0 0-8M18 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6M0 21v-3a8 7 0 0 1 16 0v3ZM17 12a6 6 0 0 1 7 6v3h-6v-3a10 10 0 0 0-1-6"
+  ],
+  [
+    "user-plus-solid",
+    "เพิ่มผู้ใช้ · Solid",
+    "ผู้คน",
+    "M9 1a5 5 0 1 0 0 10 5 5 0 0 0 0-10M1 23v-4a8 7 0 0 1 13-5v9ZM18 11h3v4h3v3h-3v4h-3v-4h-4v-3h4Z"
+  ],
+  [
+    "badge-solid",
+    "บัตรพนักงาน · Solid",
+    "ผู้คน",
+    "M8 1h8v4h6v18H2V5h6ZM7 10a3 3 0 1 0 0 6 3 3 0 0 0 0-6M4 20h6a3 3 0 0 0-6 0M13 10h6v2h-6ZM13 16h6v2h-6Z"
+  ],
+  [
+    "bookmark-solid",
+    "บุ๊กมาร์ก · Solid",
+    "พื้นฐาน",
+    "M5 1h14v22l-7-5-7 5Z"
+  ],
+  [
+    "flag-solid",
+    "ธง · Solid",
+    "งาน",
+    "M2 1h3v22H2ZM7 2h15l-4 5 4 5H7Z"
+  ],
+  [
+    "bolt-solid",
+    "สายฟ้า · Solid",
+    "ธรรมชาติ",
+    "M13 0 2 14h8l-1 10L22 9h-9Z"
+  ],
+  [
+    "cloud-solid",
+    "คลาวด์ · Solid",
+    "อุปกรณ์",
+    "M6 9a7 7 0 0 1 14-1c7 0 6 13-1 13H5C-2 21-2 10 6 9"
+  ],
+  [
+    "sun-solid",
+    "ดวงอาทิตย์ · Solid",
+    "ธรรมชาติ",
+    "M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12M11 0h2v4h-2ZM11 20h2v4h-2ZM0 11h4v2H0ZM20 11h4v2h-4ZM2 3l1-1 3 3-1 1ZM18 19l1-1 3 3-1 1ZM2 21l3-3 1 1-3 3ZM18 5l3-3 1 1-3 3Z"
+  ],
+  [
+    "moon-solid",
+    "พระจันทร์ · Solid",
+    "ธรรมชาติ",
+    "M18 1A12 12 0 1 0 23 18C12 21 3 10 18 1"
+  ],
+  [
+    "droplet-solid",
+    "หยดน้ำ · Solid",
+    "ธรรมชาติ",
+    "M12 0C9 5 2 10 2 15a10 9 0 1 0 20 0C22 10 15 5 12 0"
+  ],
+  [
+    "fire-solid",
+    "ไฟ · Solid",
+    "พื้นฐาน",
+    "M13 0C19 7 16 9 19 11l2-5c7 18-17 25-20 10C0 11 5 8 7 5c-1 8 3 10 4 5 2-4 0-7 2-10"
+  ],
+  [
+    "leaf-solid",
+    "ใบไม้ · Solid",
+    "ธรรมชาติ",
+    "M23 0C7 0 0 4 1 16l3 3L0 23h4l3-4C20 22 24 12 23 0M5 17l12-12 2 2L7 19Z"
+  ],
+  [
+    "flower-solid",
+    "ดอกไม้ · Solid",
+    "ธรรมชาติ",
+    "M12 0c4 0 4 4 4 5 7-3 11 5 5 9 7 5 0 13-5 8-1 7-9 7-10 0-5 5-12-3-5-8-6-4-2-12 5-9 0-1 0-5 6-5M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"
+  ],
+  [
+    "wrench-solid",
+    "ประแจซ่อมบำรุง · Solid",
+    "เครื่องมือ",
+    "M13 1c5-3 11 2 10 7l-5-4-4 4 4 4c-4 2-7 0-8-1L2 23l-3-3 12-12c-1-2 0-5 2-7"
+  ],
+  [
+    "hammer-solid",
+    "ค้อน · Solid",
+    "เครื่องมือ",
+    "M14 0 24 10l-5 5-4-4L3 23l-3-3L12 8 8 4Z"
+  ],
+  [
+    "toolbox-solid",
+    "กล่องเครื่องมือ · Solid",
+    "พื้นฐาน",
+    "M7 1h10v4h6v18H1V5h6ZM9 3v2h6V3ZM2 11v3h8v3h4v-3h8v-3Z"
+  ],
+  [
+    "flask-solid",
+    "ขวดทดลอง · Solid",
+    "พื้นฐาน",
+    "M7 1h10v3h-2v6l8 12H1L9 10V4H7ZM11 4v7l-4 6h10l-4-6V4Z"
+  ],
+  [
+    "book-solid",
+    "หนังสือ · Solid",
+    "งาน",
+    "M1 2c4-2 7-2 10 0v20c-3-2-6-2-10 0ZM13 2c3-2 6-2 10 0v20c-4-2-7-2-10 0Z"
+  ],
+  [
+    "graduation-cap-solid",
+    "หมวกบัณฑิต · Solid",
+    "พื้นฐาน",
+    "M0 6 12 0l12 6-12 6ZM5 11l7 4 7-4v7c-4 4-10 4-14 0ZM22 10h2v12h-2Z"
+  ],
+  [
+    "trophy-solid",
+    "ถ้วยรางวัล · Solid",
+    "พื้นฐาน",
+    "M6 1h12v2h6v7l-6 4c-1 2-3 3-4 3v3h5v3H5v-3h5v-3c-1 0-3-1-4-3l-6-4V3h6ZM2 5v4l4 2V5ZM18 5v6l4-2V5Z"
+  ],
+  [
+    "medal-solid",
+    "เหรียญรางวัล · Solid",
+    "พื้นฐาน",
+    "M2 0h6l4 7 4-7h6l-6 11H8ZM12 10a7 7 0 1 0 0 14 7 7 0 0 0 0-14M12 13l1 3 3 1-2 2v3l-2-2-2 2v-3l-2-2 3-1Z"
+  ],
+  [
+    "music-solid",
+    "เพลง · Solid",
+    "อุปกรณ์",
+    "M8 4 23 0v17c0 6-10 6-10 1 0-4 5-5 7-3V5l-9 3v13C11 26 1 26 1 21c0-4 5-5 7-3Z"
+  ],
+  [
+    "pause-solid",
+    "หยุดชั่วคราว · Solid",
+    "สื่อ",
+    "M4 2h6v20H4ZM14 2h6v20h-6Z"
+  ],
+  [
+    "square-stop-solid",
+    "หยุด · Solid",
+    "สื่อ",
+    "M3 3h18v18H3Z"
+  ],
+  [
+    "microphone-solid",
+    "ไมโครโฟน · Solid",
+    "อุปกรณ์",
+    "M8 4a4 4 0 0 1 8 0v8a4 4 0 0 1-8 0M4 10h3v2a5 5 0 0 0 10 0v-2h3v2a8 8 0 0 1-6 8v2h4v2H6v-2h4v-2a8 8 0 0 1-6-8Z"
+  ],
+  [
+    "headphones-solid",
+    "หูฟัง · Solid",
+    "อุปกรณ์",
+    "M1 12a11 11 0 0 1 22 0v10h-7V12h4a8 8 0 0 0-16 0h4v10H1Z"
+  ],
+  [
+    "video-solid",
+    "วิดีโอ · Solid",
+    "อุปกรณ์",
+    "M1 4h15v16H1ZM18 8l6-4v16l-6-4Z"
+  ],
+  [
+    "printer-solid",
+    "เครื่องพิมพ์ · Solid",
+    "อุปกรณ์",
+    "M5 0h14v6H5ZM1 8h22v11h-4v5H5v-5H1ZM7 15v7h10v-7ZM18 10h3v2h-3Z"
+  ],
+  [
+    "server-solid",
+    "เครื่องแม่ข่าย · Solid",
+    "อุปกรณ์",
+    "M2 1h20v9H2ZM2 14h20v9H2ZM5 4h3v3H5ZM5 17h3v3H5Z"
+  ],
+  [
+    "cpu-solid",
+    "ชิปประมวลผล · Solid",
+    "อุปกรณ์",
+    "M5 5h14v14H5ZM8 8v8h8V8ZM7 0h2v4H7ZM15 0h2v4h-2ZM7 20h2v4H7ZM15 20h2v4h-2ZM0 7h4v2H0ZM0 15h4v2H0ZM20 7h4v2h-4ZM20 15h4v2h-4Z"
+  ],
+  [
+    "battery-solid",
+    "แบตเตอรี่ · Solid",
+    "อุปกรณ์",
+    "M1 6h20v12H1ZM21 9h3v6h-3ZM4 9v6h13V9Z"
+  ],
+  [
+    "wifi-solid",
+    "ไวไฟ · Solid",
+    "อุปกรณ์",
+    "M0 6c7-7 17-7 24 0l-3 3c-5-5-13-5-18 0ZM5 12c4-4 10-4 14 0l-3 3c-2-2-6-2-8 0ZM12 17a3 3 0 1 0 0 6 3 3 0 0 0 0-6"
+  ],
+  [
+    "globe-solid",
+    "เว็บไซต์โลก · Solid",
+    "สื่อสาร",
+    "M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24M3 8h4L9 3 4 5ZM9 9l-3 3 4 3v6h4l3-6-4-5ZM17 4l-2 3 6 3-2-5Z"
+  ],
+  [
+    "compass-solid",
+    "เข็มทิศ · Solid",
+    "การเดินทาง",
+    "M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24M18 6l-4 8-8 4 4-8ZM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
+  ],
+  [
+    "map-solid",
+    "แผนที่ · Solid",
+    "การเดินทาง",
+    "M1 4l7-3v19l-7 3ZM10 1l5 3v19l-5-3ZM17 4l6-3v19l-6 3Z"
+  ]
+] as const;
+export const ICON_CATALOG = [...[["grid","ภาพรวม"],["table","ตาราง"],["settings","ตั้งค่า"],["plus","เพิ่ม"],["search","ค้นหา"],["chevron","ถัดไป"],["back","ย้อนกลับ"],["close","ปิด"],["edit","ฟอร์ม"],["trash","ลบ"],["check","เครื่องหมายถูก"],["menu","เมนู"],["list","รายการ"],["database","ข้อมูล"],["formula","สูตร"],["eye","รายละเอียด"],["phone","มือถือ"],["tablet","แท็บเล็ต"],["monitor","จอคอมพิวเตอร์"],["refresh","รีเฟรช"],["external","เปิดหน้าต่าง"],["home","บ้าน"],["users","ผู้ใช้"],["calendar","ปฏิทิน"],["folder","แฟ้ม"],["tag","ป้ายกำกับ"]].map(([name,label]) => ({name,label,category:"พื้นฐาน"})), ...EXTRA_ICONS.map(([name,label,category]) => ({name,label,category})), ...SOLID_ICONS.map(([name,label,category]) => ({name,label,category}))];
 export const ICON_NAMES = new Set(ICON_CATALOG.map(i => i.name));
-export type IconName = "grid" | "table" | "settings" | "plus" | "search" | "chevron" | "back" | "close" | "edit" | "trash" | "check" | "menu" | "list" | "database" | "formula" | "eye" | "phone" | "tablet" | "monitor" | "refresh" | "external" | "home" | "users" | "calendar" | "folder" | "tag" | typeof EXTRA_ICONS[number][0];
+export type IconName = "grid" | "table" | "settings" | "plus" | "search" | "chevron" | "back" | "close" | "edit" | "trash" | "check" | "menu" | "list" | "database" | "formula" | "eye" | "phone" | "tablet" | "monitor" | "refresh" | "external" | "home" | "users" | "calendar" | "folder" | "tag" | typeof EXTRA_ICONS[number][0] | typeof SOLID_ICONS[number][0];
