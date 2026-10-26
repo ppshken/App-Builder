@@ -1,0 +1,22 @@
+const {chromium,expect}=require('@playwright/test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const base=process.env.NOCODE_TEST_URL;if(!process.env.NOCODE_TEST_DB?.includes('integration-'))throw Error('Isolated DB required');
+async function api(path,method='GET',body,status=200,cookie){const r=await fetch(base+path,{method,headers:{'content-type':'application/json',...(cookie?{cookie}:{})},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;}
+async function main(){
+await api('/api/tables','POST',{name:'diagram_parent',label:'ลูกค้า',columns:[{name:'name',label:'ชื่อ',type:'text',is_label:true}]});
+await api('/api/tables','POST',{name:'diagram_child',label:'คำสั่งซื้อ',columns:[{name:'customer',label:'ลูกค้าอ้างอิง',type:'ref',ref_table:'diagram_parent',ref_delete_cascade:true},...Array.from({length:12},(_,i)=>({name:'field_'+i,label:'รายละเอียด '+i,type:'text'}))]});
+const browser=await chromium.launch({channel:'msedge',headless:true});try{const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base+'/data?tab=diagram');await expect(page.locator('.schema-card')).toHaveCount(2,{timeout:45000});await expect(page.locator('.schema-line')).toHaveCount(1);await expect(page.getByRole('tab',{name:'แผนผังตาราง'})).toHaveAttribute('aria-selected','true');
+await page.getByRole('button',{name:'ความสัมพันธ์ diagram_child.customer'}).click();await expect(page.getByLabel('รายละเอียดความสัมพันธ์',{exact:true})).toContainText('ลบตามตารางแม่: เปิด');
+await page.getByLabel('ค้นหาในแผนผัง').fill('field_11');await expect(page.locator('.schema-card')).toHaveCount(1);await page.getByLabel('ค้นหาในแผนผัง').fill('');
+await page.getByRole('button',{name:'แสดงอีก 3 คอลัมน์'}).click();await expect(page.locator('.schema-card').filter({has:page.locator('header a',{hasText:'คำสั่งซื้อ'})}).locator('.schema-column')).toHaveCount(14);
+await page.getByLabel('ย่อแผนผัง',{exact:true}).click();await expect(page.locator('.schema-tools output')).toHaveText('90%');await page.getByRole('button',{name:'จัดเรียงใหม่'}).click();await expect(page.locator('.schema-tools output')).toHaveText('100%');
+const header=page.locator('.schema-card header').first(),before=await header.boundingBox();await page.mouse.move(before.x+200,before.y+55);await page.mouse.down();await page.mouse.move(before.x+240,before.y+90,{steps:5});await page.mouse.up();const after=await header.boundingBox();assert(after.x>before.x+30);await page.getByRole('button',{name:'จัดเรียงใหม่'}).click();
+fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/schema-diagram-desktop.png',fullPage:true});
+await page.getByRole('link',{name:'ลูกค้าอ้างอิง',exact:true}).click();await expect(page.locator('.editor-dialog')).toBeVisible({timeout:30000});assert(page.url().includes('column=customer'));
+await page.goto(base+'/data?tab=diagram');await page.setViewportSize({width:390,height:844});await expect(page.locator('.schema-card')).toHaveCount(2);await page.getByRole('button',{name:'พอดีจอ'}).click();await page.screenshot({path:'artifacts/schema-diagram-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);assert.deepEqual(errors,[]);
+const app=await api('/api/applications','POST',{label:'แอปสำหรับทดสอบแผนผัง'},201);const appCookie=process.env.NOCODE_TEST_COOKIE+'; nocode_app='+app.id;
+await api('/api/applications','PUT',{op:'dataset',id:app.id,table:'diagram_parent',rights:{read:true,create:false,update:false,delete:false,export:false}});
+await api('/api/tables','POST',{name:'diagram_owned',label:'งานของแอป',columns:[{name:'name',label:'ชื่อ',type:'text'}]},200,appCookie);
+await page.context().addCookies([{name:'nocode_app',value:app.id,url:base}]);await page.goto(base+'/data?tab=diagram');await expect(page.locator('.schema-card')).toHaveCount(2);assert(!(await page.locator('.schema-card').allTextContents()).some(t=>t.includes('คำสั่งซื้อ')));await expect(page.locator('.schema-owner',{hasText:'ตารางใช้ร่วมกัน'})).toHaveCount(1);await expect(page.locator('.schema-line')).toHaveCount(0);
+console.log('Schema diagram: navigation, Ref details, search, expansion, drag, zoom and mobile passed');
+}finally{await browser.close();}}
+main().catch(e=>{console.error(e);process.exitCode=1;});

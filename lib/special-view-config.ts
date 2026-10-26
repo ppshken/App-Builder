@@ -1,3 +1,4 @@
+import {customTargets} from './custom-page';
 import type {Column} from './columns';import type {ViewDisplay} from './view-display';
 export const SPECIAL_COLUMN_KEYS=['map_location','map_image','map_lat','map_lng','map_title','chart_category','chart_value','calendar_start','calendar_end','calendar_title','calendar_color'] as const;
 export function validateSpecialDisplay(d:ViewDisplay,cols:Column[]){
@@ -14,6 +15,7 @@ if(d.chart_color!==undefined&&(typeof d.chart_color!=='string'||d.chart_color!==
 if(d.dashboard_views!==undefined&&(!Array.isArray(d.dashboard_views)||d.dashboard_views.length>8||new Set(d.dashboard_views).size!==d.dashboard_views.length||d.dashboard_views.some(n=>typeof n!=='string'||! /^[a-z][a-z0-9_]{0,40}$/.test(n))))throw Error('แดชบอร์ดเลือกได้ไม่เกิน 8 View และห้ามเลือกซ้ำ');
 }
 export function validateSpecialView(kind:string,d:ViewDisplay,views:{name:string;kind:string;position:string}[],name:string){
+if(kind==='custom')for(const target of customTargets(d.custom_page))if(!views.some(v=>v.name===target&&v.position!=='inline'&&v.kind!=='detail'))throw Error('ปุ่มในหน้ากำหนดเองอ้างอิง View ที่เปิดไม่ได้');
 if(kind==='map'&&!d.map_location&&(!d.map_lat||!d.map_lng||d.map_lat===d.map_lng))throw Error('แผนที่: เลือกคอลัมน์พิกัด (Lat, Long)');
 if(kind==='chart'&&(!d.chart_category||(d.chart_aggregate||'count')!=='count'&&!d.chart_value))throw Error('กราฟ: เลือกคอลัมน์แบ่งกลุ่ม และเลือกค่าตัวเลขเมื่อใช้การรวมยอด');
 if(kind==='calendar'&&!d.calendar_start)throw Error('ปฏิทิน: เลือกคอลัมน์วันเริ่ม');

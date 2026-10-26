@@ -38,7 +38,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     let page=requested,total=0,rawRows:Row[]|undefined;
     if(wanted)rawRows=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).all(Number(wanted)) as Row[];
     // Ref choices only return 500 rows; limit before calculating every row in the table.
-    if(!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
+    if(u.searchParams.get("all")!=="1"&&!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
       const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
     }
@@ -66,7 +66,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       return direction * (comparison || a.id - b.id);
     });
     if(paged){if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows,total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size))});}
-    return NextResponse.json(rows.slice(0, 500));
+    return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500));
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }
 async function handlePOST(req:Request,{params}:{params:{table:string}}){try{return NextResponse.json(saveFormRecord(params.table,await readBody(req),undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req)));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}

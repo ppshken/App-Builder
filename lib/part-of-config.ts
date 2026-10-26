@@ -2,6 +2,10 @@ import { assertFormulas, type Column } from "./columns";
 
 export const PART_FORMULA_FIELDS = ["part_show_if", "part_add_if", "part_valid_if"] as const;
 export function assertPartColumn(c: Column) {
+  if(c.related_required!==undefined&&![false,true,0,1].includes(c.related_required))throw Error("การบังคับรายการลูกต้องเป็นค่าเปิดหรือปิด");
+  if(c.related_required&&(c.type!=="ref"||c.is_virtual||!c.ref_table))throw Error("บังคับรายการลูกใช้กับคอลัมน์ Ref จริงที่เลือกตารางแม่เท่านั้น");
+  if(c.ref_delete_cascade!==undefined&&![false,true,0,1].includes(c.ref_delete_cascade))throw Error("ลบลูกตามแม่ต้องเป็นค่าเปิดหรือปิด");
+  if(c.ref_delete_cascade&&(c.type!=="ref"||c.is_virtual||!c.ref_table))throw Error("ลบลูกตามแม่ใช้กับ Ref จริงที่เลือกตารางแม่เท่านั้น");
   if (c.is_part_of !== undefined && ![false, true, 0, 1].includes(c.is_part_of)) throw Error("Is a part of ต้องเป็นค่าเปิดหรือปิด");
   if (c.is_part_of && (c.type !== "ref" || c.is_virtual || !c.ref_table)) throw Error("Is a part of ใช้กับ Ref ที่เก็บข้อมูลจริงและเลือกตารางแม่เท่านั้น");
   for (const field of PART_FORMULA_FIELDS) {

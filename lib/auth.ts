@@ -5,7 +5,7 @@ const scrypt=(password:string,salt:string,length:number,options:{N:number;r:numb
 export const SESSION_COOKIE="nocode_session";
 export const SESSION_AGE=12*60*60*1000;
 export const SESSION_IDLE=2*60*60*1000;
-export type AuthUser={id:number;name:string;email:string;role:string};
+export type AuthUser={id:number;name:string;email:string;role:string;avatar?:string};
 export class AuthError extends Error {constructor(message:string,public status=400){super(message);}}
 export function emailAddress(value:unknown){if(typeof value!=="string" || value.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))throw new AuthError("กรุณากรอกอีเมลให้ถูกต้อง");return value.trim().toLowerCase();}
 export function validPassword(value:unknown){if(typeof value!=="string"||value.length<10||value.length>128)throw new AuthError("รหัสผ่านต้องมีความยาว 10–128 ตัวอักษร");return value;}
@@ -23,7 +23,7 @@ export function sessionUser(token:string,database:Database.Database=db,now=Date.
  const row=database.prepare("SELECT u.id,u.name,u.email,u.role,s.last_seen,s.expires_at,u.active FROM _sessions s JOIN _users u ON u.id=s.user_id WHERE s.token_hash=?").get(tokenHash(token)) as AuthUser&{last_seen:number;expires_at:number;active:number}|undefined;
  if(!row)return null;if(!row.active||row.expires_at<=now||row.last_seen<=now-SESSION_IDLE){database.prepare("DELETE FROM _sessions WHERE token_hash=?").run(tokenHash(token));return null;}
  if(now-row.last_seen>=60000)database.prepare("UPDATE _sessions SET last_seen=? WHERE token_hash=?").run(now,tokenHash(token));
- return {id:row.id,name:row.name,email:row.email,role:row.role};
+ const avatar=(database.prepare("SELECT avatar FROM _user_profiles WHERE user_id=?").get(row.id) as {avatar:string}|undefined)?.avatar;return {id:row.id,name:row.name,email:row.email,role:row.role,...(avatar?{avatar}:{})};
 }
 export function requestUser(req:Request){return sessionUser(cookieToken(req.headers.get("cookie")));}
 export function revokeSession(token:string,database:Database.Database=db){database.prepare("DELETE FROM _sessions WHERE token_hash=?").run(tokenHash(token));}

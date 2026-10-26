@@ -1,0 +1,5 @@
+import {NextResponse} from 'next/server';import {withAuth} from '@/lib/auth-api';import {currentAccess} from '@/lib/permissions';import {AuthError} from '@/lib/auth';import {bad,errorMessage,errorStatus,readBody} from '@/lib/api';import {inspectApp} from '@/lib/readiness';import {simulate} from '@/lib/simulation';
+export const dynamic='force-dynamic';
+function allowed(){if(!currentAccess().builder)throw new AuthError('ส่วนนี้สำหรับผู้สร้างแอพ',403);}
+export const GET=withAuth(async(req:Request)=>{try{allowed();return NextResponse.json(inspectApp(new URL(req.url).searchParams.get('sample')==='1',currentAccess().builder));}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const POST=withAuth(async(req:Request)=>{try{allowed();const b=await readBody(req);if(!['action','automation'].includes(b.kind)||typeof b.name!=='string')throw Error('เลือกรายการที่จะทดสอบ');if(b.kind==='automation'&&!currentAccess().builder)throw new AuthError('ผู้พัฒนาแอปเท่านั้นที่ทดสอบ Automation ได้',403);return NextResponse.json(simulate(b.kind,b.name,Number(b.id)));}catch(e){return bad(errorMessage(e),errorStatus(e));}});

@@ -1,3 +1,4 @@
+import {viewGroups} from "./view-groups";
 import {rowVersion} from "./row-version";
 import {actionPermission} from "./action-config";
 import {visibleRawRows,hasRowRule,assertRowAllowed,rowAllowed} from "./row-access";
@@ -13,11 +14,11 @@ import type { AppView } from "./views";
 import { visibleColumns } from "./views";
 import { viewIsVisible } from "./view-visibility";
 
-export type RelatedList = { table: string; column: string; label: string; list_limit: number };
+export type RelatedList = { table: string; column: string; label: string; list_limit: number; required?:boolean };
 export function relatedLists(table: string): RelatedList[] {
   if (!tableExists(table)) throw new Error("ไม่พบตาราง");
   const tables = db.prepare("SELECT name,label FROM _tables WHERE name IN (SELECT table_name FROM _columns WHERE ref_table=? AND type='ref' AND COALESCE(is_virtual,0)=0) ORDER BY label,name").all(table) as {name:string;label:string}[];
-  return tables.filter(t=>canRead(t.name)).flatMap(t => columnsOf(t.name).filter(c => c.type === "ref" && !c.is_virtual && c.ref_table === table).map(c => ({table:t.name,column:c.name,label:`${t.label} · ${c.label}`,list_limit:c.list_limit ?? 5})));
+  return tables.filter(t=>canRead(t.name)).flatMap(t => columnsOf(t.name).filter(c => c.type === "ref" && !c.is_virtual && c.ref_table === table).map(c => ({table:t.name,column:c.name,label:`${t.label} · ${c.label}`,required:!!c.related_required,list_limit:c.list_limit ?? 5})));
 }
 export function listKey(table: string) { if (!tableExists(table)) throw Error("ไม่พบตารางอ้างอิง"); return "id"; }
 export function checkLists(cols: Column[], row: Record<string, unknown>) {
@@ -96,7 +97,7 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
   const needed=view ? rowActions.length ? cols.map(c=>c.name) : [...selected.map(c=>c.name),...extra] : [];
   const sort=view?.sort_column!=="id" ? cols.find(c=>c.name===view?.sort_column && !c.is_virtual)?.name || "id" : "id", dir=view?.sort_dir==="desc" ? "DESC" : "ASC";
   const group=cols.find(c=>c.name===view?.group_column && !c.is_virtual)?.name;
-  const order=group ? `"${group}" ${view?.group_dir==="desc"?"DESC":"ASC"},` : "";
+  const order=viewGroups(view).filter(g=>g.column==="id"||cols.some(c=>c.name===g.column&&!c.is_virtual)).map(g=>`"${g.column}" ${g.direction==="desc"?"DESC":"ASC"},`).join("");
   // Virtual labels may depend on other columns; fetch just the requested page of complete rows.
   const calculation = labelColumns(cols,[key,label,...(image?[image]:[]),...needed]);
   const prepared = (db.prepare(`SELECT * FROM "t_${table}"${where} ORDER BY ${order}"${sort}" ${dir},id ${dir} LIMIT ? OFFSET ?`).all(...bindings, limit || -1, limit ? (page-1)*limit : 0) as Record<string,unknown>[]).map(raw => ({raw,...calculateRow(calculation,raw,false,now,true,userEmail,context)}));

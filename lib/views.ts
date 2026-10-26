@@ -1,9 +1,9 @@
 import { ICON_CATALOG, type IconName } from "./icons";
 import type { ViewDisplay } from "./view-display";
-export const VIEW_KINDS = [["table", "ตาราง"], ["list", "รายการ"], ["detail", "รายละเอียด"], ["form", "ฟอร์ม"], ["map","แผนที่"], ["chart","กราฟ"], ["calendar","ปฏิทิน"], ["dashboard","แดชบอร์ด"]] as const;
+export const VIEW_KINDS = [["custom", "กำหนดเอง"], ["table", "ตาราง"], ["list", "รายการ"], ["detail", "รายละเอียด"], ["form", "ฟอร์ม"], ["map","แผนที่"], ["chart","กราฟ"], ["calendar","ปฏิทิน"], ["dashboard","แดชบอร์ด"]] as const;
 export const VIEW_POSITIONS = [["primary", "Primary Navigation", "แถบนำทางหลัก"], ["menu", "Menu Navigation", "เมนูของแอป"], ["ref", "Reference View", "ใช้เปิดรายละเอียดหรือฟอร์ม ไม่แสดงในเมนู"], ["inline", "Inline Views", "แสดงรายการ Related ภายในรายละเอียดของตารางอ้างอิง"]] as const;
 export const VIEW_ICONS = ICON_CATALOG.map(i => [i.name as IconName, i.label] as const);
-export function viewIcon(view: { icon?: string; show_if?: string; kind: string }) { return VIEW_ICONS.find(([icon]) => icon === view.icon)?.[0] || (view.kind === "map" ? "map" : view.kind === "chart" ? "chart-bar" : view.kind === "calendar" ? "calendar" : view.kind === "dashboard" ? "grid" : view.kind === "table" ? "table" : view.kind === "form" ? "edit" : view.kind === "detail" ? "eye" : "list"); }
+export function viewIcon(view: { icon?: string; show_if?: string; kind: string }) { return VIEW_ICONS.find(([icon]) => icon === view.icon)?.[0] || (view.kind === "map" ? "map" : view.kind === "chart" ? "chart-bar" : view.kind === "calendar" ? "calendar" : ["dashboard","custom"].includes(view.kind) ? "grid" : view.kind === "table" ? "table" : view.kind === "form" ? "edit" : view.kind === "detail" ? "eye" : "list"); }
 export type AppView = { name: string; label: string; table_name: string; slice_name?: string | null; inline_ref?: string; kind: string; position: string; menu_group?: string | null; pos: number; columns: string[]; sort_column: string; sort_dir: string; icon?: string; show_if?: string; group_column?: string; group_dir?: string; display?: ViewDisplay };
 export function visibleColumns<T extends { name: string }>(cols: T[], selected: string[]) { return selected.length ? selected.flatMap(n => cols.find(c => c.name === n) ? [cols.find(c => c.name === n)!] : []) : cols; }
 
@@ -20,3 +20,6 @@ export function menuViewGroups(views:AppView[]){
   }
   return [...groups].map(([name,views])=>({name,views}));
 }
+
+// Use one form resolver for normal table entry and embedded related entry.
+export function tableFormView(views:AppView[],table:string,hidden:string[]=[],slice?:string|null){const forms=views.filter(v=>v.table_name===table&&v.kind==='form'&&v.position!=='inline'&&!hidden.includes(v.name));const scoped=forms.filter(v=>(v.slice_name||'')===(slice||''));const candidates=scoped.length?scoped:forms.filter(v=>!v.slice_name);return candidates.find(v=>v.position==='ref')||candidates[0];}

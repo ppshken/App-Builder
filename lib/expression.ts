@@ -1,3 +1,7 @@
+import {createUuid} from "./uuid";
+import {normalizeDateTime} from "./datetime";
+import {distanceKilometers} from "./location";
+import {durationMilliseconds,formatDuration,normalizeDuration,isDuration,temporalKind,temporalMilliseconds} from "./duration";
 import {formatExpressionText} from "./expression-text";
 // A bounded parser/interpreter shared by browser and server. No executable user code.
 export type Value = string | number | boolean | null | string[];
@@ -11,10 +15,11 @@ type Token = { kind: string; text: string; start: number; end: number; value?: V
 const arities: Record<string, [number, number]> = {
   IF: [3, 3], IFS: [2, 100], AND: [1, 100], OR: [1, 100], NOT: [1, 1],
   ISBLANK: [1, 1], ISNOTBLANK: [1, 1], CONCATENATE: [1, 100], LEN: [1, 1],
-  TRIM: [1, 1], UPPER: [1, 1], LOWER: [1, 1], TODAY: [0, 0], NOW: [0, 0],
+  TRIM: [1, 1], UPPER: [1, 1], LOWER: [1, 1], TODAY: [0, 0], NOW: [0, 0], DATE: [1, 1],
   YEAR: [1, 1], MONTH: [1, 1], DAY: [1, 1], ROUND: [1, 1], ABS: [1, 1], MIN: [1, 100], MAX: [1, 100],
   LIST: [0, 100], COUNT: [1, 1], IN: [2, 2], UNIQUEID: [0, 0], USEREMAIL: [0, 0], USERID: [0,0], USERNAME: [0,0], USERROLE: [0,0], USERROLEKEY: [0,0], ISOWNER: [0,0], USERSETTINGS: [1,1],
-  SELECT: [2, 3], SUM: [1, 1], RIGHT: [2, 2], TEXT: [1, 2], INDEX: [2, 2],
+  DISTANCE:[2,2],DURATION:[1,1], TOTALHOURS:[1,1], TOTALMINUTES:[1,1], TOTALSECONDS:[1,1],
+  ORDERBY:[2,41],SELECT: [2, 3], SUM: [1, 1], RIGHT: [2, 2], TEXT: [1, 2], INDEX: [2, 2],
 };
 export const FUNCTION_NAMES = Object.keys(arities);
 function fail(message: string, at?: number): never { throw new Error(message + (at === undefined ? "" : ` (ตำแหน่ง ${at + 1})`)); }
@@ -207,11 +212,12 @@ function visit(node: Node, fn: (node: Node) => void) {
   if (node.kind === "call") node.args.forEach((arg) => visit(arg, fn));
 }
 export function userSettingReferences(source:string):(string|null)[]{const names=new Set<string|null>();if(source.trim())visit(parseExpression(source),n=>{if(n.kind==="call"&&n.name==="USERSETTINGS"){const a=n.args[0];names.add(a.kind==="literal"&&typeof a.value==="string"?a.value:null);}});return [...names];}
+function listSourceNode(node:Node):{table:string;column:string}|null{if(node.kind==='table')return {table:node.table,column:node.name};if(node.kind==='call'&&['SELECT','ORDERBY'].includes(node.name))return listSourceNode(node.args[0]);return null;}
 function scopedVisit(node: Node, fn: (node: Node, table?: string) => void, table?: string) {
   fn(node, table);
   if (node.kind === "unary") scopedVisit(node.value, fn, table);
   if (node.kind === "binary") { scopedVisit(node.left, fn, table); scopedVisit(node.right, fn, table); }
-  if (node.kind === "call") node.args.forEach((arg, i) => scopedVisit(arg, fn, node.name === "SELECT" && i === 1 && node.args[0].kind === "table" ? node.args[0].table : table));
+  if (node.kind === "call") node.args.forEach((arg, i) => scopedVisit(arg, fn, node.name === "SELECT" && i === 1 && node.args[0].kind === "table" ? node.args[0].table : node.name==="ORDERBY"&&i%2===1?listSourceNode(node.args[0])?.table||table:table));
 }
 export function references(source: string): string[] {
   const names = new Set<string>();
@@ -244,8 +250,7 @@ export function renameDereference(source: string, table: string, old: string, ne
 }
 export function listSource(source: string): { table: string; column: string } | null {
   if (!source.trim()) return null;
-  const root = parseExpression(source), node = root.kind === "call" && root.name === "SELECT" ? root.args[0] : root;
-  return node.kind === "table" ? { table: node.table, column: node.name } : null;
+  return listSourceNode(parseExpression(source));
 }
 // Migrate only LIST literals that produce the final result. Never replace text
 // in SELECT conditions, IF tests, column names or unrelated expressions.
@@ -281,7 +286,7 @@ const parsedCache = new Map<string, Node>();
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string> };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
-export type ExpressionContext = ExpressionUser & { tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -342,12 +347,12 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       } else if (options.resolve) result = options.resolve(n.name);
       else if (Object.hasOwn(row, n.name)) result = row[n.name] ?? null;
       else fail(`ไม่พบคอลัมน์ [${n.name}] กรุณาตรวจชื่อในระบบ`);
-    } else if (n.kind === "unary") result = (n.op === "-" ? -1 : 1) * numeric(run(n.value, scope));
+    } else if (n.kind === "unary") {const v=run(n.value,scope);result=isDuration(v)?formatDuration((n.op==="-"?-1:1)*durationMilliseconds(v)):(n.op==="-"?-1:1)*numeric(v);}
     else if (n.kind === "binary") {
       const a = run(n.left, scope), b = run(n.right, scope);
       switch (n.op) {
-        case "+": result = numeric(a) + numeric(b); break;
-        case "-": result = numeric(a) - numeric(b); break;
+        case "+": result = isDuration(a)&&isDuration(b)?formatDuration(durationMilliseconds(a)+durationMilliseconds(b)):numeric(a)+numeric(b); break;
+        case "-": {const left=temporalKind(a)||(n.left.kind==="column"&&["date","datetime"].includes(options.columnTypes?.[n.left.name]||"")?options.columnTypes![n.left.name]:null),right=temporalKind(b)||(n.right.kind==="column"&&["date","datetime"].includes(options.columnTypes?.[n.right.name]||"")?options.columnTypes![n.right.name]:null);if((left&&isBlank(b))||(right&&isBlank(a))){result=null;break;}if(left&&right){if(left!==right)fail('กรุณาลบวันที่ชนิดเดียวกัน Date กับ Date หรือ DateTime กับ DateTime');const diff=temporalMilliseconds(String(a))-temporalMilliseconds(String(b));result=left==='date'?diff/86400000:formatDuration(diff);}else if(isDuration(a)&&isDuration(b))result=formatDuration(durationMilliseconds(a)-durationMilliseconds(b));else result=numeric(a)-numeric(b);break;}
         case "*": result = numeric(a) * numeric(b); break;
         case "/": case "%": {
           const divisor = numeric(b);
@@ -360,8 +365,9 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         default: {
           if (isBlank(a) || isBlank(b)) result = false;
           else {
-            const left = typeof a === "number" || typeof b === "number" ? numeric(a) : String(a);
-            const right = typeof a === "number" || typeof b === "number" ? numeric(b) : String(b);
+            const durations=isDuration(a)&&isDuration(b);
+            const left = durations?durationMilliseconds(a):typeof a === "number" || typeof b === "number" ? numeric(a) : String(a);
+            const right = durations?durationMilliseconds(b):typeof a === "number" || typeof b === "number" ? numeric(b) : String(b);
             result = n.op === "<" ? left < right : n.op === ">" ? left > right : n.op === "<=" ? left <= right : left >= right;
           }
         }
@@ -369,6 +375,17 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     } else {
       const arg = (i: number, reference = false) => run(n.args[i], scope, reference);
       switch (n.name) {
+        case "ORDERBY": {
+          const source=listSourceNode(n.args[0]);if(!source)fail('ORDERBY ช่องแรกต้องเป็น ตาราง[id] หรือ SELECT(ตาราง[id], เงื่อนไข)');
+          const data=dataset(source.table);if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
+          if(referenceResult&&source.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
+          const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');if(keys.length>10000)fail('ORDERBY รับได้ไม่เกิน 10,000 แถว');
+          const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
+          const keyColumn=referenceResult?'id':source.column,lookup=new Map(data.rows.map(row=>[String(row[keyColumn]),row]));
+          const decorated=keys.map((key,index)=>{const row=lookup.get(String(key));if(!row)fail('ORDERBY ไม่พบรหัสแถว '+String(key)+' ในตาราง '+source.table);return {key,index,sorts:sorters.map(sort=>{const value=run(sort.node,{row,refs:data.refs||{}});if(Array.isArray(value))fail('ค่าสำหรับเรียง ORDERBY ต้องเป็นค่าเดียว');return value;})};});
+          const compare=(a:Value,b:Value)=>{if(isBlank(a)||isBlank(b))return isBlank(a)?isBlank(b)?0:-1:1;if(isDuration(a)&&isDuration(b))return durationMilliseconds(a)-durationMilliseconds(b);if(typeof a==='number'&&typeof b==='number')return a-b;if(typeof a==='boolean'&&typeof b==='boolean')return Number(a)-Number(b);return String(a).localeCompare(String(b),'th',{numeric:true});};
+          decorated.sort((a,b)=>{for(let i=0;i<sorters.length;i++){const compared=compare(a.sorts[i],b.sorts[i]);if(compared)return compared*(sorters[i].descending?-1:1);}return a.index-b.index;});result=decorated.map(item=>item.key);break;
+        }
         case "SELECT": {
           const source = n.args[0]; if (source.kind !== "table") fail("SELECT ต้องระบุตาราง[คอลัมน์]");
           const data = dataset(source.table), distinct = n.args.length === 3 ? asBoolean(arg(2)) : false;
@@ -393,7 +410,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "LIST": result = n.args.map(a => { const v = run(a, scope); if (typeof v !== "string" && typeof v !== "number") fail("LIST ต้องรับข้อความหรือตัวเลข"); return String(v); }); break;
         case "COUNT": { const v = arg(0); if (!Array.isArray(v)) fail("COUNT ต้องรับรายการ เช่น [tags]"); result = v.length; break; }
         case "IN": { const needle = arg(0), values = arg(1); if (!Array.isArray(values)) fail("IN ต้องรับรายการในช่องที่สอง เช่น IN(\"ด่วน\", [tags])"); result = values.some(v => listEquivalent(needle, v)); break; }
-        case "UNIQUEID": result = crypto.randomUUID(); break;
+        case "UNIQUEID": result = createUuid(); break;
         case "USERID": result = options.userId ?? null; break;
         case "USERNAME": result = options.userName || ""; break;
         case "USERROLE": result = options.userRole || ""; break;
@@ -404,7 +421,10 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "ISBLANK": result = isBlank(arg(0)); break;
         case "ISNOTBLANK": result = !isBlank(arg(0)); break;
         case "CONCATENATE": result = n.args.map(a => String(run(a, scope) ?? "")).join(""); break;
-        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");if(values.length>10000)fail("SUM รับรายการได้ไม่เกิน 10,000 ค่า");result=values.reduce((total,v)=>total+numeric(v),0);break;}
+        case "DISTANCE": {const from=arg(0),to=arg(1);result=isBlank(from)||isBlank(to)?null:distanceKilometers(from,to);break;}
+        case "DURATION": result=normalizeDuration(arg(0));break;
+        case "TOTALHOURS": case "TOTALMINUTES": case "TOTALSECONDS": {const v=arg(0);result=isBlank(v)?null:durationMilliseconds(v)/(n.name==='TOTALHOURS'?3600000:n.name==='TOTALMINUTES'?60000:1000);break;}
+        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");if(values.length>10000)fail("SUM รับรายการได้ไม่เกิน 10,000 ค่า");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}
         case "RIGHT": {const value=arg(0),count=numeric(arg(1));if(!Number.isSafeInteger(count)||count<0)fail("RIGHT จำนวนตัวอักษรต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป");if(Array.isArray(value))fail("RIGHT ต้องรับข้อความหรือตัวเลข ไม่ใช่รายการ");result=count===0?"":Array.from(String(value??"")).slice(-count).join("");break;}
         case "TEXT": result=formatExpressionText(arg(0),n.args.length===2?arg(1):undefined);break;
         case "INDEX": {const values=arg(0),index=numeric(arg(1));if(!Array.isArray(values))fail("INDEX ต้องรับรายการ เช่น INDEX([tags], 1)");if(!Number.isSafeInteger(index))fail("INDEX ตำแหน่งต้องเป็นจำนวนเต็ม โดยรายการแรกเริ่มที่ 1");result=index>=1&&index<=values.length?values[index-1]:null;break;}
@@ -412,6 +432,16 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "TRIM": result = String(arg(0) ?? "").trim().replace(/\s+/g, " "); break;
         case "UPPER": result = String(arg(0) ?? "").toUpperCase(); break;
         case "LOWER": result = String(arg(0) ?? "").toLowerCase(); break;
+        case "DATE": {
+          const value = arg(0);
+          if (isBlank(value)) { result = null; break; }
+          if (typeof value !== "string") fail('DATE ต้องรับวันที่หรือวันเวลา เช่น DATE([created_at])');
+          const text = value.trim();
+          if (temporalKind(text) === "date") { temporalMilliseconds(text); result = text; }
+          else if (temporalKind(text) === "datetime") result = normalizeDateTime(text).slice(0, 10);
+          else fail('DATE ต้องรับวันที่ YYYY-MM-DD หรือวันเวลา YYYY-MM-DDTHH:MM:SS');
+          break;
+        }
         case "TODAY": result = timeParts().date; break;
         case "NOW": { const t = timeParts(); result = `${t.date}T${t.time}+07:00`; break; }
         case "YEAR": case "MONTH": case "DAY": {

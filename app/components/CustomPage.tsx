@@ -1,0 +1,19 @@
+"use client";
+import type {CSSProperties,ReactNode,DragEvent} from 'react';
+import {emptyCustomPage,isCustomContainer,safeCustomImage,type CustomNode,type CustomPageLayout} from '@/lib/custom-page';
+import './custom-page.css';
+type Props={layout?:CustomPageLayout;selected?:string;onSelect?:(id:string)=>void;onDropNode?:(e:DragEvent,parent:string)=>void;onOpenView?:(name:string)=>void;availableViews?:string[]};
+export default function CustomPage({layout=emptyCustomPage(),selected,onSelect,onDropNode,onOpenView,availableViews=[]}:Props){
+ function render(node:CustomNode):ReactNode{
+ const container=isCustomContainer(node.type),style:CSSProperties={padding:node.padding,gap:node.gap,borderRadius:node.radius,color:node.color||undefined,background:node.type==='button'?undefined:node.background||undefined,textAlign:node.align,fontSize:node.fontSize,fontWeight:node.bold?700:undefined,...(node.type==='image'||node.type==='spacer'?{height:node.height}:{} )};
+ const children=node.children?.map(render);let content:ReactNode;
+ switch(node.type){case 'text':content=<div className="custom-text">{node.text||'ข้อความ'}</div>;break;
+ case 'image':content=node.src&&safeCustomImage(node.src)?<img src={node.src} alt={node.alt||''} loading="lazy" draggable={false} style={{height:node.height||200,borderRadius:node.radius}}/>:<div className="custom-image-placeholder" style={{height:node.height||180}}>▧ รูปภาพ</div>;break;
+ case 'button':{const available=!!node.view&&availableViews.includes(node.view);content=<button type="button" className="primary" style={{color:node.color||undefined,background:node.background||undefined,borderRadius:node.radius,fontSize:node.fontSize,fontWeight:node.bold?700:undefined}} disabled={!onSelect&&!available} title={!onSelect&&!available?'ยังไม่ได้เลือก View หรือไม่มีสิทธิ์เปิด':undefined} onClick={()=>{if(!onSelect&&available)onOpenView?.(node.view!);}}>{node.text||'ปุ่ม'}</button>;break;}
+ case 'divider':content=<hr/>;break;case 'spacer':content=<div style={{height:node.height??24}}/>;break;
+ default:content=<>{children}{onSelect&&!node.children?.length&&<span className="custom-drop-hint">วางองค์ประกอบที่นี่</span>}</>;
+ }
+ return <div key={node.id} data-custom-node={node.id} className={'custom-node custom-'+node.type+(node.stackMobile!==false?' mobile-stack':'')+(selected===node.id?' custom-selected':'')+(onSelect?' custom-editable':'')} style={style} draggable={!!onDropNode} onDragStart={onDropNode?e=>{e.stopPropagation();e.dataTransfer.setData('application/x-custom-page',JSON.stringify({kind:'move',id:node.id}));e.dataTransfer.effectAllowed='move';}:undefined} tabIndex={onSelect?0:undefined} role={onSelect?'group':undefined} aria-label={onSelect?'องค์ประกอบ '+(node.text||node.type):undefined} onClick={onSelect?e=>{e.stopPropagation();onSelect(node.id);}:undefined} onKeyDown={onSelect?e=>{if(e.target!==e.currentTarget)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();onSelect(node.id);}}:undefined} onDragOver={onDropNode&&container?e=>{e.preventDefault();e.stopPropagation();}:undefined} onDrop={onDropNode&&container?e=>{e.preventDefault();e.stopPropagation();onDropNode(e,node.id);}:undefined}>{content}</div>;
+ }
+ return <div className="custom-page" style={{background:layout.background||undefined}}><div className="custom-page-content" style={{padding:layout.padding??20,gap:layout.gap??16,maxWidth:layout.maxWidth??1200}} onClick={()=>onSelect?.('')} onDragOver={onDropNode?e=>e.preventDefault():undefined} onDrop={onDropNode?e=>{e.preventDefault();e.stopPropagation();onDropNode(e,'');}:undefined}>{layout.children.map(render)}{onSelect&&!layout.children.length&&<div className="custom-page-empty">＋<strong>เริ่มออกแบบหน้าจอ</strong><span>ลากองค์ประกอบจากด้านซ้าย หรือกดเพื่อเพิ่ม</span></div>}</div></div>;
+}

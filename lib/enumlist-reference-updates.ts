@@ -1,3 +1,6 @@
+import {currentApplication} from './application-context';
+import {assertTablePermission} from './permissions';
+import {assertRowAllowed} from './row-access';
 import type Database from "better-sqlite3";
 import { assertIdentifier, Column, normalizeValue } from "./columns";
 import { listSource } from "./expression";
@@ -23,6 +26,7 @@ export function cascadeEnumListValues(db: Database.Database, table:string, cols:
       if (db.prepare(`SELECT 1 FROM "t_${table}" WHERE CAST("${column.name}" AS TEXT)=? LIMIT 1`).get(oldValue)) continue;
       const rows=db.prepare(`SELECT id,"${target.name}" AS value FROM "t_${owner.name}" WHERE EXISTS(SELECT 1 FROM json_each("${target.name}") WHERE CAST(value AS TEXT)=?)`).all(oldValue) as {id:number;value:unknown}[];
       const update=db.prepare(`UPDATE "t_${owner.name}" SET "${target.name}"=? WHERE id=?`);
+      if(rows.length&&currentApplication()){assertTablePermission(owner.name,'update');for(const item of rows){const raw=db.prepare('SELECT * FROM "t_'+owner.name+'" WHERE id=?').get(item.id) as Record<string,any>;assertRowAllowed(owner.name,raw,'update');}}
       for (const row of rows) {
         const selected=normalizeValue(target,row.value) as string[];
         update.run(JSON.stringify([...new Set(selected.map(v=>v===oldValue?newValue:v))]),row.id);

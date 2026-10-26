@@ -1,0 +1,112 @@
+:root {
+ --runtime-header-height:52px;
+ --runtime-sidebar-collapsed-width:64px;
+ --runtime-sidebar-expanded-width:260px;
+ --runtime-default-nav-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
+ --runtime-pagination-height:48px;
+ --runtime-enter-duration:220ms;
+ --runtime-exit-duration:180ms;
+}
+/* The same geometry is used by the app, Preview, drawers and sticky controls. */
+.app-header.runtime-header,.app-header.header-preview,
+.runtime-screen:not(:has(.runtime-page-trail)) > .runtime-screen-header {
+ height:var(--runtime-header-height);min-height:var(--runtime-header-height);max-height:var(--runtime-header-height);
+}
+.runtime-record-breadcrumb { min-height:var(--runtime-header-height); }
+.runtime-app > .runtime-menu,.runtime-app > .runtime-overlay { top:var(--runtime-header-height); }
+.runtime-app:not(.runtime-desktop) > main { top:var(--runtime-header-height); }
+.runtime-app .data-pagination { min-height:var(--runtime-pagination-height); }
+@media(min-width:1024px) {
+ .runtime-app.runtime-desktop .runtime-screen,
+ .runtime-app.runtime-desktop .runtime-screen.runtime-child-screen,
+ .runtime-app.runtime-desktop .runtime-screen.runtime-child-screen:has(.data-form) { top:var(--runtime-header-height); }
+ .runtime-app.runtime-desktop .runtime-content .data-toolbar { top:var(--runtime-header-height); }
+ .runtime-app.runtime-desktop .dashboard-panel-body .data-toolbar { top:0; }
+}
+@keyframes runtime-menu-exit {from{translate:0 0;}to{translate:-100% 0;}}
+@media(prefers-reduced-motion:no-preference) {
+ .runtime-app:not(.runtime-desktop) > .runtime-menu {animation-duration:var(--runtime-enter-duration);}
+ .runtime-app:not(.runtime-desktop) > .runtime-menu[data-closing="true"] {animation:runtime-menu-exit var(--runtime-exit-duration) ease-in forwards;pointer-events:none;}
+ .runtime-app .runtime-screen[data-closing="true"] > .runtime-screen-body {animation-duration:var(--runtime-exit-duration)!important;}
+}
+
+/* Bottom navigation shares the header height; safe-area is additional space. */
+.runtime-app > .runtime-primary.app-navigation[class] {
+ height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
+ min-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
+ max-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
+ padding:0 8px env(safe-area-inset-bottom,0px);
+ align-items:stretch;
+}
+.runtime-app > .runtime-primary.app-navigation .app-nav-item {
+ min-height:0; padding:2px 6px; gap:1px;
+}
+.runtime-app > .runtime-primary.app-navigation .nav-icon {width:26px;height:24px;}
+.runtime-app > .runtime-primary.app-navigation .nav-icon svg {width:19px;height:19px;}
+.runtime-app > .runtime-primary.app-navigation .app-nav-item[data-featured="true"] .nav-icon {
+ width:32px;height:32px;transform:translateY(-4px);
+}
+.runtime-app > .runtime-primary.app-navigation.nav-style-underline .app-nav-item[aria-current="page"]::after,
+.runtime-app > .runtime-primary.app-navigation.nav-style-raised-underline .app-nav-item[aria-current="page"]::after {bottom:1px;}
+.runtime-app > .runtime-primary.app-navigation.nav-style-top-line .app-nav-item[aria-current="page"]::after {top:1px;bottom:auto;}
+
+/* Slightly larger controls within the shared 52px app bars. */
+.app-header.runtime-header .icon-button,.app-header.header-preview .icon-button {
+ min-height:40px;height:40px;min-width:40px;width:40px;
+}
+.runtime-app > .runtime-primary.app-navigation .app-nav-item {padding-block:4px;gap:2px;}
+.runtime-app > .runtime-primary.app-navigation .nav-icon {width:28px;height:26px;}
+.runtime-app > .runtime-primary.app-navigation .nav-icon svg {width:20px;height:20px;}
+
+/* Slide the data pane as a single surface; keep the retained shell stationary. */
+@keyframes runtime-data-page-in {from{translate:100% 0;}to{translate:0 0;}}
+@keyframes runtime-data-page-out {from{translate:0 0;}to{translate:100% 0;}}
+@media(prefers-reduced-motion:no-preference) {
+ .runtime-app .runtime-route[data-motion="forward"]:not([hidden]) .runtime-screen > .runtime-screen-body,
+ .runtime-app .runtime-screen.runtime-child-screen > .runtime-screen-body,
+ .runtime-app .runtime-screen[data-closing="true"] > .runtime-screen-body {animation:none!important;}
+ .runtime-app .runtime-route[data-motion="forward"]:not([hidden]) .runtime-screen:not(.runtime-child-screen),
+ .runtime-app .runtime-screen.runtime-child-screen[data-screen-enter="true"] {
+  animation:runtime-data-page-in var(--runtime-enter-duration) ease-out backwards!important;
+ }
+ .runtime-app .runtime-route[data-motion="forward"]:not([hidden]) > .runtime-content > div > .data-panel > .runtime-group-layout > .data-records-scroll {
+  animation:runtime-data-page-in var(--runtime-enter-duration) ease-out backwards!important;
+ }
+ .runtime-app .runtime-route:not([hidden]) .runtime-screen.runtime-screen[data-closing="true"],
+ .runtime-app .runtime-screen.runtime-child-screen[data-closing="true"] {
+  animation:runtime-data-page-out var(--runtime-exit-duration) ease-in forwards!important;pointer-events:none;
+ }
+}
+@media(prefers-reduced-motion:reduce) {
+ .runtime-app .runtime-screen,.runtime-app .runtime-screen>.runtime-screen-body,
+ .runtime-app .runtime-route[data-motion="forward"]:not([hidden]) > .runtime-content > div > .data-panel > .runtime-group-layout > .data-records-scroll {animation:none!important;}
+}
+
+/* Compact mobile record header: one label and one-level Back. */
+.runtime-mobile-page-header,.runtime-mobile-page-actions{display:none;}
+@media(max-width:1023px){
+ .runtime-app .runtime-screen > .runtime-mobile-page-header{display:flex;align-items:center;gap:8px;flex-shrink:0;height:var(--runtime-header-height);min-height:var(--runtime-header-height);padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);}
+ .runtime-app .runtime-mobile-page-header h2{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:650;}
+ .runtime-app .runtime-mobile-page-header .icon-button{width:36px;height:36px;min-width:36px;padding:8px;flex-shrink:0;}
+ .runtime-app .runtime-screen > .runtime-page-trail,.runtime-app .runtime-screen > .runtime-screen-header{display:none!important;}
+ .runtime-app .runtime-mobile-page-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);}
+ .runtime-app .runtime-mobile-page-actions [aria-label="ปิดหน้ารายละเอียด"],.runtime-app .runtime-mobile-page-actions [aria-label="ปิดหน้าฟอร์ม"]{display:none;}
+ .runtime-app .runtime-mobile-page-actions .icon-button{width:32px;height:32px;min-width:32px;padding:6px;}
+}
+
+@media(max-width:1023px){
+ .runtime-app .runtime-mobile-page-header h2{flex:1;}
+ .runtime-app .runtime-mobile-page-header > .runtime-mobile-page-actions{flex-shrink:0;gap:2px;padding:0;border:0;background:transparent;}
+}
+
+/* One persistent mobile header owns the current screen's title and controls. */
+.runtime-header-screen-slot{display:none;}
+@media(max-width:1023px){
+ .runtime-app > .runtime-header:has(.runtime-header-screen-slot > .runtime-mobile-page-header){display:flex;padding:0;}
+ .runtime-app > .runtime-header:has(.runtime-header-screen-slot > .runtime-mobile-page-header) > :not(.runtime-header-screen-slot){display:none;}
+ .runtime-app > .runtime-header > .runtime-header-screen-slot:has(> .runtime-mobile-page-header){display:flex;align-items:stretch;width:100%;height:100%;min-width:0;}
+ .runtime-app .runtime-header-screen-slot > .runtime-mobile-page-header{display:flex;align-items:center;gap:8px;width:100%;min-width:0;padding:0 12px;background:var(--panel);}
+ .runtime-app .runtime-header-screen-slot .runtime-mobile-page-header h2{font-size:14px;font-weight:650;}
+ .runtime-app .runtime-header-screen-slot .runtime-mobile-page-header .icon-button{width:36px;height:36px;min-width:36px;padding:8px;}
+ .runtime-app:not(.runtime-desktop) .runtime-screen{top:var(--runtime-header-height);}
+}

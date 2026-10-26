@@ -10,6 +10,7 @@ export type ActionAppearance = {
     icon_only: boolean;
 };
 export type ActionConfig = {
+    value_mode?: "snapshot" | "sequential";
     automation_name?:string;
     url_expr?: string;
     view_name?: string;

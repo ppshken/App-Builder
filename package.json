@@ -22,7 +22,9 @@
     "test:dropdown": "node scripts/integration.cjs dropdown",
     "test:permissions": "node scripts/integration.cjs permissions",
     "test:user-formulas": "node scripts/integration.cjs userformulas",
-    "test:workflows": "node scripts/integration.cjs workflows"
+    "test:workflows": "node scripts/integration.cjs workflows",
+    "test:readiness": "node scripts/integration.cjs readiness",
+    "test:performance": "node scripts/integration.cjs readinessperf"
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",

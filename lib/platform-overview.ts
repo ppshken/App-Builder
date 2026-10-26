@@ -1,0 +1,4 @@
+import {securitySeparated} from './builder-security';
+import {platformDatabase} from './db';
+import {applications} from './applications';
+export function platformOverview(){const database=platformDatabase();return {apps:applications(),tables:database.prepare('SELECT name,label,owner_app_id FROM _tables ORDER BY label,name').all(),datasets:database.prepare('SELECT app_id,table_name,can_read,can_create,can_update,can_delete,can_export FROM _application_datasets ORDER BY table_name,app_id').all(),users:(database.prepare('SELECT COUNT(*) AS total,SUM(CASE WHEN active=1 THEN 1 ELSE 0 END) AS active FROM _users').get() as {total:number;active:number}),roles:(database.prepare(securitySeparated(database)?'SELECT COUNT(*) AS total FROM _application_local_roles':'SELECT (SELECT COUNT(*) FROM _roles)+(SELECT COUNT(*) FROM _application_local_roles) AS total').get() as {total:number}).total};}

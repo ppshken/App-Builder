@@ -8,7 +8,7 @@ export function inlineView(name: string): AppView | undefined {
 }
 export function validateRelatedDisplay(display: ViewDisplay, table: string, kind: string) {
   if(!Object.keys(display.related || {}).length)return;
-  if(kind!=="detail")throw new Error("ตั้งค่า Related ได้ใน View รายละเอียดเท่านั้น");
+  if(!["detail","form"].includes(kind))throw new Error("ตั้งค่า Related ได้ใน View รายละเอียดและฟอร์มเท่านั้น");
   const related=relatedLists(table);
   for(const [key,r] of Object.entries(display.related || {})) {
     const relation=related.find(x=>`${x.table}:${x.column}`===key);

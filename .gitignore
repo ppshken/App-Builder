@@ -27,3 +27,6 @@ test-results/
 .next*/
 out/
 *.log
+
+# Draft databases contain private app data
+/.app-releases/

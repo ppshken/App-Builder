@@ -16,7 +16,7 @@ function fixture(work) {
   try {
     initializeDatabase(database, ':memory:');
     database.exec(`
-      INSERT INTO _tables VALUES('products','Products');
+      INSERT INTO _tables(name,label) VALUES('products','Products');
       INSERT INTO _columns(table_name,name,label,type,is_virtual,virtual_expr,is_label,ref_table) VALUES
         ('products','name','Name','text',0,NULL,0,NULL),
         ('products','branch','Branch','text',0,NULL,0,NULL),
@@ -115,7 +115,7 @@ test('virtual Ref label dependencies preserve dereferences and image formulas', 
 
 test('Inline pages batch repeated Ref labels once and retain paging, images and row policies', () => fixture((database, queries) => {
   database.exec(`
-    INSERT INTO _tables VALUES('parents','Parents'),('lines','Lines');
+    INSERT INTO _tables(name,label) VALUES('parents','Parents'),('lines','Lines');
     INSERT INTO _columns(table_name,name,label,type,is_label,ref_table) VALUES
       ('parents','name','Name','text',1,NULL),
       ('lines','name','Name','text',1,NULL),

@@ -1,7 +1,9 @@
+import {listSource,references} from "./expression";
+import {loadReferenceLabels} from "./reference-labels";
 import ExcelJS from "exceljs";
 import { db, columnsOf, tableExists } from "./db";
-import { calculateRow } from "./columns";
-import { currentUser, assertTablePermission } from "./permissions";
+import { calculateRow, enumListLabel } from "./columns";
+import { currentUser, assertTablePermission, assertExcelExport } from "./permissions";
 import { visibleRawRows } from "./row-access";
 import { expressionContext } from "./expression-context";
 import { writeRecord } from "./data-write";
@@ -117,17 +119,24 @@ catch (e) {
     if (e !== rollback)
         throw e;
 } return report; }
-export async function exportExcel(table: string, template = false) { assertTablePermission(table, 'read'); if (!tableExists(table))
-    throw Error("ไม่พบตาราง"); const cols = columnsOf(table), headers = ['id', ...cols.map(c => c.name)], workbook = new ExcelJS.Workbook(), sheet = workbook.addWorksheet('ข้อมูล'); sheet.addRow(headers); sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } }; sheet.views = [{ state: 'frozen', ySplit: 1 }]; for (const column of sheet.columns)
-    column.width = 22; let total = 0; if (!template) {
-    const raw = db.prepare('SELECT * FROM "t_' + table + '" ORDER BY id').all() as any[], rows = visibleRawRows(table, raw);
-    if (rows.length > 10000)
-        throw Error("ส่งออกได้ไม่เกิน 10,000 แถวต่อไฟล์ กรุณาแบ่งข้อมูลก่อน");
-    const now = new Date(), email = currentUser()?.email || '', ctx = expressionContext(now, email);
-    for (const raw of rows) {
-        const row = calculateRow(cols, raw, false, now, false, email, ctx).row;
-        sheet.addRow(headers.map(n => Array.isArray(row[n]) ? JSON.stringify(row[n]) : row[n] ?? null));
-        total++;
-    }
-} const guide = workbook.addWorksheet('คู่มือคอลัมน์'); guide.addRow(['ชื่อในระบบ', 'ชื่อที่แสดง', 'ประเภท', 'คำแนะนำ']); guide.addRow(['id', 'รหัสภายใน', 'number', 'สร้างอัตโนมัติเมื่อเพิ่มข้อมูล ใช้ id เดิมเมื่อแก้ไข ห้ามเปลี่ยน']); for (const c of cols)
-    guide.addRow([c.name, c.label, c.type, c.is_virtual ? 'คำนวณอัตโนมัติ ไม่นำกลับเข้า' : c.ref_table ? 'ใช้ id จากตาราง ' + c.ref_table : ['list', 'enumlist'].includes(c.type) ? 'รายการ JSON เช่น ["ค่าแรก","ค่าที่สอง"]' : c.type === 'date' ? 'YYYY-MM-DD' : c.type === 'datetime' ? 'YYYY-MM-DDTHH:mm:ss+07:00' : '']); guide.columns.forEach(c => c.width = 35); return { bytes: Buffer.from(await workbook.xlsx.writeBuffer()), total }; }
+export async function exportExcel(table:string,template=false,referenceMode:string='ids',selectedColumns?:unknown) {
+ assertTablePermission(table,'read');if(!template)assertExcelExport(table);
+ if(!['ids','labels','both'].includes(referenceMode))throw Error('รูปแบบข้อมูลอ้างอิงไม่ถูกต้อง');if(template)referenceMode='ids';
+ if(!tableExists(table))throw Error('ไม่พบตาราง');
+ const cols=columnsOf(table),available=['id',...cols.map(c=>c.name)];
+ if(selectedColumns!==undefined&&(!Array.isArray(selectedColumns)||!selectedColumns.length||selectedColumns.length>available.length||new Set(selectedColumns).size!==selectedColumns.length||selectedColumns.some(n=>typeof n!=='string'||!available.includes(n))))throw Error('กรุณาเลือกคอลัมน์ที่ส่งออกอย่างน้อย 1 คอลัมน์ และเลือกเฉพาะคอลัมน์ของตารางนี้');
+ const headers=!template&&Array.isArray(selectedColumns)?available.filter(n=>selectedColumns.includes(n)):available,exportCols=cols.filter(c=>headers.includes(c.name)),referenceCols=exportCols.filter(c=>c.type==='ref'||['enum','enumlist','list'].includes(c.type)&&!!(c.ref_table||listSource(c.valid_if||"")));
+ const companion=new Map<string,string>(),used=new Set(headers);if(referenceMode==='both')for(const c of referenceCols){let name=c.name+'__label',i=2;while(used.has(name))name=c.name+'__label_'+i++;used.add(name);companion.set(c.name,name);}
+ const displayedHeaders=new Set<string>();const outputHeaders=headers.flatMap(n=>companion.has(n)?[n,companion.get(n)!]:[n]).map(n=>{if(referenceMode!=='labels')return n;const label=n==='id'?'รหัสภายใน':cols.find(c=>c.name===n)?.label||n;let heading=label,index=2;while(displayedHeaders.has(heading))heading=label+' ('+(index++)+')';displayedHeaders.add(heading);return heading;});
+ const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('ข้อมูล');sheet.addRow(outputHeaders);sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2563EB'}};sheet.views=[{state:'frozen',ySplit:1}];for(const column of sheet.columns)column.width=22;
+ let total=0;if(!template){const raw=visibleRawRows(table,db.prepare('SELECT * FROM "t_'+table+'" ORDER BY id').all() as any[]);if(raw.length>10000)throw Error('ส่งออกได้ไม่เกิน 10,000 แถวต่อไฟล์ กรุณาแบ่งข้อมูลก่อน');
+ const needed=new Set(headers),queue=[...headers];for(let i=0;i<queue.length;i++){const c=cols.find(c=>c.name===queue[i]);if(c?.is_virtual&&c.virtual_expr)for(const name of references(c.virtual_expr))if(!needed.has(name)){needed.add(name);queue.push(name);}}
+ const calculation=cols.filter(c=>needed.has(c.name));const now=new Date(),email=currentUser()?.email||'',ctx=expressionContext(now,email),rows=raw.map(record=>calculateRow(calculation,record,false,now,false,email,ctx).row);
+ const labels=referenceMode!=='ids'?loadReferenceLabels(exportCols,rows,now,email,ctx):new Map();
+ const cell=(v:unknown)=>Array.isArray(v)?JSON.stringify(v):v??null;
+ for(const row of rows){const labelFor=(name:string)=>{const c=referenceCols.find(c=>c.name===name);if(!c)return row[name];const value=row[name];if(value==null||value==='')return null;if(c.type==='ref')return labels.get(c.ref_table!)?.get(Number(value))?.label??null;return Array.isArray(value)?value.map(v=>enumListLabel(c,String(v),ctx)):enumListLabel(c,String(value),ctx);};sheet.addRow(headers.flatMap(n=>referenceMode==='both'&&companion.has(n)?[cell(row[n]),cell(labelFor(n))]:[cell(referenceMode==='labels'?labelFor(n):row[n])]));total++;}
+ }
+ const guide=workbook.addWorksheet('คู่มือคอลัมน์');guide.addRow(['ชื่อในระบบ','ชื่อที่แสดง','ประเภท','คำแนะนำ']);if(headers.includes('id'))guide.addRow(['id','รหัสภายใน','number','สร้างอัตโนมัติเมื่อเพิ่มข้อมูล ใช้ id เดิมเมื่อแก้ไข ห้ามเปลี่ยน']);
+ for(const c of exportCols){guide.addRow([c.name,c.label,c.type,c.is_virtual?'คำนวณอัตโนมัติ ไม่นำกลับเข้า':c.ref_table?'ใช้ ID/Key จากตาราง '+c.ref_table:['list','enumlist'].includes(c.type)?'รายการ JSON เช่น ["ค่าแรก","ค่าที่สอง"]':c.type==='date'?'YYYY-MM-DD':c.type==='datetime'?'YYYY-MM-DDTHH:mm:ss+07:00':'']);if(companion.has(c.name))guide.addRow([companion.get(c.name),c.label+' (ชื่อ)','text','ชื่อสำหรับอ่านรายงาน ไม่ใช้เป็นรหัสนำเข้า']);}
+ guide.addRow(['รูปแบบข้อมูลอ้างอิง',referenceMode,'','เลือก ID/Key เมื่อต้องการนำไฟล์กลับเข้าระบบ']);guide.columns.forEach(c=>c.width=35);return {bytes:Buffer.from(await workbook.xlsx.writeBuffer()),total};
+}

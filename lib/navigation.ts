@@ -1,0 +1,21 @@
+export const NAVIGATION_STYLES = [
+ {name:"standard",label:"มาตรฐาน",description:"ไอคอนพร้อมชื่อเมนู"},
+ {name:"underline",label:"ขีดเส้นใต้",description:"เน้นเมนูด้วยเส้นด้านล่าง"},
+ {name:"top-line",label:"เส้นด้านบน",description:"แถบสีเหนือเมนูที่เลือก"},
+ {name:"icon-pill",label:"วงกลมไอคอน",description:"พื้นหลังนุ่มรอบไอคอน"},
+ {name:"pill",label:"แคปซูล",description:"ไอคอนและชื่อในแคปซูล"},
+ {name:"solid",label:"ไอคอนสีทึบ",description:"ไอคอนบนพื้นสีธีม"},
+ {name:"raised",label:"ปุ่มเด่นยกสูง",description:"ยกปุ่มเมนูเด่นขึ้น"},
+ {name:"raised-underline",label:"ปุ่มเด่นและเส้นใต้",description:"ปุ่มเด่นพร้อมเส้นเมนูที่เลือก"},
+ {name:"raised-pill",label:"ปุ่มเด่นและแคปซูล",description:"ปุ่มเด่นพร้อมพื้นหลังเมนู"},
+] as const;
+export type NavigationSettings={style:typeof NAVIGATION_STYLES[number]["name"];labels:"always"|"active"|"none";surface:"full"|"floating";density:"comfortable"|"compact";featured_view:string;desktop:"sidebar"|"bottom"};
+export const DEFAULT_NAVIGATION:NavigationSettings={style:"standard",labels:"always",surface:"full",density:"comfortable",featured_view:"",desktop:"sidebar"};
+export function validateNavigation(value:unknown):NavigationSettings {
+ if(!value||typeof value!=="object"||Array.isArray(value)||Object.keys(value).some(k=>!Object.hasOwn(DEFAULT_NAVIGATION,k)))throw Error("การตั้งค่า Navigation Bar ไม่ถูกต้อง");
+ const n={...DEFAULT_NAVIGATION,...value} as NavigationSettings;
+ if(!NAVIGATION_STYLES.some(s=>s.name===n.style)||!["always","active","none"].includes(n.labels)||!["full","floating"].includes(n.surface)||!["comfortable","compact"].includes(n.density)||!["sidebar","bottom"].includes(n.desktop))throw Error("กรุณาเลือกรูปแบบ Navigation Bar จากรายการ");
+ if(typeof n.featured_view!=="string"||n.featured_view!==""&&!/^[a-z][a-z0-9_]{0,40}$/.test(n.featured_view))throw Error("กรุณาเลือกเมนูเด่นจาก Primary View");
+ return n;
+}
+export function featuredNavigationItem(ids:string[],settings:NavigationSettings){return ids.includes(settings.featured_view)?settings.featured_view:ids[Math.floor(ids.length/2)]||"";}

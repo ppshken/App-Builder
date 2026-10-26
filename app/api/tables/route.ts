@@ -1,3 +1,4 @@
+import {currentApplication} from '@/lib/application-context';
 import {errorStatus} from "@/lib/api";
 import {canRead} from "@/lib/permissions";
 import {withAuth} from "@/lib/auth-api";
@@ -26,7 +27,8 @@ async function handlePOST(req: Request) {
     const defs = ["id INTEGER PRIMARY KEY AUTOINCREMENT", ...cols.filter(c => !c.is_virtual).map(columnDefinition)];
     backupBeforeSchema();
     db.transaction(() => {
-      db.prepare("INSERT INTO _tables(name,label) VALUES(?,?)").run(name, typeof label === "string" && label.trim() ? label.trim() : name);
+      db.prepare("INSERT INTO _tables(name,label,owner_app_id) VALUES(?,?,?)").run(name, typeof label === "string" && label.trim() ? label.trim() : name,currentApplication()?.id||'default');
+      const application=currentApplication();if(application?.datasets)application.datasets[name]={read:true,create:true,update:true,delete:true,export:true};
       cols.forEach(c => insertColumn(name, c));
       db.prepare(`CREATE TABLE "t_${name}"(${defs.join(",")})`).run();
       syncKeyIndex(db, name); createDefaultViews(db, name, typeof label === "string" && label.trim() ? label.trim() : name);

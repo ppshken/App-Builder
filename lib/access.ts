@@ -1,4 +1,4 @@
-export type TableAccess={read:boolean;create:boolean;update:boolean;delete:boolean};
-export type AppAccess={owner:boolean;builder:boolean;tables:Record<string,TableAccess>;actions:string[]};
+export type TableAccess={read:boolean;create:boolean;update:boolean;delete:boolean;export?:boolean};
+export type AppAccess={owner:boolean;builder:boolean;tables:Record<string,TableAccess>;actions:string[];datasets?:Record<string,TableAccess>;applicationRole?:{name:string;label:string};effectiveRole?:{name:string;label:string};rowRules?:Record<string,string>};
 export const NO_ACCESS:AppAccess={owner:false,builder:false,tables:{},actions:[]};
-export function tableAccess(access:AppAccess,table:string):TableAccess{return access.owner||access.builder?{read:true,create:true,update:true,delete:true}:access.tables[table]||{read:false,create:false,update:false,delete:false};}
+export function tableAccess(access:AppAccess,table:string):TableAccess{const rights:TableAccess=access.owner||access.builder?{read:true,create:true,update:true,delete:true,export:true}:access.tables[table]||{read:false,create:false,update:false,delete:false,export:false};if(!access.datasets)return rights;const limit=access.datasets[table];return {read:!!limit?.read&&rights.read,create:!!limit?.read&&!!limit.create&&rights.create,update:!!limit?.read&&!!limit.update&&rights.update,delete:!!limit?.read&&!!limit.delete&&rights.delete,export:!!limit?.read&&!!limit.export&&!!rights.export};}

@@ -1,0 +1,8 @@
+import {normalizeDateTime} from './datetime';
+const PATTERN=/^(-)?(\d{1,9}):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?$/;
+export function isDuration(value:unknown):value is string{return typeof value==='string'&&PATTERN.test(value);}
+export function durationMilliseconds(value:unknown):number{if(typeof value!=='string')throw Error('ระยะเวลาต้องเป็น HH:MM:SS เช่น 01:30:00');const m=PATTERN.exec(value.trim());if(!m)throw Error('ระยะเวลาต้องเป็น HH:MM:SS เช่น 01:30:00 นาทีและวินาทีต้องอยู่ระหว่าง 00–59');const total=(Number(m[2])*3600000+Number(m[3])*60000+Number(m[4])*1000+Number((m[5]||'').padEnd(3,'0')))*(m[1]?-1:1);if(!Number.isSafeInteger(total))throw Error('ระยะเวลามากเกินไป');return total;}
+export function formatDuration(value:number):string{const ms=Math.round(value);if(!Number.isSafeInteger(ms)||Math.abs(ms)>3599999999999999)throw Error('ระยะเวลามากเกินไป');const n=Math.abs(ms),hour=Math.floor(n/3600000),minute=Math.floor(n/60000)%60,second=Math.floor(n/1000)%60,fraction=n%1000;return (ms<0?'-':'')+String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')+':'+String(second).padStart(2,'0')+(fraction?'.'+String(fraction).padStart(3,'0').replace(/0+$/,''):'');}
+export const normalizeDuration=(value:unknown)=>formatDuration(durationMilliseconds(value));
+export function temporalKind(value:unknown){return typeof value==='string'?/^\d{4}-\d{2}-\d{2}$/.test(value)?'date':/^\d{4}-\d{2}-\d{2}T/.test(value)?'datetime':null:null;}
+export function temporalMilliseconds(value:string):number{if(temporalKind(value)==='datetime')return new Date(normalizeDateTime(value)).getTime();const date=new Date(value+'T00:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==value)throw Error('วันที่ไม่ถูกต้อง');return date.getTime();}

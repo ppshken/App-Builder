@@ -24,7 +24,7 @@ function cached<T>(key: string, load: () => T, database: Database.Database): T {
 } if (!store.has(key))
     store.set(key, load()); return store.get(key); }
 export function rowRule(table: string, operation: RowOperation, database: Database.Database = db) { const a = currentAccess(); if (a.owner || a.builder)
-    return ""; return cached(table + ":" + operation, () => (database.prepare("SELECT expression FROM _role_row_rules WHERE role_name=? AND table_name=? AND operation=?").get(currentUser()?.role, table, operation) as {
+    return ""; if(a.applicationRole)return a.rowRules?.[table+":"+operation]||""; return cached(table + ":" + operation, () => (database.prepare("SELECT expression FROM _role_row_rules WHERE role_name=? AND table_name=? AND operation=?").get(currentUser()?.role, table, operation) as {
     expression: string;
 } | undefined)?.expression || "", database); }
 export function rowAllowed(table: string, row: Record<string, any>, operation: RowOperation = "read", database: Database.Database = db) { const a = currentAccess(); if (a.owner || a.builder)

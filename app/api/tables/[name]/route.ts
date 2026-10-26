@@ -1,3 +1,5 @@
+import {customTargets} from '@/lib/custom-page';
+import {pruneApplicationActionGrants} from '@/lib/application-role-grants';
 import {workflowDependency} from "@/lib/workflow-dependencies";
 import {actionConfigExpressions} from "@/lib/action-config";
 import {errorStatus} from "@/lib/api";
@@ -24,6 +26,11 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
     const b = await readBody(req), cols = columnsOf(t);
     const found = cols.find(c => c.name === b.name);
     switch (b.op) {
+      case "realtime": {
+        if(typeof b.enabled!=="boolean")return bad("กรุณาระบุเปิดหรือปิด Realtime");
+        db.prepare("UPDATE _tables SET realtime_enabled=? WHERE name=?").run(b.enabled?1:0,t);
+        break;
+      }
       case "label": {
         if (typeof b.label !== "string" || !b.label.trim()) return bad("กรุณาใส่ชื่อตาราง");
         backupBeforeSchema();
@@ -119,9 +126,13 @@ async function handleDELETE(_: Request, { params }: { params: { name: string } }
     if (external) return bad(`ลบไม่ได้: สูตรของ "${external}" อ้างอิงตารางนี้อยู่ กรุณาแก้สูตรก่อน`);
     // Validate metadata before interpolating the table identifier into SQL.
     columnsOf(t);
-      const dashboard=db.prepare("SELECT parent.label FROM _views parent JOIN json_each(json_extract(parent.display_json,'$.dashboard_views')) member JOIN _views child ON child.name=member.value WHERE child.table_name=? AND parent.table_name<>? LIMIT 1").get(t,t) as {label:string}|undefined;if(dashboard)throw Error('ลบไม่ได้: แดชบอร์ด "'+dashboard.label+'" ใช้ View ของตารางนี้อยู่ กรุณานำออกก่อน');
+      const targetViews=new Set((db.prepare("SELECT name FROM _views WHERE table_name=?").all(t) as {name:string}[]).map(v=>v.name));
+      const customParent=(db.prepare("SELECT label,display_json FROM _views WHERE kind='custom'").all() as {label:string;display_json:string}[]).find(v=>customTargets(JSON.parse(v.display_json).custom_page).some(name=>targetViews.has(name)));
+      if(customParent)throw Error('ลบไม่ได้: หน้ากำหนดเอง "'+customParent.label+'" มีปุ่มเปิด View ของตารางนี้อยู่ กรุณานำออกก่อน');
+      const dashboard=db.prepare("SELECT parent.label FROM _views parent JOIN json_each(json_extract(parent.display_json,'$.dashboard_views')) member JOIN _views child ON child.name=member.value WHERE child.table_name=? AND (parent.table_name IS NULL OR parent.table_name<>?) LIMIT 1").get(t,t) as {label:string}|undefined;if(dashboard)throw Error('ลบไม่ได้: แดชบอร์ด "'+dashboard.label+'" ใช้ View ของตารางนี้อยู่ กรุณานำออกก่อน');
     backupBeforeSchema();
     foreignKeyTransaction(db, () => {
+      db.prepare(`DROP TRIGGER IF EXISTS "_rt_config_${t}"`).run();
       db.prepare(`DROP TABLE "t_${t}"`).run();
       // Cascades do not run while FK enforcement is disabled.
       for(const c of columnsOf(t)) changeRelatedReference(t,c.name);
@@ -130,7 +141,9 @@ async function handleDELETE(_: Request, { params }: { params: { name: string } }
       db.prepare("DELETE FROM _slices WHERE table_name=?").run(t);
       db.prepare("DELETE FROM _actions WHERE table_name=?").run(t);
 
+      db.prepare("DELETE FROM _realtime_versions WHERE table_name=?").run(t);
       db.prepare("DELETE FROM _tables WHERE name=?").run(t);
+      pruneApplicationActionGrants(db,true);
     });
     return NextResponse.json({ ok: true });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }

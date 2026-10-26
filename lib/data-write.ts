@@ -1,3 +1,4 @@
+import {traceAction} from "./action-trace";
 import {assertRowVersion} from "./row-version";
 import {recordWorkflowEvent} from "./workflows";
 import {writeChildGroups,assertParentParts} from "./part-of-records";
@@ -48,7 +49,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         checkImages(cols, row);
         checkFiles(cols,row);
         checkLists(cols, row);
-        for(const c of cols.filter(c=>c.is_part_of&&c.ref_table)){for(const parentId of [old?.[c.name],row[c.name]])if(parentId)options.parents!.set(c.ref_table+":"+parentId,{table:c.ref_table!,id:Number(parentId)});}
+        for(const c of cols.filter(c=>(c.is_part_of||c.related_required)&&c.ref_table)){for(const parentId of [old?.[c.name],row[c.name]])if(parentId)options.parents!.set(c.ref_table+":"+parentId,{table:c.ref_table!,id:Number(parentId)});}
         const validateParents=()=>{if(options.depth===0)for(const parent of options.parents!.values())assertParentParts(parent.table,parent.id);};
         const values = Object.fromEntries(cols.filter(c => !c.is_virtual).map(c => [c.name, ['enumlist', 'list'].includes(c.type) ? JSON.stringify(row[c.name] ?? []) : row[c.name]])), keys = Object.keys(values);
         if (id) {
@@ -58,6 +59,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
             writeChildGroups(table,id,body.__children,options);
             validateParents();
             recordWorkflowEvent(table,"update",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(id) as Record<string,any>,old);
+            traceAction({kind:"mutation",label:"อัปเดตแถวหลังตรวจสอบ",table,row_id:id,before:old,after:{...row,id},status:"update"});
             return { id, ok: true };
         }
         const result = keys.length ? db.prepare(`INSERT INTO "t_${table}"(${keys.map(k => `"${k}"`).join(',')}) VALUES(${keys.map(k => '@' + k).join(',')})`).run(values) : db.prepare(`INSERT INTO "t_${table}" DEFAULT VALUES`).run();
@@ -66,6 +68,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         writeChildGroups(table,newId,body.__children,options);
         validateParents();
         recordWorkflowEvent(table,"create",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(newId) as Record<string,any>);
+        traceAction({kind:"mutation",label:"เพิ่มแถว",table,row_id:newId,before:null,after:{...row,id:newId},status:"create"});
         return { id: newId };
     }).immediate();
 }

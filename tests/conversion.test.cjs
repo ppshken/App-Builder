@@ -3,7 +3,7 @@ const {initializeDatabase,columnDefinition,createDefaultViews}=require('../.test
 const {convertValue,previewConversion,applyConversion,conversionFingerprint}=require('../.test-build/column-conversion.js');
 const {FORMULA_FIELDS}=require('../.test-build/columns.js');
 const fs=require('node:fs'),path=require('node:path');
-function table(db,name,columns,rows=[]){db.prepare('INSERT INTO _tables VALUES(?,?)').run(name,name);for(const [pos,c] of columns.entries()){
+function table(db,name,columns,rows=[]){db.prepare('INSERT INTO _tables(name,label) VALUES(?,?)').run(name,name);for(const [pos,c] of columns.entries()){
  const fields=['table_name','name','label','type','options','ref_table','required','pos','is_virtual','is_key','is_label',...FORMULA_FIELDS],value={is_virtual:0,is_key:0,is_label:0,required:0,...c,table_name:name,label:c.label||c.name,pos};db.prepare(`INSERT INTO _columns(${fields.join(',')}) VALUES(${fields.map(()=>'?').join(',')})`).run(...fields.map(k=>value[k]??null));}
  db.exec(`CREATE TABLE "t_${name}"(id INTEGER PRIMARY KEY AUTOINCREMENT,${columns.filter(c=>!c.is_virtual).map(columnDefinition).join(',')})`);for(const row of rows){const keys=Object.keys(row);db.prepare(`INSERT INTO "t_${name}"(${keys.map(k=>'"'+k+'"').join(',')}) VALUES(${keys.map(()=>'?').join(',')})`).run(...keys.map(k=>row[k]));}createDefaultViews(db,name,name);
 }
