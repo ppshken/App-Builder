@@ -1,3 +1,4 @@
+import {validateCustomData} from './custom-page-references';
 import {realtimeTriggerDefinitions} from "./realtime-schema";
 import {validateStoredWorkflows} from "./workflow-validation";
 import {registerAuditFunctions} from "./audit-schema";
@@ -128,7 +129,7 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
   const oldCols=readColumns(baseline,t.name),oldRow=baseline.prepare(`SELECT * FROM "t_${t.name}" WHERE id=?`);
   for(const raw of database.prepare(`SELECT * FROM "t_${t.name}"`).iterate() as Iterable<Record<string,unknown>>){const problem=rowProblem(database,cols,raw,now,context);if(problem&&(t.name===table||problem!==rowProblem(baseline,oldCols,(oldRow.get(raw.id) as Record<string,unknown>|undefined)||{},now,oldContext)))add(t.label,problem,Number(raw.id));}
  }
- for(const view of database.prepare("SELECT * FROM _views").all() as any[]){try{validateDisplay(JSON.parse(view.display_json),["dashboard","custom"].includes(view.kind)?[]:schema[view.table_name]);validateViewCondition(view.show_if,schema);viewIsVisible(view.show_if,{...context,now});}catch(e){add(`View ${view.label}`, (e as Error).message);}}
+ for(const view of database.prepare("SELECT * FROM _views").all() as any[]){try{validateDisplay(JSON.parse(view.display_json),["dashboard","custom"].includes(view.kind)?[]:schema[view.table_name]);if(view.kind==='custom')validateCustomData(JSON.parse(view.display_json).custom_page,database.prepare("SELECT name,table_name FROM _views").all() as any[],database.prepare("SELECT name FROM _actions").all() as any[],schema);validateViewCondition(view.show_if,schema);viewIsVisible(view.show_if,{...context,now});}catch(e){add(`View ${view.label}`, (e as Error).message);}}
  for(const entity of ["_slices","_actions"]){for(const item of database.prepare(`SELECT * FROM ${entity}`).all() as any[]){const expressions=(entity==="_slices"?[item.filter_expr]:[item.condition_expr,...actionConfigExpressions(JSON.parse(item.config_json||"{}")),...Object.values(JSON.parse(item.values_json))]).filter(e=>typeof e==="string"&&e.trim());
   const cols=schema[item.table_name];if(!cols)throw Error("Slice หรือ Action อ้างอิงตารางที่ไม่มีอยู่ กรุณาแก้การตั้งค่า");
   let probe="conversion_check";while(cols.some(c=>c.name===probe))probe+="x";

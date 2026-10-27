@@ -7,11 +7,14 @@ import {NextResponse} from "next/server";
 import {db} from "./db";
 import {requestUser,assertSameOrigin,AuthError} from "./auth";
 import {accessFor,runAuthorized,assertExcelExport,assertTablePermission,canExecuteAction,assertFileAccess,assertImageAccess} from "./permissions";
+import {beginSystemRequest} from './system-metrics';
 export function withAuth(handler:(...args:any[])=>Promise<Response>){return async(req:Request,context:any)=>{
+ let finish:((status:number)=>void)|undefined,status=500;
  try{
   const user=requestUser(req);if(!user)return NextResponse.json({error:"กรุณาเข้าสู่ระบบก่อนใช้งาน"},{status:401,headers:{"Cache-Control":"no-store"}});
-  const pathName=new URL(req.url).pathname,platform=['/api/applications','/api/users','/api/backups','/api/audit-log','/api/auth/'].some(p=>pathName===p||pathName.startsWith(p+'/'));
-  const application=platform?undefined:applicationScopeFor(user,applicationCookie(req.headers.get('cookie'))),expected=req.headers.get('x-nocode-app')||(pathName==='/api/realtime'?new URL(req.url).searchParams.get('app'):null);if(application&&expected&&expected!==application.id)throw new AuthError('แอปเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ',409);
+  const pathName=new URL(req.url).pathname,platform=['/api/system-report','/api/applications','/api/users','/api/backups','/api/audit-log','/api/auth/'].some(p=>pathName===p||pathName.startsWith(p+'/'));
+  const mediaApp=['GET','HEAD'].includes(req.method)&&/^\/api\/(files|images)\//.test(pathName)?new URL(req.url).searchParams.get('pwa_app'):null,routeApp=mediaApp||req.headers.get('x-nocode-pwa-app')||req.headers.get('x-nocode-route-app')||(pathName==='/api/realtime'&&new URL(req.url).searchParams.get('pwa')==='1'?new URL(req.url).searchParams.get('app'):null),application=platform?undefined:applicationScopeFor(user,routeApp||applicationCookie(req.headers.get('cookie'))),expected=req.headers.get('x-nocode-app')||(pathName==='/api/realtime'?new URL(req.url).searchParams.get('app'):null);if(application&&expected&&expected!==application.id)throw new AuthError('แอปเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ',409);
+  if(pathName!=='/api/system-report'&&pathName!=='/api/realtime'&&!(pathName==='/api/workflows'&&new URL(req.url).searchParams.get('activity')==='1')){const table=/^\/api\/(data|view-data|lists|excel|tables)\//.test(pathName)?context?.params?.table||context?.params?.name:null;finish=beginSystemRequest(application?.id||null,typeof table==='string'&&/^[a-z][a-z0-9_]{0,40}$/.test(table)?table:null,req.method);}
   const run=async()=>{const access=accessFor(user);
   return await runAuthorized(user,access,()=>withDraftRequest(req,user,access,async()=>{
    const url=new URL(req.url),path=url.pathname,read=req.method==="GET"||req.method==="HEAD";
@@ -35,6 +38,6 @@ export function withAuth(handler:(...args:any[])=>Promise<Response>){return asyn
    if(path.startsWith('/api/tables/')){const table=context?.params?.name;assertTablePermission(table,'read');if(!read&&application){const owner=(db.prepare('SELECT owner_app_id FROM _tables WHERE name=?').get(table) as {owner_app_id:string}|undefined)?.owner_app_id;if(owner!==application.id)throw new AuthError('แก้โครงสร้างตารางร่วมจากแอปเจ้าของตารางเท่านั้น',403);const shared=!!db.prepare('SELECT 1 FROM _application_datasets WHERE table_name=? AND app_id<>? AND can_read=1').get(table,application.id);const body=req.method==='PATCH'?await req.clone().json():null;if(shared&&(!body||!['label','realtime','add_column'].includes(body.op)))throw new AuthError('ตารางนี้ใช้ร่วมกับแอปอื่น กรุณาตรวจและยกเลิกการเชื่อมก่อนเปลี่ยนโครงสร้างหรือลบตาราง',409);}}
 
    const response=await withAuditActor(user,(application&&application.id!=='default'?'app:'+application.id+' ':'')+path,()=>handler(new Request(req,{headers}),context));response.headers.set("Cache-Control",response.headers.get("Content-Type")?.startsWith("text/event-stream")?"private, no-store, no-transform":"private, no-store");if(application)response.headers.set('X-Nocode-App',application.id);response.headers.set("X-Nocode-Workspace",access.builder?(draftCookie(req)||"live"):"live");return response;
-  }));};return application?await withApplication(application,run):await run();
- }catch(e){if(!(e instanceof AuthError))console.error(e);return NextResponse.json({error:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.message:"ตรวจสิทธิ์ไม่ได้ กรุณาลองใหม่"},{status:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500,headers:{"Cache-Control":"no-store"}});}
+  }));};const result=application?await withApplication(application,run):await run();status=result.status;return result;
+ }catch(e){status=(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500;if(!(e instanceof AuthError))console.error(e);return NextResponse.json({error:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.message:"ตรวจสิทธิ์ไม่ได้ กรุณาลองใหม่"},{status:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500,headers:{"Cache-Control":"no-store"}});}finally{finish?.(status);}
 };}

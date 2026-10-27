@@ -205,6 +205,14 @@ export function parseExpression(source: string): Node {
   if (tokens[p].kind !== "end") fail(`พบ "${tokens[p].text}" เกินมา กรุณาตรวจเครื่องหมายคั่นหรือวงเล็บ`, tokens[p].start);
   return root;
 }
+
+/** Rewrite table tokens only; string literals and column identifiers are preserved. */
+export function remapExpressionTables(source:string,mapping:Record<string,string>){
+ if(!source.trim()||!Object.keys(mapping).length)return source;
+ parseExpression(source);const tokens=tokenize(source),edits:{start:number;end:number;value:string}[]=[];
+ for(let i=0;i<tokens.length-1;i++){const t=tokens[i],name=source.slice(t.start,t.end);if(t.kind==='word'&&tokens[i+1].kind==='column'&&mapping[name])edits.push({start:t.start,end:t.end,value:mapping[name]});}
+ for(const edit of edits.reverse())source=source.slice(0,edit.start)+edit.value+source.slice(edit.end);return source;
+}
 function visit(node: Node, fn: (node: Node) => void) {
   fn(node);
   if (node.kind === "unary") visit(node.value, fn);

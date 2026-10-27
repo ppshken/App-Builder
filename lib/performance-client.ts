@@ -1,18 +1,24 @@
 import {createUuid} from './uuid';
-export type Timing={kind:'api'|'image'|'longtask';name:string;ms:number;bytes:number;status:number|null};
-export type PerformanceRun={id:string;label:string;at:string;duration_ms:number;events:Timing[];server?:any;frames?:{count:number;over50ms:number;max_ms:number}};
-let scope='',active=false,started=0,label='',events:Timing[]=[],runs:PerformanceRun[]=[],frames={count:0,over50ms:0,max_ms:0};
+export type Timing={kind:'api'|'image'|'longtask'|'navigation';name:string;ms:number;bytes:number;status:number|null};
+export type PerformanceRun={id:string;label:string;at:string;duration_ms:number;events:Timing[];server?:any;frames?:{count:number;over50ms:number;max_ms:number};environment?:{width:number;height:number;pixel_ratio:number;browser:string}};
+export const MAX_RECORDING_MS=60000;
+let scope='',active=false,started=0,label='',events:Timing[]=[],runs:PerformanceRun[]=[],frames={count:0,over50ms:0,max_ms:0},stopping=false;
 const changed=()=>{if(typeof window!=='undefined')window.dispatchEvent(new Event('nocode:performance'));};
 const key=()=> 'nocode:performance:'+scope;
-function persist(){try{localStorage.setItem(key(),JSON.stringify(runs));}catch{}}
-export function configurePerformance(next:string){if(scope===next)return;scope=next;active=false;events=[];runs=[];try{const value=JSON.parse(localStorage.getItem(key())||'[]');if(Array.isArray(value))runs=value.filter(r=>r&&typeof r.id==='string'&&Array.isArray(r.events)).slice(0,10);}catch{}changed();}
-export function reloadPerformanceRuns(){try{const value=JSON.parse(localStorage.getItem(key())||'[]');runs=Array.isArray(value)?value.filter(r=>r&&typeof r.id==='string'&&typeof r.label==='string'&&Array.isArray(r.events)).slice(0,10):[];}catch{runs=[];}changed();}
+export function backgroundPerformanceRequest(path:string,search=''){return /^\/api\/realtime(?:[/?#]|$)/.test(path)||path==='/api/workflows'&&/(?:^|[?&])activity=1(?:&|$)/.test(search);}
+export function safePerformanceTiming(value:Timing):Timing|null{if(!value||!['api','image','longtask','navigation'].includes(value.kind)||typeof value.name!=='string'||!Number.isFinite(value.ms)||value.ms<0||value.kind==='api'&&backgroundPerformanceRequest(value.name))return null;return {kind:value.kind,name:value.name.split(/[?#]/)[0].replace(/\/[0-9a-f-]{20,}(?=\/|$)/gi,'/[id]').slice(0,180),ms:value.ms,bytes:Number.isFinite(value.bytes)&&value.bytes>0?value.bytes:0,status:Number.isInteger(value.status)&&Number(value.status)>=100&&Number(value.status)<=599?value.status:null};}
+function load(){try{const value=JSON.parse(localStorage.getItem(key())||'[]');return Array.isArray(value)?value.filter(r=>r&&typeof r.id==='string'&&typeof r.label==='string'&&Array.isArray(r.events)).slice(0,10).map(r=>({...r,events:r.events.slice(0,500).map(safePerformanceTiming).filter(Boolean)})):[];}catch{return [];}}
+function persist(){if(scope)try{localStorage.setItem(key(),JSON.stringify(runs));}catch{}}
+export function configurePerformance(next:string){if(scope===next)return;scope=next;active=false;events=[];runs=scope?load():[];changed();}
+export function reloadPerformanceRuns(){runs=scope?load():[];changed();}
 export function performanceState(){return {active,runs,started};}
-export function startPerformance(name:string){label=name.trim().slice(0,80)||'การใช้งาน';events=[];frames={count:0,over50ms:0,max_ms:0};started=performance.now();active=true;changed();}
-export function addPerformanceTiming(item:Timing){if(active&&events.length<500&&Number.isFinite(item.ms))events.push(item);}
-export function addPerformanceFrame(ms:number){if(!active)return;frames.count++;frames.max_ms=Math.max(frames.max_ms,ms);if(ms>50)frames.over50ms++;}
-export function savePerformanceRun(run:PerformanceRun){runs=[run,...runs].slice(0,10);persist();changed();}
-export function stopPerformance(){if(!active)return;active=false;savePerformanceRun({id:createUuid(),label,at:new Date().toISOString(),duration_ms:performance.now()-started,events:[...events],frames:{...frames}});}
+export function startPerformance(name:string){if(!scope)return;label=name.trim().slice(0,80)||'การใช้งาน';events=[];frames={count:0,over50ms:0,max_ms:0};started=performance.now();active=true;changed();}
+export function addPerformanceTiming(item:Timing){const safe=safePerformanceTiming(item);if(active&&events.length<500&&safe)events.push(safe);}
+export function addPerformanceFrame(ms:number){if(!active||!Number.isFinite(ms)||ms<=0)return;frames.count++;frames.max_ms=Math.max(frames.max_ms,ms);if(ms>50)frames.over50ms++;}
+export function savePerformanceRun(run:PerformanceRun){if(!scope)return;runs=[run,...runs].slice(0,10);persist();changed();}
+export function stopPerformance(){if(!active||stopping)return;stopping=true;try{if(typeof window!=='undefined')window.dispatchEvent(new Event('nocode:performance-flush'));active=false;let environment:PerformanceRun['environment'];if(typeof window!=='undefined'&&typeof navigator!=='undefined'){const ua=navigator.userAgent||'',browser=ua.includes('Edg/')?'Edge':ua.includes('CriOS')?'Chrome iOS':ua.includes('FxiOS')?'Firefox iOS':ua.includes('Chrome')?'Chrome':ua.includes('Safari')?'Safari':'Other';environment={width:window.innerWidth,height:window.innerHeight,pixel_ratio:window.devicePixelRatio||1,browser};}savePerformanceRun({id:createUuid(),label,at:new Date().toISOString(),duration_ms:Math.max(0,Math.min(MAX_RECORDING_MS,performance.now()-started)),events:[...events],frames:{...frames},...(environment?{environment}:{})});}finally{stopping=false;}}
 export function saveServerPerformance(server:any,name:string){savePerformanceRun({id:createUuid(),label:name.trim().slice(0,80)||server.label,at:new Date().toISOString(),duration_ms:server.total_ms,events:[],server});}
 export function clearPerformanceRuns(){runs=[];persist();changed();}
-export function timingPercentile(events:Timing[],kind:Timing['kind']){const values=events.filter(e=>e.kind===kind).map(e=>e.ms).sort((a,b)=>a-b);return values.length?values[Math.ceil(values.length*.95)-1]:null;}
+export function timingPercentile(items:Timing[],kind:Timing['kind']){const values=items.map(safePerformanceTiming).filter((e):e is Timing=>!!e&&e.kind===kind).map(e=>e.ms).sort((a,b)=>a-b);return values.length?values[Math.ceil(values.length*.95)-1]:null;}
+/** Diagnostics only: no account, cookies, request/response bodies or query values. */
+export function performanceRunExport(run:PerformanceRun){const server=run.server;return {version:1,measurement:'browser diagnostics; physical device is not inferred',run:{id:run.id,label:run.label,at:run.at,duration_ms:run.duration_ms,environment:run.environment,events:run.events.slice(0,500).map(safePerformanceTiming).filter(Boolean),frames:run.frames,...(server?{server:{table:server.table,read_ms:server.read_ms,calculation_ms:server.calculation_ms,total_ms:server.total_ms,sample_rows:server.sample_rows,calculated_rows:server.calculated_rows,evaluations:server.evaluations,limited:server.limited,formulas:server.formulas?.map((f:any)=>({column:f.column,field:f.field,count:f.count,total_ms:f.total_ms,average_ms:f.average_ms,max_ms:f.max_ms,errors:f.errors})),automation:server.automation?.map((j:any)=>({status:j.status,elapsed_ms:j.elapsed_ms}))??null}}:{})}};}

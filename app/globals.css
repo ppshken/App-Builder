@@ -11,6 +11,9 @@
   --danger-soft: #fff1f1;
   --sidebar: #fff;
   --input: #fff;
+  --builder-input: var(--bg);
+  --formula-input: #eff6ff;
+  --formula-ink: #1e40af;
   --shadow: 0 12px 48px #172d5014;
 }
 @media (prefers-color-scheme: dark) {
@@ -27,6 +30,9 @@
     --danger-soft: #39262d;
     --sidebar: #000000;
     --input: #202020;
+  --builder-input: var(--input);
+  --formula-input: var(--input);
+  --formula-ink: #93c5fd;
     --shadow: 0 12px 48px #0005;
   }
 }
@@ -3119,6 +3125,9 @@ tbody tr:hover {
   --danger-soft: #fff1f1;
   --sidebar: #fff;
   --input: #fff;
+  --builder-input: var(--bg);
+  --formula-input: #eff6ff;
+  --formula-ink: #1e40af;
   --shadow: 0 12px 48px #172d5014;
 }
 :root[data-mode="dark"] {
@@ -3132,6 +3141,9 @@ tbody tr:hover {
   --danger-soft: #39262d;
   --sidebar: #000000;
   --input: #202020;
+  --builder-input: var(--input);
+  --formula-input: var(--input);
+  --formula-ink: #93c5fd;
   --shadow: 0 12px 48px #0005;
 }
 .builder-shell {
@@ -3246,7 +3258,7 @@ tbody tr:hover {
 .builder-shell textarea,
 .builder-shell select {
   border-radius: 3px;
-  background: var(--bg);
+  background: var(--builder-input);
 }
 .builder-menu-toggle,
 .builder-nav-overlay {
@@ -5938,7 +5950,7 @@ img[role="button"]:focus-visible {
   }
   .desktop-detail-backdrop {
     width: 50%;
-    padding-right: 24px;
+    padding-right: 4px;
   }
   .desktop-detail-backdrop .runtime-add {
     right: calc(50% + 24px);
@@ -7083,10 +7095,10 @@ textarea.formula-source,
 .column-grid input.column-formula-cell,
 .view-condition-editor textarea,
 .row-rule-editor textarea {
-  color: #1e40af;
-  background: #eff6ff;
-  caret-color: #1e40af;
-  -webkit-text-fill-color: #1e40af;
+  color: var(--formula-ink);
+  background: var(--formula-input);
+  caret-color: var(--formula-ink);
+  -webkit-text-fill-color: var(--formula-ink);
 }
 .builder-shell .formula-input input,
 .builder-shell textarea.formula-input,
@@ -7094,8 +7106,8 @@ textarea.formula-source,
 .builder-shell .column-grid input.column-formula-cell,
 .builder-shell .view-condition-editor textarea,
 .builder-shell .row-rule-editor textarea {
-  color: #1e40af;
-  background: #eff6ff;
+  color: var(--formula-ink);
+  background: var(--formula-input);
 }
 .formula-input input::placeholder,
 textarea.formula-input::placeholder,
@@ -13340,3 +13352,31 @@ textarea::placeholder {
 
 /* Shared save-button indicator for builder and runtime forms. */
 .view-save-button{position:relative}.view-save-label{display:inline-flex;align-items:center;gap:8px}.view-save-button[aria-busy=true]>.view-save-label{visibility:hidden}.view-save-spinner.app-loading-spinner{position:absolute;inset:0;margin:auto;width:16px;height:16px;border-width:2px;border-color:#ffffff55;border-top-color:currentColor}
+.users-toolbar{display:flex;align-items:center;gap:12px;margin:14px 0 8px;min-width:0}
+.users-toolbar .users-search-box{flex:1;width:auto;max-width:none;min-width:200px;height:40px;box-sizing:border-box}
+.users-toolbar .users-search-box svg{width:17px;height:17px;flex:none}
+.users-toolbar .users-search-box input{min-height:0;height:38px;padding:8px 0;font-size:13px}
+.users-filters{display:flex;align-items:center;gap:8px;margin-left:auto;min-width:0}
+.users-filters>.search-select-trigger{width:150px;min-width:0}
+.users-filters .search-select-trigger{min-height:40px;font-size:12px}
+.users-filters>.icon-button{width:32px;height:32px;min-height:32px;flex:none}
+.users-result-count{font-size:11px;color:var(--mute);margin:6px 0}
+.users-table-scroll{max-width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.users-table.users-table-compact{display:table;min-width:1020px;width:100%;font-size:12px;white-space:nowrap}
+.users-table.users-table-compact thead{display:table-header-group}
+.users-table.users-table-compact tbody{display:table-row-group}
+.users-table.users-table-compact tr{display:table-row;border:0;border-radius:0}
+.users-table.users-table-compact :is(th,td){display:table-cell;padding:6px 10px;height:38px;box-sizing:border-box;white-space:nowrap;text-align:left;vertical-align:middle;border-bottom:1px solid var(--line);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.users-table.users-table-compact th{font-size:11px;color:var(--mute);background:var(--input)}
+.users-table.users-table-compact tbody tr:last-child td{border-bottom:0}
+.users-name-cell{display:flex;align-items:center;gap:7px;min-width:0}
+.users-name-cell img{width:24px;height:24px;border-radius:50%;object-fit:cover;flex:none}
+.users-name-cell strong{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.users-table.users-table-compact .badge{margin:0;font-size:10px;white-space:nowrap;flex:none}
+.users-table.users-table-compact .users-row-buttons{flex-wrap:nowrap;gap:4px}
+.users-table.users-table-compact .users-row-buttons button{flex:none;width:28px;height:28px;min-height:28px;padding:5px;display:inline-flex;align-items:center;justify-content:center}
+.users-table.users-table-compact .users-row-buttons svg{width:15px;height:15px}
+.users-table.users-table-compact .users-empty{height:64px;text-align:center;color:var(--mute);max-width:none}
+@media(max-width:900px){.users-toolbar{flex-wrap:wrap}.users-toolbar .users-search-box{flex-basis:100%}.users-filters{width:100%;margin-left:0}.users-filters>.search-select-trigger{flex:1;width:auto}}
+.my-profile-content input[readonly]{background:#e9edf2;color:var(--ink);opacity:1;cursor:default}
+:root[data-mode=dark] .my-profile-content input[readonly]{background:#333333}

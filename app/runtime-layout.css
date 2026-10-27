@@ -2,11 +2,30 @@
  --runtime-header-height:52px;
  --runtime-sidebar-collapsed-width:64px;
  --runtime-sidebar-expanded-width:260px;
- --runtime-default-nav-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
- --runtime-pagination-height:48px;
+ --runtime-default-nav-height:calc(60px + env(safe-area-inset-bottom,0px));
+ --runtime-pagination-height:40px;
  --runtime-enter-duration:220ms;
  --runtime-exit-duration:180ms;
 }
+/* Shared desktop selection treatments, used by the editor miniature and the runtime menu. */
+:is(.desktop-menu-preview,.runtime-app.runtime-desktop>.runtime-menu).desktop-menu-style-line :is(button[aria-current=page],.desktop-preview-item[data-active=true]){border-radius:3px;border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--accent)}
+:is(.desktop-menu-preview,.runtime-app.runtime-desktop>.runtime-menu).desktop-menu-style-solid :is(button[aria-current=page],.desktop-preview-item[data-active=true]){background:var(--brand-color,var(--accent));color:var(--brand-contrast,#fff);border-radius:8px}
+:is(.desktop-menu-preview,.runtime-app.runtime-desktop>.runtime-menu).desktop-menu-style-solid button[aria-current=page] svg{color:inherit}
+@media(min-width:1024px){
+ .runtime-app.runtime-desktop>.runtime-menu{padding:8px}
+ .runtime-app.runtime-desktop>.runtime-menu button{min-height:34px;padding:6px 10px;margin:0;gap:8px;font-size:calc(12px * var(--font-scale,1));line-height:18px}
+ .runtime-app.runtime-desktop.runtime-menu-collapsed>.runtime-menu button{min-height:34px;padding:6px 0}
+ .runtime-app.runtime-desktop>.runtime-menu button svg{width:16px;height:16px;flex:none}
+ .runtime-app.runtime-desktop>.runtime-menu .runtime-menu-label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .runtime-app.runtime-desktop>.runtime-menu h2{font-size:calc(13px * var(--font-scale,1));margin:4px 8px 8px;line-height:20px}
+ .runtime-app.runtime-desktop>.runtime-menu h3{font-size:calc(11px * var(--font-scale,1));margin:10px 8px 4px;line-height:16px}
+ .runtime-app.runtime-desktop>.runtime-menu .runtime-menu-group+.runtime-menu-group{margin-top:6px;padding-top:3px}
+ .runtime-app.runtime-desktop>.runtime-menu .runtime-account{margin-top:6px;padding-top:6px;gap:0}
+ .runtime-app.runtime-desktop>.runtime-menu .runtime-account small{font-size:calc(10px * var(--font-scale,1));margin:4px 0;padding:0 10px;line-height:16px}
+ .runtime-app.runtime-desktop:has(>.desktop-menu-style-floating){--runtime-sidebar-collapsed-width:88px;--runtime-sidebar-expanded-width:284px}
+ .runtime-app.runtime-desktop>.runtime-menu.desktop-menu-style-floating{left:12px;top:calc(var(--runtime-header-height) + 12px);bottom:12px;width:calc(var(--runtime-sidebar-width) - 24px);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+}
+.desktop-navigation-settings{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}.desktop-navigation-settings h3{font-size:15px;margin:0 0 6px}.desktop-navigation-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px}.desktop-navigation-preset{display:flex;flex-direction:column;text-align:left;gap:7px;padding:10px;border:1px solid var(--line);border-radius:12px;min-width:0;background:var(--panel);color:var(--ink)}.desktop-navigation-preset.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.desktop-navigation-preset strong{font-size:12px}.desktop-navigation-preset small{font-size:11px;color:var(--mute);line-height:1.5}.desktop-menu-demo{display:flex;width:100%;height:114px;background:var(--bg);border:1px solid var(--line);border-radius:7px;overflow:hidden;position:relative}.desktop-menu-preview{width:58%;padding:6px;background:var(--panel);border-right:1px solid var(--line)}.desktop-preview-item{display:flex;align-items:center;gap:5px;padding:6px 4px;border-radius:5px;font-size:9px;color:var(--mute);white-space:nowrap;overflow:hidden}.desktop-preview-item svg{width:13px;height:13px;flex:none}.desktop-preview-item span{overflow:hidden;text-overflow:ellipsis}.desktop-preview-item[data-active=true]{color:var(--accent);background:var(--accent-soft)}.desktop-demo-content{flex:1;padding:12px 8px}.desktop-demo-content i{display:block;background:var(--line);height:5px;margin-bottom:10px;border-radius:4px}.demo-floating .desktop-menu-preview{margin:7px;width:58%;border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow)}.demo-bottom .desktop-menu-preview{position:absolute;bottom:0;left:0;right:0;width:auto;display:flex;border-top:1px solid var(--line);border-right:0;padding:3px;justify-content:space-around}.demo-bottom .desktop-preview-item{flex-direction:column;font-size:8px;gap:2px;padding:3px}.demo-bottom .desktop-demo-content{padding-left:16px}
 /* The same geometry is used by the app, Preview, drawers and sticky controls. */
 .app-header.runtime-header,.app-header.header-preview,
 .runtime-screen:not(:has(.runtime-page-trail)) > .runtime-screen-header {
@@ -14,8 +33,25 @@
 }
 .runtime-record-breadcrumb { min-height:var(--runtime-header-height); }
 .runtime-app > .runtime-menu,.runtime-app > .runtime-overlay { top:var(--runtime-header-height); }
+@media(max-width:1023px){
+ .runtime-app>.runtime-menu{padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px))}
+ .runtime-app>.runtime-menu button{min-height:38px;padding:8px 10px;margin:0;gap:8px;font-size:calc(12px * var(--font-scale,1));line-height:18px}
+ .runtime-app>.runtime-menu button svg{width:16px;height:16px;flex:none}
+ .runtime-app>.runtime-menu .runtime-menu-label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .runtime-app>.runtime-menu h2{font-size:calc(13px * var(--font-scale,1));margin:4px 8px 8px;line-height:20px}
+ .runtime-app>.runtime-menu h3{font-size:calc(11px * var(--font-scale,1));margin:10px 8px 4px;line-height:16px}
+ .runtime-app>.runtime-menu .runtime-menu-group+.runtime-menu-group{margin-top:6px;padding-top:3px}
+ .runtime-app>.runtime-menu .runtime-account{margin-top:6px;padding-top:6px;gap:0}
+ .runtime-app>.runtime-menu .runtime-account small{font-size:calc(10px * var(--font-scale,1));margin:4px 0;padding:0 10px;line-height:16px}
+}
 .runtime-app:not(.runtime-desktop) > main { top:var(--runtime-header-height); }
 .runtime-app .data-pagination { min-height:var(--runtime-pagination-height); }
+.data-pagination{padding:4px 10px;gap:6px}
+.runtime-app .data-pagination{padding:4px 10px;gap:6px}
+.data-pagination :is(select,button,.search-select-trigger){height:28px;min-height:28px;padding:3px 6px;font-size:11px;line-height:18px;box-sizing:border-box}
+.data-pagination .row{gap:4px}
+.data-pagination .row button{width:28px;display:inline-flex;align-items:center;justify-content:center}
+.data-pagination button svg{width:14px;height:14px}
 @media(min-width:1024px) {
  .runtime-app.runtime-desktop .runtime-screen,
  .runtime-app.runtime-desktop .runtime-screen.runtime-child-screen,
@@ -30,11 +66,11 @@
  .runtime-app .runtime-screen[data-closing="true"] > .runtime-screen-body {animation-duration:var(--runtime-exit-duration)!important;}
 }
 
-/* Bottom navigation shares the header height; safe-area is additional space. */
+/* Bottom navigation has its own configurable height; safe-area is additional space. */
 .runtime-app > .runtime-primary.app-navigation[class] {
- height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
- min-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
- max-height:calc(var(--runtime-header-height) + env(safe-area-inset-bottom,0px));
+ height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
+ min-height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
+ max-height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
  padding:0 8px env(safe-area-inset-bottom,0px);
  align-items:stretch;
 }
@@ -110,3 +146,12 @@
  .runtime-app .runtime-header-screen-slot .runtime-mobile-page-header .icon-button{width:36px;height:36px;min-width:36px;padding:8px;}
  .runtime-app:not(.runtime-desktop) .runtime-screen{top:var(--runtime-header-height);}
 }
+
+/* The settings preview uses the same item geometry as the runtime bar. */
+.navigation-live-sample>.app-navigation{height:var(--app-navigation-height,60px);min-height:var(--app-navigation-height,60px);max-height:var(--app-navigation-height,60px);padding:0 8px;align-items:stretch;}
+.navigation-live-sample>.app-navigation .app-nav-item{min-height:0;padding-block:4px;gap:2px;}
+.navigation-live-sample>.app-navigation .nav-icon{width:28px;height:26px;}
+.navigation-live-sample>.app-navigation .nav-icon svg{width:20px;height:20px;}
+.navigation-live-sample>.app-navigation .app-nav-item[data-featured="true"] .nav-icon{width:32px;height:32px;transform:translateY(-4px);}
+
+.pwa-update{position:fixed;z-index:1500;top:calc(env(safe-area-inset-top,0px) + 64px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);width:max-content;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow);font-size:12px;flex-wrap:wrap}.pwa-update button{font-size:12px;min-height:32px;padding:4px 10px}

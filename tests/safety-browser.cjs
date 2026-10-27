@@ -20,7 +20,7 @@ async function main(){const browser=await chromium.launch({channel:'msedge',head
  await item.getByRole('button',{name:'ตรวจไฟล์และกู้คืน'}).click();await page.getByLabel('พิมพ์ กู้คืน เพื่อยืนยัน').fill('กู้คืน');await page.getByRole('button',{name:'ยืนยันกู้คืนข้อมูล'}).click();await expect(page).toHaveURL(new RegExp('/login[?]'));
  await expect(page.locator('.auth-card .success-banner')).toContainText('กู้คืนข้อมูลเรียบร้อย');
  assert.equal((await fetch(base+'/api/tables')).status,401);
- await page.getByLabel('อีเมล',{exact:true}).fill(process.env.NOCODE_TEST_EMAIL);await page.getByLabel('รหัสผ่าน',{exact:true}).fill('TestPassword123');await page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).click();await expect(page).toHaveURL(base+'/?restored=1');
+ await page.getByLabel('บัญชีผู้ใช้หรืออีเมล',{exact:true}).fill(process.env.NOCODE_TEST_EMAIL);await page.getByLabel('รหัสผ่าน',{exact:true}).fill('TestPassword123');await page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).click();await expect(page).toHaveURL(base+'/?restored=1');
  const renewed=(await page.context().cookies()).find(c=>c.name==='nocode_session');process.env.NOCODE_TEST_COOKIE='nocode_session='+renewed.value;
  assert.equal((await api('/api/data/safe_items'))[0].name,'เดิม');assert.equal((await api('/api/tables'))[0].columns.some(c=>c.name==='extra'),false);assert.ok((await api('/api/backups')).backups.some(b=>b.reason==='ก่อนกู้คืนข้อมูล'));
  const form=new FormData();form.set('file',new Blob(['invalid']),'bad.db');const invalid=await fetch(base+'/api/backups/restore',{method:'POST',body:form});assert.equal(invalid.status,400);

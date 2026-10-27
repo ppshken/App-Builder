@@ -1,4 +1,6 @@
 "use client";
+import {pwaApplication} from '@/lib/pwa';
+
 import '../apps/applications.css';
 import MyProfile from "./MyProfile";
 import ConnectionStatus from "./ConnectionStatus";
@@ -29,11 +31,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
  const pathname=usePathname(),{settings}=useAppSettings(),{user,access,application}=useAuth();
  const [profileOpen,setProfileOpen]=useState(false);
  const [tables,setTables]=useState<Table[]>([]),[open,setOpen]=useState(false),[query,setQuery]=useState(""),[collapsed,setCollapsed]=useState<Record<string,boolean>>({}),[error,setError]=useState("");
+ const login=pathname==="/login"||!!pwaApplication(pathname)&&pathname.endsWith("/login");
  const launcher=pathname==="/apps"||pathname==="/";
- const runtime=pathname==="/run",data=pathname==="/data" || pathname.startsWith("/t/") || pathname==="/slices";
- useEffect(()=>{setOpen(false);if(runtime||pathname==="/login"||launcher)return;const controller=new AbortController();const load=()=>fetch("/api/tables",{signal:controller.signal}).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.error);setTables(j);setError("");}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});load();window.addEventListener("nocode:metadata",load);return()=>{controller.abort();window.removeEventListener("nocode:metadata",load);};},[pathname,runtime,launcher]);
+ const runtime=pathname==="/run"||!!pwaApplication(pathname)&&!pathname.endsWith("/login"),data=pathname==="/data" || pathname.startsWith("/t/") || pathname==="/slices";
+ useEffect(()=>{setOpen(false);if(runtime||login||launcher)return;const controller=new AbortController();const load=()=>fetch("/api/tables",{signal:controller.signal}).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.error);setTables(j);setError("");}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});load();window.addEventListener("nocode:metadata",load);return()=>{controller.abort();window.removeEventListener("nocode:metadata",load);};},[pathname,runtime,launcher]);
  if(launcher)return <div className="applications-launcher"><ConnectionStatus/>{profileOpen&&<MyProfile onClose={()=>setProfileOpen(false)}/>}<header className="applications-launcher-header"><a href="/apps" className="applications-launcher-brand"><Icon name="grid"/><strong>แอปของฉัน</strong></a><div><button className="auth-owner" onClick={()=>setProfileOpen(true)}>{user?.name}</button><button className="auth-logout" onClick={()=>logout().catch(e=>setError(e.message))}>ออกจากระบบ</button></div></header>{error&&<p role="alert" className="err">{error}</p>}<main className="applications-launcher-content">{children}</main></div>;
- if(runtime||pathname==="/login")return <><ConnectionStatus/>{children}</>;
+ if(runtime||login)return <><ConnectionStatus/>{children}</>;
  const current=tables.find(t=>pathname===`/t/${t.name}`||pathname.startsWith(`/t/${t.name}/`));
  const active=data?"/data":pathname;
  return <div className="builder-shell"><ConnectionStatus/>{profileOpen&&<MyProfile onClose={()=>setProfileOpen(false)}/>}

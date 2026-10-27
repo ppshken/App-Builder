@@ -1,3 +1,4 @@
+import {sqlPageWindow} from '@/lib/sql-page-window';
 import {saveFormRecord} from '@/lib/form-save';
 import {deleteRecord} from "@/lib/delete-record";
 import {readRows,withReferenceLabels} from "@/lib/view-records";
@@ -42,11 +43,13 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
     }
-    if(fast){const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
+    if(fast)db.transaction(()=>{const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
       if(hasRowRule(t)){const permitted=visibleRawRows(t,db.prepare(`SELECT * FROM "t_${t}" WHERE ${where}`).all(...args) as Row[]).map(r=>r.id);where+=' AND id IN (SELECT value FROM json_each(?))';args.push(JSON.stringify(permitted));}
       total=(db.prepare('SELECT COUNT(*) AS total FROM "t_'+t+'" WHERE '+where).get(...args) as {total:number}).total;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));const key=requestedSort?.name||"id",direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
-      rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+where+' ORDER BY "'+key+'" '+direction+',id '+direction+' LIMIT ? OFFSET ?').all(...args,size,(page-1)*size) as Row[];
-    }
+      const window=sqlPageWindow(total,page,size,direction);
+      rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+where+' ORDER BY "'+key+'" '+window.direction+',id '+window.direction+' LIMIT ? OFFSET ?').all(...args,window.limit,window.offset) as Row[];
+      if(window.reverse)rawRows.reverse();
+    })();
     let rows = readRows(t, cols, now, userEmail, context,rawRows);
     const slice = sliceFor(u.searchParams.get("slice"), t);
     if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));

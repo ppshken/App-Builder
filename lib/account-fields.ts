@@ -1,0 +1,6 @@
+import {AuthError} from './auth';
+import type Database from 'better-sqlite3';
+export function requiredAccountText(value:unknown,label:string,max=100){if(typeof value!=='string'||!value.trim()||value.trim().length>max)throw new AuthError(`กรุณากรอก${label} ไม่เกิน ${max} ตัวอักษร`);return value.trim();}
+export function accountUsername(value:unknown,previous=''){const text=requiredAccountText(value,'บัญชีผู้ใช้',previous.includes('@')?254:100).toLowerCase();if(text!==previous.toLowerCase()&&!/^[a-z0-9._-]+$/.test(text))throw new AuthError('บัญชีผู้ใช้ต้องใช้ A–Z ตัวเลข จุด ขีดกลาง หรือขีดล่าง โดยไม่มีช่องว่าง');return text;}
+export function profileAvatar(value:unknown){if(typeof value!=='string'||value.length>280000||value!==''&&!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))throw new AuthError('รูปโปรไฟล์ต้องเป็น JPG PNG หรือ WebP ขนาดไม่เกิน 200 KB');return value;}
+export function assertAccountIdentity(database:Database.Database,username:string,email:string|null,id=0){if(database.prepare("SELECT 1 FROM _users WHERE id<>? AND (username=? COLLATE NOCASE OR email=? COLLATE NOCASE OR (? IS NOT NULL AND (email=? COLLATE NOCASE OR username=? COLLATE NOCASE)))").get(id,username,username,email,email,email))throw new AuthError('บัญชีผู้ใช้หรืออีเมลนี้มีผู้ใช้งานแล้ว กรุณาใช้ค่าอื่น');}

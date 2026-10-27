@@ -1,4 +1,5 @@
-import {customTargets} from './custom-page';
+import {validateCustomData} from './custom-page-references';
+import {customTargets,customActions,customNodes,customNodeTargetError} from './custom-page';
 import {tableAccess} from './access';
 import {viewNameError,runtimeViewName} from "./view-names";
 import {readAppSettings} from "./settings-server";
@@ -69,9 +70,11 @@ async function write(req: Request, existing: boolean, preview = false) {
     const display = validateDisplay(b.display === undefined ? JSON.parse(previous?.display_json || "{}") : b.display, cols);
     if(display.group_by?.some(g=>g.column!=="id"&&!names.has(g.column)))throw Error("คอลัมน์จัดกลุ่มไม่อยู่ในตารางหรือ Slice นี้");
     if(b.position==="inline"&&display.group_by?.some(g=>cols.find(c=>c.name===g.column)?.is_virtual))throw Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง");
-    if(existing&&(b.position==='inline'||b.kind==='detail')){const parents=db.prepare("SELECT display_json FROM _views WHERE kind='custom' AND name<>?").all(b.name) as {display_json:string}[];if(parents.some(v=>customTargets(JSON.parse(v.display_json).custom_page).includes(b.name)))throw Error("View นี้ถูกเปิดจากปุ่มในหน้ากำหนดเอง กรุณานำปุ่มอ้างอิงออกก่อนเปลี่ยนรูปแบบ");}
+    if(existing){const parents=db.prepare("SELECT display_json FROM _views WHERE kind='custom' AND name<>?").all(b.name) as {display_json:string}[];for(const parent of parents)for(const node of customNodes(JSON.parse(parent.display_json).custom_page?.children||[]))if(node.view===b.name&&customNodeTargetError(node,b as any))throw Error("View นี้ถูกใช้ในหน้ากำหนดเอง กรุณานำองค์ประกอบอ้างอิงออกก่อนเปลี่ยนรูปแบบ");}
     if(display.custom_page&&b.kind!=="custom")throw Error("ตัวออกแบบหน้าจอใช้ได้เฉพาะ View กำหนดเอง");
-    for(const target of customTargets(display.custom_page))if(!db.prepare("SELECT 1 FROM _views WHERE name=? AND position<>'inline' AND kind<>'detail'").get(target))throw Error("ปุ่มอ้างอิง View ที่ไม่มีอยู่หรือเปิดโดยไม่มีแถวไม่ได้");
+    for(const action of customActions(display.custom_page))if(!db.prepare("SELECT 1 FROM _actions WHERE name=?").get(action))throw Error("ไม่พบ Action ขององค์ประกอบ");
+    for(const node of customNodes(display.custom_page?.children||[]))if(node.type==='form'&&node.view){const target=db.prepare("SELECT table_name FROM _views WHERE name=?").get(node.view) as {table_name:string}|undefined;if(target)for(const name of Object.keys(node.defaults||{}))if(!columnsOf(target.table_name).some(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0))throw Error("ค่าตั้งต้นฟอร์มต้องเลือกคอลัมน์ที่แก้ไขได้");}
+    if(display.custom_page)validateCustomData(display.custom_page,db.prepare("SELECT name,table_name FROM _views").all() as any[],db.prepare("SELECT name FROM _actions").all() as any[],Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).filter(t=>canRead(t.name)).map(t=>[t.name,columnsOf(t.name)])));
     validateRelatedDisplay(display,b.table_name,b.kind);
     validateSpecialView(b.kind,{...readAppSettings().display_defaults[b.kind as DisplayKind],...display},db.prepare("SELECT name,kind,position FROM _views").all() as any[],b.name);
     if(existing&&(!["list","table","map","chart","calendar"].includes(b.kind)||b.position==="inline")&&db.prepare("SELECT 1 FROM _views WHERE name<>? AND EXISTS(SELECT 1 FROM json_each(json_extract(display_json,'$.dashboard_views')) WHERE value=?)").get(b.name,b.name))throw Error("View นี้ถูกใช้ในแดชบอร์ดอื่น กรุณานำออกก่อนเปลี่ยนชนิดหรือตำแหน่ง");
