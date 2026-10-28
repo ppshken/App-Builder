@@ -14,6 +14,14 @@ export function normalizeDateTime(value: string): string {
 export function dateTimeInput(value: unknown) {
   return typeof value === "string" && value ? normalizeDateTime(value).slice(0, 23) : "";
 }
+// Display only: keep ISO storage/input values and Thailand timezone semantics unchanged.
+export function dateLabel(value:unknown){
+ if(typeof value!=='string'||!value.trim())return '';
+ const day=value.trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return value;
+ const date=new Date(day+'T00:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==day)return value;
+ return day.slice(8,10)+'-'+day.slice(5,7)+'-'+day.slice(0,4);
+}
 export function dateTimeLabel(value: unknown) {
-  return typeof value === "string" && value ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(value)) : "";
+ if(typeof value!=='string'||!value.trim())return '';
+ try{const local=normalizeDateTime(value.trim());return dateLabel(local.slice(0,10))+' '+local.slice(11,19);}catch{return value;}
 }

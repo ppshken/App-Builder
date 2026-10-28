@@ -46,7 +46,7 @@ export function convertValue(source:Column,target:Column,raw:unknown,resolveRef?
  }
  if(Array.isArray(value)){if(value.length!==1)throw Error("มีหลายรายการ จึงแปลงเป็นค่าเดียวไม่ได้ กรุณาเลือกชนิด List หรือเก็บไว้ในคอลัมน์เดิม");value=value[0];}
  if(target.type==="ref"&&resolveRef)return resolveRef(value);
- if(["number","decimal"].includes(target.type)){
+ if(["number","decimal","price","percent","rating","user"].includes(target.type)){
   if(typeof value==="string"){
    const text=value.trim(),identity=decimalIdentity(text),number=Number(text);
    if(!Number.isFinite(number)||Number.isInteger(number)&&!Number.isSafeInteger(number)||decimalIdentity(String(number))!==identity)throw Error("ตัวเลขใหญ่หรือละเอียดเกินกว่าจะเก็บครบ กรุณาเก็บเป็นข้อความ");
@@ -57,6 +57,7 @@ export function convertValue(source:Column,target:Column,raw:unknown,resolveRef?
  if(target.type==="yesno"&&typeof value==="string"){
   const text=value.trim().toLocaleLowerCase();if(["true","yes","ใช่","1"].includes(text))value=1;else if(["false","no","ไม่ใช่","0"].includes(text))value=0;
  }
+ if(target.type==="time"&&source.type==="datetime"&&typeof value==="string")value=normalizeDateTime(value).slice(11,19);
  if(target.type==="datetime"&&typeof value==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value))value=normalizeDateTime(value+"T00:00:00+07:00");
  if(target.type==="date"&&typeof value==="string"&&value.includes("T"))value=normalizeDateTime(value).slice(0,10);
  if(target.type==="enum"&&typeof value==="number")value=String(value);
@@ -72,7 +73,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(objects.some(o=>o.type==="trigger"&&!realtimeTriggerDefinitions(table).some(t=>t.name===o.name&&t.sql===o.sql)||request.mode==="replace"&&(o.type==="view"||o.type==="index"&&o.sql&&!knownIndexes.has(o.name))))throw Error("ตารางนี้มี SQL View, Trigger หรือดัชนีที่เพิ่มนอกระบบ กรุณาจัดการส่วนนี้ก่อน เพื่อไม่ให้สูญหายระหว่างแปลง");
  if(!["replace","copy"].includes(request.mode)||!request.target||!Object.hasOwn(SQLTYPE,request.target.type||""))throw Error("กรุณาเลือกวิธีและชนิดข้อมูลปลายทาง");
  if(request.ref_match!==undefined&&!["id","key"].includes(request.ref_match))throw Error("วิธีจับคู่ Ref ไม่ถูกต้อง");
- const target:Column={...source,related_required:request.mode!=="copy"&&request.target.type==="ref"?source.related_required:0,ref_delete_cascade:request.mode!=="copy"&&request.target.type==="ref"?source.ref_delete_cascade:0,ref_allow_add:request.target.type==="ref"?source.ref_allow_add:0,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,file_path:request.target.type==='file'?source.file_path:null,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
+ const target:Column={...source,scan_enabled:["text","ref"].includes(request.target.type!)?source.scan_enabled:0,related_required:request.mode!=="copy"&&request.target.type==="ref"?source.related_required:0,ref_delete_cascade:request.mode!=="copy"&&request.target.type==="ref"?source.ref_delete_cascade:0,ref_allow_add:request.target.type==="ref"?source.ref_allow_add:0,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,file_path:request.target.type==='file'?source.file_path:null,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
  assertIdentifier(target.name);if(!target.label)throw Error("กรุณากรอกชื่อที่แสดงของคอลัมน์ใหม่");
  if(request.mode==="copy"&&(cols.length>=200||cols.some(c=>c.name===target.name)))throw Error("ชื่อคอลัมน์ใหม่ซ้ำหรือมีครบ 200 คอลัมน์แล้ว กรุณาใช้ชื่ออื่น");
  if(request.mode==="replace"&&target.type===source.type&&(request.target.ref_table||null)===(source.ref_table||null))throw Error("กรุณาเลือกชนิดข้อมูลใหม่ หรือเลือกคัดลอกไปคอลัมน์ใหม่");
@@ -149,13 +150,15 @@ export function previewConversion(database:Database.Database,table:string,reques
  const stage=new Database(snapshot);
  registerAuditFunctions(stage);
  const report:ConversionReport={allowed:false,total:0,converted:0,failed:0,samples:[],issues:[],warnings:[],source,target,mode:request.mode};
- const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id");let timeLoss=0;
+ const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id");let timeLoss=0,dateLoss=0;
  try{
   for(const raw of stage.prepare(`SELECT id,"${source.name}" AS value FROM "t_${table}" ORDER BY id`).iterate() as Iterable<{id:number;value:unknown}>){report.total++;try{
    const value=convertValue(source,target,raw.value,resolve);values.push({id:raw.id,value});report.converted++;
    if(report.samples.length<10)report.samples.push({id:raw.id,before:shown(raw.value),after:shown(value)});
+   if(target.type==="time"&&source.type==="datetime"&&value!=null)dateLoss++;
    if(target.type==="date"&&typeof raw.value==="string"&&raw.value.includes("T")&&!normalizeDateTime(raw.value).includes("T00:00:00.000"))timeLoss++;
   }catch(e){report.failed++;if(report.issues.length<20)report.issues.push({table,id:raw.id,before:shown(raw.value),message:(e as Error).message});}}
+  if(dateLoss)report.warnings.push(`${dateLoss} รายการจะเก็บเฉพาะเวลาไทย ไม่เก็บส่วนวันที่ เลือกคัดลอกไปคอลัมน์ใหม่หากต้องการเก็บวัน–เวลาต้นฉบับ`);
   if(timeLoss)report.warnings.push(`${timeLoss} รายการจะเหลือเฉพาะวันที่ เวลาไม่ถูกเก็บในคอลัมน์ปลายทาง เลือกคัดลอกไปคอลัมน์ใหม่หากต้องการเก็บวัน–เวลาต้นฉบับ`);
   if(request.mode==="replace"&&source.type==="ref"&&(target.type!=="ref"||target.ref_table!==source.ref_table))report.warnings.push("Related และ Inline ของ Ref เดิมจะถูกนำออก ส่วน Ref ใหม่จะสร้าง Inline ให้อัตโนมัติ");
   if(report.failed)return report;

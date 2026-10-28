@@ -1,0 +1,3 @@
+"use client";
+import {useEffect,useState} from 'react';
+export default function UserLabel({text,image,placeholder=false}:{text:string;image?:string;placeholder?:boolean}){const [failed,setFailed]=useState(false);useEffect(()=>setFailed(false),[image]);const valid=typeof image==='string'&&image.length<=280000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image);return <span className="user-field-label">{!placeholder&&(valid&&!failed?<img className="user-field-avatar" src={image} alt="" onError={()=>setFailed(true)}/>:<span className="user-field-avatar user-field-initial" aria-hidden="true">{Array.from(text.trim())[0]||'?'}</span>)}<span className="user-field-name">{text}</span></span>;}

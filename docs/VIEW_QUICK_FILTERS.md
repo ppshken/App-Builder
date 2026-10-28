@@ -1,0 +1,11 @@
+# View dropdown filters
+
+View > รูปแบบหน้าจอ > Filter ข้อมูล lets a table or list View choose up to ten stored single-value columns. Use เพิ่มตัวกรอง to open the column picker. Only selected columns appear in the editor; each row supports changing its column, moving up/down, and removal. Already-selected columns are excluded from other pickers. Dropdowns appear below search in the configured order. No columns selected preserves the old layout. This setting belongs to each View, not global defaults. Embedded Dashboard panels retain their existing simplified toolbar.
+
+Filters combine with AND, search, advanced filters, Slice and the expanded inline related scope. Changing a dropdown resets pagination to page 1; clearing one or all restores the corresponding wider result. Source choices are based on all readable rows in the Slice/scope, independently of the current result page or other dropdown selections. Ref and User values show names, while requests filter by stored IDs. Yes/No, dates, price, percent and rating show readable labels. (ว่าง) handles null/empty values.
+
+Supported types are stored scalar values. Virtual columns, long text, media, coordinates and array fields are excluded from this dropdown configuration; existing advanced filtering is unchanged. Renaming or removing a column updates filter configuration through the normal display-reference lifecycle.
+
+/api/data/:table?options_for=:column&option_q=:query returns at most 500 matching values and a truncated flag. Searching requests matching values from the server, including values beyond the first 500. Without row policies or a Slice, SQLite streams DISTINCT values. With policies/Slice, source rows are checked before a value is emitted. Ref names use existing target read permissions and row policies; the API never bypasses normal application/draft/table authorization. Large domains with row policies can require scanning many rows; configure low-cardinality columns for the fastest dropdowns.
+
+Verification uses isolated databases: configuration validation/lifecycle, hidden rows, more than 500 values, runtime AND/search/empty/clear/pagination behavior, Ref labels, mobile/desktop layout and saving settings in Builder.

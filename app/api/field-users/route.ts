@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';import {withAuth} from '@/lib/auth-api';import {userFieldOptions} from '@/lib/user-fields';export const dynamic='force-dynamic';export const GET=withAuth(async()=>NextResponse.json(userFieldOptions()));

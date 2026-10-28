@@ -1,0 +1,3 @@
+﻿// Barcode payloads are literal data, never links/actions or numeric IDs inferred from Text.
+export function scanCode(value:unknown){if(typeof value!=='string'||!value.trim()||value.length>4096||/[\u0000-\u001f\u007f]/.test(value))throw Error('รหัสต้องเป็นข้อความบรรทัดเดียว 1–4,096 ตัวอักษร');return value;}
+export function assertScanColumn(c:{scan_enabled?:unknown;type?:string;is_virtual?:unknown}){if(c.scan_enabled!==undefined&&![false,true,0,1].includes(c.scan_enabled as any))throw Error('การสแกนต้องเป็นค่าเปิดหรือปิด');if(c.scan_enabled&&(!['text','ref'].includes(c.type||'')||c.is_virtual))throw Error('สแกน Barcode / QR ใช้กับ Text หรือ Ref ที่กรอกข้อมูลจริงเท่านั้น');}

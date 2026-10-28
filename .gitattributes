@@ -1,0 +1,5 @@
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+compose*.yaml text eol=lf
+.env.docker.example text eol=lf
+deploy/* text eol=lf

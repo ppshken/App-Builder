@@ -1,23 +1,24 @@
+import {normalizeTime,normalizePhone,normalizeEmail,normalizeUrl} from './scalar-fields';
 import { asBoolean, evaluateExpression, isBlank, references, tableReferences, referencePaths, listSource, ExpressionContext, ExpressionOptions, Value } from "./expression";
 import { normalizeCoordinates } from "./location";
 import {normalizeDuration} from "./duration";
 import { normalizeDateTime } from "./datetime";
 
 export const IDENT = /^[a-z][a-z0-9_]{0,40}$/;
-export const SQLTYPE: Record<string, string> = { duration:"TEXT",color:"TEXT",signature:"TEXT",file:"TEXT",text: "TEXT", longtext: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
-export const UNIQUE_TYPES = ["text","longtext","number","decimal","date","datetime","image","yesno","enum","ref"];
+export const SQLTYPE: Record<string, string> = { user:"INTEGER",price:"REAL",percent:"REAL",rating:"INTEGER", time:"TEXT",phone:"TEXT",email:"TEXT",url:"TEXT",duration:"TEXT",color:"TEXT",signature:"TEXT",file:"TEXT",text: "TEXT", longtext: "TEXT", number: "REAL", decimal: "REAL", date: "TEXT", datetime: "TEXT", image: "TEXT", latlong: "TEXT", yesno: "INTEGER", enum: "TEXT", enumlist: "TEXT", list: "TEXT", ref: "INTEGER" };
+export const UNIQUE_TYPES = ["user","price","percent","rating","time","phone","email","url","text","longtext","number","decimal","date","datetime","image","yesno","enum","ref"];
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
   name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
-  related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
+  scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
 export const FORMULA_LABELS: Record<FormulaField, string> = {
   virtual_expr: "สูตรคำนวณ", default_expr: "ค่าเริ่มต้น", show_if: "แสดงเมื่อ (Show_If)",
   editable_if: "แก้ไขเมื่อ (Editable_If)", valid_if: "ค่าต้องผ่านเงื่อนไข (Valid_If)", required_if: "จำเป็นเมื่อ (Required_If)",
 };
 export const blankColumn = (): Column => ({ name: "", label: "", type: "text", options: "", ref_table: "", required: false,
-  related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
+  scan_enabled:false,related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
 export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");
@@ -81,6 +82,9 @@ export function assertFormulas(cols: Column[], schema?: FormulaSchema) {
   }
 }
 export function normalizeValue(c: Column, value: unknown): Value {
+  if(['user','price','percent','rating'].includes(c.type)&&value!=null&&typeof value!=='number'&&typeof value!=='string')throw Error('ค่าต้องเป็นตัวเลข');
+  if(c.type==='percent'&&typeof value==='string'&&/^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)\s*%\s*$/.test(value))value=Number(value.replace('%','').trim())/100;
+  if(["time","phone","email","url"].includes(c.type)&&value!=null&&typeof value!=="string")throw Error(`"${c.label}" ต้องเป็นข้อความ`);
   if (c.type === "list") {
     if (isBlank(value)) return [];
     let items = value;
@@ -98,10 +102,13 @@ export function normalizeValue(c: Column, value: unknown): Value {
     return [...new Set(items as string[])];
   }
   if (isBlank(value)) return null;
-  if (c.type === "number" || c.type === "decimal" || c.type === "ref") {
+  if (["number","decimal","ref","user","price","percent","rating"].includes(c.type)) {
     if ((typeof value !== "string" && typeof value !== "number") || (typeof value === "string" && !value.trim()) || !Number.isFinite(Number(value)))
       throw new Error(`"${c.label}" ต้องเป็นตัวเลข`);
     const n = Number(value);
+    if(c.type==='user'&&(!Number.isSafeInteger(n)||n<1))throw Error(`"${c.label}" ต้องเลือกผู้ใช้งาน`);
+    if(c.type==='percent'&&(n<0||n>1))throw Error(`"${c.label}" ต้องอยู่ระหว่าง 0–100% (ค่าเก็บ 0–1)`);
+    if(c.type==='rating'&&(!Number.isInteger(n)||n<0||n>5))throw Error(`"${c.label}" ต้องเป็นจำนวนดาว 0–5`);
     if (c.type === "ref" && (!Number.isSafeInteger(n) || n < 1)) throw new Error(`"${c.label}" ต้องเลือกข้อมูลจากตารางอ้างอิง`);
     return n;
   }
@@ -112,6 +119,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
   }
   if (typeof value !== "string") throw new Error(`"${c.label}" ต้องเป็นข้อความ`);
   if (["text","longtext"].includes(c.type) && c.max_length && value.length > c.max_length) throw new Error(`"${c.label}" กรอกได้ไม่เกิน ${c.max_length} ตัวอักษร กรุณาลดข้อความก่อนบันทึก`);
+  if(["time","phone","email","url"].includes(c.type)){try{return ({time:normalizeTime,phone:normalizePhone,email:normalizeEmail,url:normalizeUrl} as Record<string,(v:string)=>string>)[c.type](value);}catch(e){throw Error(`"${c.label}": ${(e as Error).message}`);}}
   if(c.type === "latlong") { try { return normalizeCoordinates(value); } catch(e) { throw Error(`"${c.label}": ${(e as Error).message}`); } }
   if(c.type==="duration"){try{return normalizeDuration(value);}catch(e){throw Error(`"${c.label}": ${(e as Error).message}`);}}
   if (c.type === "datetime") {

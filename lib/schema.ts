@@ -1,3 +1,4 @@
+import {assertScanColumn} from './barcode';
 import {withApplicationTemporaryTable} from './application-context';
 import {APPLICATION_SCHEMA,createApplicationConfig,applicationIds} from './application-schema';
 import {REALTIME_SCHEMA,installRealtimeTriggers} from "./realtime-schema";
@@ -21,7 +22,7 @@ export function readColumns(db: Database.Database, table: string): Column[] {
   assertResetConfig(cols);
   for (const c of cols) {
     if(c.input_mode!=null&&!["button","dropdown"].includes(c.input_mode))throw Error("Input mode ไม่ถูกต้อง");if(c.button_limit!=null&&(!Number.isInteger(c.button_limit)||c.button_limit<1||c.button_limit>5))throw Error("จำนวนปุ่มต้องเป็น 1–5 รายการ");
-    assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);if(c.file_path)fileFolder(c.file_path);
+    assertScanColumn(c);assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);if(c.file_path)fileFolder(c.file_path);
     assertUniqueColumn(c);
     if (!Object.hasOwn(SQLTYPE, c.type)) throw new Error(`ชนิดข้อมูลของ "${c.label}" ไม่รองรับ`);
     if (c.type === "ref" || (["list", "enum", "enumlist"].includes(c.type) && c.ref_table)) assertIdentifier(c.ref_table);
@@ -107,7 +108,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needExcelPermission=!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export");
   const needRealtime=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==="realtime_enabled");
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
-  const missing = ["related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
+  const missing = ["scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
   const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
   const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
@@ -162,7 +163,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if (needRoles) migrateAuthRoles(db);
       if(needIdentity)migrateAccountIdentity(db);
       if(!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export"))db.exec("ALTER TABLE _role_tables ADD COLUMN can_export INTEGER NOT NULL DEFAULT 0");
-      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["related_required","ref_delete_cascade","ref_allow_add","is_unique","gps_auto","max_length","is_part_of","reset_on_edit"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "button_limit" ? "INTEGER" : name === "reset_columns_json" ? "TEXT NOT NULL DEFAULT '[]'" : "TEXT"}`).run();
+      for (const name of missing) db.prepare(`ALTER TABLE _columns ADD COLUMN ${name} ${["scan_enabled","related_required","ref_delete_cascade","ref_allow_add","is_unique","gps_auto","max_length","is_part_of","reset_on_edit"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "is_editable" ? "INTEGER NOT NULL DEFAULT 1" : name === "list_limit" ? "INTEGER NOT NULL DEFAULT 5" : ["is_virtual", "is_key", "is_label"].includes(name) ? "INTEGER NOT NULL DEFAULT 0" : name === "button_limit" ? "INTEGER" : name === "reset_columns_json" ? "TEXT NOT NULL DEFAULT '[]'" : "TEXT"}`).run();
       // Preserve only the two ordinary Ref cascades previously authorized by the user.
       if(missing.includes("ref_delete_cascade"))db.prepare("UPDATE _columns SET ref_delete_cascade=1 WHERE type='ref' AND is_virtual=0 AND ref_table='inspection' AND table_name IN ('inspection_image','list_inspection')").run();
       if (needViews) {

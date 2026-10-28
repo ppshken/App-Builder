@@ -1,3 +1,5 @@
+import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
+import {viewFilterOptions} from '@/lib/view-filter-options';
 import {sqlPageWindow} from '@/lib/sql-page-window';
 import {saveFormRecord} from '@/lib/form-save';
 import {deleteRecord} from "@/lib/delete-record";
@@ -25,6 +27,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
   try {
     if (!tableExists(t)) return bad("ไม่พบตาราง", 404);
     const cols = columnsOf(t), now = new Date(), userEmail = previewEmail(req), u = new URL(req.url), context = expressionContext(now, userEmail);
+    if(u.searchParams.has("options_for"))return NextResponse.json(viewFilterOptions(t,u.searchParams,userEmail));
     if (u.searchParams.get("defaults") === "1") {
       const { row, errors } = calculateRow(cols, {}, true, now, true, userEmail, context);
       const firstError = cols.find(c => !c.is_virtual && errors[c.name]);
@@ -35,11 +38,12 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     if(paged&&(!Number.isSafeInteger(requested)||requested<1||![10,25,50,100].includes(size)))return bad("หน้าหรือจำนวนรายการต่อหน้าไม่ถูกต้อง");
     const requestedSort=cols.find(c=>c.name===u.searchParams.get("sort")),search=u.searchParams.get("q")||"";
     const wanted=u.searchParams.get("id");if(wanted&&(!/^[1-9]\d*$/.test(wanted)||!Number.isSafeInteger(Number(wanted))))return bad("รหัสแถวไม่ถูกต้อง");
-    const fast=paged&&!u.searchParams.get("slice")&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
+    const mapScope=mapViewScope(t,u.searchParams.get("map_scope"));
+    const fast=paged&&!mapScope&&!u.searchParams.get("slice")&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
     let page=requested,total=0,rawRows:Row[]|undefined;
     if(wanted)rawRows=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).all(Number(wanted)) as Row[];
     // Ref choices only return 500 rows; limit before calculating every row in the table.
-    if(u.searchParams.get("all")!=="1"&&!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
+    if(!mapScope&&u.searchParams.get("all")!=="1"&&!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
       const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
     }
@@ -53,6 +57,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     let rows = readRows(t, cols, now, userEmail, context,rawRows);
     const slice = sliceFor(u.searchParams.get("slice"), t);
     if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
+    if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
     const wantedId = u.searchParams.get("id");
     if (wantedId) {
       if (!/^[1-9]\d*$/.test(wantedId)) return bad("รหัสแถวไม่ถูกต้อง");

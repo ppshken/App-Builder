@@ -30,3 +30,5 @@ out/
 
 # Draft databases contain private app data
 /.app-releases/
+!.env.docker.example
+/server-backups/

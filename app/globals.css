@@ -7634,12 +7634,18 @@ textarea.formula-source::placeholder,
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
 }
-.runtime-app .runtime-content .data-toolbar .search-box {
+.runtime-app .runtime-content .data-toolbar .search-box,
+.runtime-app .dashboard-search.search-box,
+.runtime-app .special-runtime-view.kind-map .map-search,
+.special-runtime-view.kind-map .map-search {
   flex: 1;
   min-height: 40px;
   border-radius: 8px;
 }
-.runtime-app .runtime-content .data-toolbar .search-box input {
+.runtime-app .runtime-content .data-toolbar .search-box input,
+.runtime-app .dashboard-search.search-box input,
+.runtime-app .special-runtime-view.kind-map .map-search input,
+.special-runtime-view.kind-map .map-search input {
   padding: 8px 0;
   font-size: calc(14px * var(--font-scale, 1));
 }
@@ -13380,3 +13386,133 @@ textarea::placeholder {
 @media(max-width:900px){.users-toolbar{flex-wrap:wrap}.users-toolbar .users-search-box{flex-basis:100%}.users-filters{width:100%;margin-left:0}.users-filters>.search-select-trigger{flex:1;width:auto}}
 .my-profile-content input[readonly]{background:#e9edf2;color:var(--ink);opacity:1;cursor:default}
 :root[data-mode=dark] .my-profile-content input[readonly]{background:#333333}
+/* Form action layouts: keep the existing normal footer and shared page header intact. */
+.runtime-form-actions-vertical > :is(.runtime-screen-footer,.dialog-footer),.defaults-form-actions.mode-vertical{flex-direction:column-reverse;align-items:stretch}
+.runtime-form-actions-horizontal > :is(.runtime-screen-footer,.dialog-footer)>button,.defaults-form-actions.mode-horizontal>button{flex:1;min-width:0;justify-content:center}
+.runtime-form-actions-top > :is(.runtime-screen-body,.dialog-body){order:2}
+.runtime-form-actions-top > :is(.runtime-screen-footer,.dialog-footer){border-top:0;border-bottom:1px solid var(--line);padding-bottom:10px}
+.runtime-form-actions-floating > :is(.runtime-screen-footer,.dialog-footer){position:absolute;bottom:12px;right:12px;max-width:calc(100% - 24px);padding:0;border:0;background:transparent;z-index:5;pointer-events:none}
+.runtime-form-actions-floating > :is(.runtime-screen-footer,.dialog-footer)>button{pointer-events:auto;border-radius:24px;box-shadow:var(--shadow)}
+.runtime-form-actions-floating > :is(.runtime-screen-body,.dialog-body){padding-bottom:100px}
+.defaults-form-actions{display:flex;justify-content:flex-end;gap:10px;min-width:0}
+.defaults-form-actions>button{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;padding:8px 12px}
+.defaults-form-actions svg{width:16px;height:16px}
+.defaults-form-actions.mode-top{order:-1;border-bottom:1px solid var(--line);padding-bottom:12px}
+.defaults-form-actions.mode-floating{justify-self:end;background:var(--panel);border-radius:24px;padding:6px;box-shadow:var(--shadow)}
+.defaults-form-actions.mode-floating>button{border-radius:20px}
+.contact-value{overflow-wrap:anywhere}
+
+/* Touch-friendly spacing shared by all Rating form fields. */
+.configured-form .rating-input { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.configured-form .rating-input > button { min-width:40px; min-height:44px; padding:6px 10px; }
+.configured-form .rating-input > button[aria-pressed] { font-size:24px; line-height:1; flex:0 0 40px; }
+
+/* User avatars also support profile data images, independently of table thumbnails. */
+.user-field-label {display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%;vertical-align:middle;text-align:start;}
+.user-field-label > .user-field-avatar {display:block;width:28px;height:28px;min-width:28px;max-width:28px;flex:0 0 28px;aspect-ratio:1;border-radius:50%;object-fit:cover;overflow:hidden;}
+.user-field-label > .user-field-initial {display:inline-flex;align-items:center;justify-content:center;background:var(--bg-soft, #eef2ff);color:var(--accent, #2563eb);font-size:12px;font-weight:600;}
+.user-field-name {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;}
+.search-select-trigger > .user-field-label {flex:1;min-width:0;}
+.search-select-options [role="option"] > .user-field-label {flex:1;min-width:0;}
+
+/* Forms scroll vertically; native iOS controls must not widen their grid tracks.
+   Related tables retain their own horizontal scroll containers. */
+.runtime-screen-body:has(> .configured-form),
+.runtime-screen-body:has(> .data-form),
+.runtime-form-actions > .runtime-screen-body {
+  min-width:0; overflow-x:hidden; overscroll-behavior-x:none;
+}
+.configured-form {min-width:0;max-width:100%;}
+.configured-form:not(.form-label-left) > .field {grid-template-columns:minmax(0,1fr);}
+.configured-form > .field > * {min-width:0;max-width:100%;}
+.configured-form input:is([type="date"],[type="datetime-local"],[type="time"]) {width:100%;min-inline-size:0;max-inline-size:100%;}
+.configured-form .field > .row > input:not([type="checkbox"]):not([type="radio"]) {flex:1 1 0;min-width:0;}
+
+.view-quick-filters {display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:10px 0;border-top:1px solid var(--line);}
+.view-quick-filter {flex:0 1 180px;min-width:0;max-width:100%;display:grid;gap:4px;}
+.view-quick-filter .search-select-trigger {min-height:38px;padding:8px 10px;font-size:12px;background:var(--input);}
+.view-quick-clear {align-self:flex-start;min-height:38px;font-size:12px;}
+@media(max-width:600px){.view-quick-filter{flex:1 1 140px;}}
+
+.filter-column-editor,.filter-column-rows {display:grid;gap:8px;min-width:0;}
+.filter-column-row {display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;}
+.filter-column-number {font-size:12px;color:var(--mute);text-align:center;}
+.filter-column-tools {display:flex;gap:3px;align-items:center;}
+.filter-column-tools button {min-width:30px;min-height:32px;padding:4px;}
+.filter-column-add.search-select-trigger {width:fit-content;max-width:100%;min-height:36px;padding:8px 12px;}
+.filter-column-add-label {display:inline-flex;align-items:center;gap:6px;}
+@media(max-width:420px){.filter-column-row{gap:5px;grid-template-columns:16px minmax(0,1fr) auto;}.filter-column-tools button{min-width:26px;padding:3px;}}
+
+.view-data-tabs-container {min-width:0;max-width:100%;padding:8px 0;}
+.view-data-tabs {display:flex;gap:8px;align-items:center;min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 1px 6px;scrollbar-width:thin;}
+.view-data-tabs > .view-data-tab {flex:0 0 auto;min-height:34px;max-width:220px;border-radius:999px;padding:6px 14px;font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid var(--line);background:var(--panel);color:var(--ink);}
+.view-data-tabs > .view-data-tab[aria-pressed="true"] {background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.view-data-tabs > .view-data-tabs-more {flex:0 0 auto;width:130px;min-height:34px;border-radius:999px;padding:6px 12px;font-size:12px;}
+.view-data-tab:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
+
+/* Dashboard panels blend into the page; the application header identifies it. */
+.dashboard-view .dashboard-panel {border:0;border-radius:0;box-shadow:none;}
+.dashboard-view .dashboard-panel-body {padding:0;}
+.dashboard-view .dashboard-panel-body .data-panel {border:0;border-radius:0;box-shadow:none;}
+.dashboard-view .dashboard-tabs {gap:6px;margin-bottom:10px;padding:2px 1px;}
+.dashboard-view .dashboard-tabs > button {flex:0 0 auto;min-height:34px;padding:6px 12px;font-size:12px;line-height:1.4;white-space:nowrap;}
+
+/* Each embedded View owns a compact, aligned title and expand action. */
+.dashboard-view {padding-top:12px;}
+.dashboard-view .dashboard-panel > .dashboard-panel-heading {display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0;min-height:34px;padding:0 0 6px;border:0;}
+.dashboard-view .dashboard-panel-heading > .dashboard-panel-title {justify-content:flex-start;flex:1;min-width:0;width:auto;padding:4px 0;min-height:30px;text-align:left;font-size:12px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:transparent;border:0;font-weight:600;}
+.dashboard-view .dashboard-panel-heading > .dashboard-panel-expand {position:static;flex:0 0 32px;width:32px;height:32px;min-height:32px;padding:7px;border:0;background:transparent;color:var(--mute);}
+.dashboard-view .dashboard-panel-heading > .dashboard-panel-expand:hover {color:var(--accent);background:var(--bg);}
+
+/* Compact calendar spacing, with long event names kept on one line. */
+.calendar-view .calendar-toolbar {gap:6px;margin-bottom:10px;}
+.calendar-view .calendar-toolbar > button,.calendar-view .calendar-toolbar > .search-select-trigger {min-height:32px;padding:5px 10px;font-size:12px;line-height:1.4;}
+.calendar-view .calendar-toolbar > .search-select-trigger {width:140px;}
+.calendar-view .calendar-toolbar > strong {font-size:13px;line-height:1.4;}
+.calendar-view .calendar-grid:not(.mode-day) {min-width:560px;}
+.calendar-view .calendar-weekday {padding:7px 4px;font-size:11px;}
+.calendar-view .calendar-day {min-height:90px;padding:4px;}
+.calendar-view .mode-week .calendar-day {min-height:240px;}
+.calendar-view .mode-day .calendar-day {min-height:90px;}
+.calendar-view .calendar-date {min-height:28px;padding:3px 6px;margin-bottom:3px;font-size:12px;line-height:1.4;}
+.calendar-view .calendar-event {justify-content:flex-start;min-height:28px;padding:4px 6px;margin-bottom:3px;gap:4px;font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;}
+.calendar-view .calendar-event > small {flex-shrink:0;font-size:10px;}
+.calendar-view .calendar-event .row-label {min-width:0;flex:1;gap:4px;}
+.calendar-view .calendar-event .row-label-text {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal;}
+.calendar-view .calendar-event .row-label-image {width:18px;height:18px;flex:0 0 18px;}
+.calendar-view .calendar-more {min-height:26px;padding:3px 6px;font-size:11px;}
+.calendar-view .calendar-agenda > section {padding:10px 0;}
+.calendar-view .calendar-agenda h3 {font-size:12px;margin-bottom:6px;}
+@media(max-width:600px){.calendar-view .calendar-grid:not(.mode-day){min-width:490px;}.calendar-view .calendar-toolbar{gap:5px;}.calendar-view .calendar-toolbar > button{min-height:34px;}.calendar-view .calendar-event{min-height:30px;}}
+
+/* Calendar search matches table/list search fields. */
+.special-runtime-view.kind-calendar > .special-runtime-toolbar {gap:8px;margin-top:12px;}
+.special-runtime-view.kind-calendar .special-view-search {flex:1;min-width:0;width:100%;background:var(--bg);border:0;border-radius:8px;min-height:40px;}
+.special-runtime-view.kind-calendar .special-view-search input {padding:8px 0;font-size:calc(14px * var(--font-scale,1));}
+
+.special-runtime-view .special-view-search {flex:1;min-width:0;width:100%;background:var(--bg);border:0;border-radius:8px;min-height:40px;}
+.special-runtime-view .special-view-search input {padding:8px 0;font-size:calc(14px * var(--font-scale,1));}
+.special-runtime-view .special-view-reload {display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+/* Special pages already reserve space for the fixed bottom navigation in the shell. */
+.runtime-app:not(.runtime-desktop) > main:has(.runtime-route:not([hidden]) > .special-runtime-view),
+.runtime-app:not(.runtime-desktop) > main:has(.runtime-background > .special-runtime-view) {padding-bottom:12px;}
+.runtime-app:not(.runtime-desktop) .special-runtime-view > .special-runtime-toolbar {margin-top:8px;margin-bottom:10px;gap:6px;}
+.runtime-app:not(.runtime-desktop) .kind-chart > .page-heading {display:none;}
+.runtime-app:not(.runtime-desktop) .special-view-reload {min-width:36px;min-height:38px;padding:6px;}
+.runtime-app:not(.runtime-desktop) .special-reload-label {display:none;}
+.runtime-app:not(.runtime-desktop) .modern-map .map-summary {margin-bottom:8px;gap:8px;font-size:11px;}
+.runtime-app:not(.runtime-desktop) .modern-map .map-frame {height:min(var(--map-height),clamp(220px,44svh,360px));}
+.runtime-app:not(.runtime-desktop) .modern-map .map-layout {gap:10px;}
+.runtime-app:not(.runtime-desktop) .modern-map .map-results {max-height:min(var(--map-height),clamp(150px,26svh,240px));}
+.runtime-app:not(.runtime-desktop) .calendar-toolbar {display:grid;grid-template-columns:28px auto 28px minmax(0,1fr) auto;gap:4px;margin-bottom:8px;align-items:center;}
+.runtime-app:not(.runtime-desktop) .calendar-toolbar > strong {order:0;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.runtime-app:not(.runtime-desktop) .calendar-toolbar > button {padding:4px 6px;min-width:28px;min-height:34px;}
+.runtime-app:not(.runtime-desktop) .calendar-toolbar > .search-select-trigger {width:84px;min-width:0;padding:5px 7px;font-size:11px;}
+.runtime-app:not(.runtime-desktop) .calendar-grid.mode-month .calendar-day {min-height:clamp(50px,calc((100svh - var(--runtime-nav-height,60px) - var(--runtime-header-height,52px) - 150px)/6),82px);}
+.runtime-app:not(.runtime-desktop) .calendar-grid.mode-week .calendar-day {min-height:180px;}
+.runtime-app:not(.runtime-desktop) .chart-svg-scroll svg {height:min(var(--chart-height),clamp(220px,38svh,320px))!important;}
+.runtime-app:not(.runtime-desktop) .chart-legend {max-height:120px;overflow:auto;gap:5px;}
+.runtime-app:not(.runtime-desktop) .chart-legend button {min-height:30px;padding:5px 8px;font-size:11px;}
+
+.runtime-app:not(.runtime-desktop) .calendar-grid.mode-month {min-width:0;}
+.runtime-app:not(.runtime-desktop) .calendar-grid.mode-month .calendar-day {min-height:clamp(44px,calc((100svh - var(--runtime-nav-height,60px) - var(--runtime-header-height,52px) - 190px)/6),74px);}

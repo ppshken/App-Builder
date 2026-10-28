@@ -1,0 +1,12 @@
+# Docker Compose >= 2.24.4 (!override). Use together with compose.yaml.
+services:
+  proxy:
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN to the public domain without https://}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for certificate registration}
+    ports: !override
+      - "${HTTPS_BIND:-0.0.0.0}:${PUBLIC_HTTP_PORT:-80}:80"
+      - "${HTTPS_BIND:-0.0.0.0}:${PUBLIC_HTTPS_PORT:-443}:443"
+      - "${HTTPS_BIND:-0.0.0.0}:${PUBLIC_HTTPS_PORT:-443}:443/udp"
+    volumes:
+      - ./deploy/Caddyfile.https:/etc/caddy/Caddyfile:ro

@@ -1,0 +1,9 @@
+{
+    email {$ACME_EMAIL}
+}
+{$APP_DOMAIN} {
+    reverse_proxy app:3000 {
+        # Caddy overwrites forwarded protocol/client headers and preserves Host.
+        flush_interval -1
+    }
+}

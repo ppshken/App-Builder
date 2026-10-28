@@ -1,0 +1,7 @@
+# Loopback-only HTTP for local validation or an SSH tunnel.
+http://:8080 {
+    reverse_proxy app:3000 {
+        # Deliver Realtime/SSE immediately, without proxy response buffering.
+        flush_interval -1
+    }
+}
