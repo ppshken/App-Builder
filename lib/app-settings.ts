@@ -54,7 +54,7 @@ const blend=(a:string,b:string,t:number)=>"#"+rgb(a).map((v,i)=>Math.round(v*(1-
 export function themeColors(settings:AppSettings,dark:boolean){
   const preset=APP_COLORS.find(c=>c.name===settings.color)||APP_COLORS[0], button=settings.color==="custom"?normalizeHex(settings.custom_color):dark?preset.dark:preset.light;
   const buttonText=contrastRatio(button,"#FFFFFF")>=contrastRatio(button,"#111720")?"#FFFFFF":"#111720";
-  let accent=button;const panel=dark?"#000000":"#ffffff";
+  let accent=button;const panel=dark?"#181818":"#ffffff";
   if(settings.color==="custom")for(let i=1;contrastRatio(accent,panel)<4.5&&i<=20;i++)accent=blend(button,dark?"#ffffff":"#000000",i/20);
   return {button,buttonText,accent,soft:settings.color==="custom"?blend(panel,button,dark?.2:.1):dark?preset.darkSoft:preset.soft};
 }

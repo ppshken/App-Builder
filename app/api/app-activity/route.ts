@@ -1,0 +1,12 @@
+import {NextResponse} from 'next/server';
+import {withAuth} from '@/lib/auth-api';
+import {currentApplication} from '@/lib/application-context';
+import {currentUser} from '@/lib/permissions';
+import {platformDatabase} from '@/lib/db';
+import {recordAppUsage} from '@/lib/app-usage';
+export const dynamic='force-dynamic';
+export const POST=withAuth(async()=>{const db=platformDatabase(),actor=currentUser()!,app=currentApplication()!.id;
+ const last=db.prepare("SELECT occurred_at FROM _app_usage WHERE app_id=? AND actor_id=? AND event='open_app' ORDER BY occurred_at DESC LIMIT 1").get(app,actor.id) as {occurred_at:number}|undefined;
+ if(!last||last.occurred_at<Date.now()-60000)recordAppUsage(db,actor,app,'open_app','application');
+ return NextResponse.json({ok:true});
+});

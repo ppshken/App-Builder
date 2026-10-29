@@ -1,0 +1,10 @@
+Integration mode: permissions
+node : ExpectError: expect(locator).toBeVisible() failed
+    + CategoryInfo          : NotSpecified: (ExpectError: ex...isible() failed:String) [], RemoteException
+Expected: visible
+Error: element(s) not found
+    at main (<workspace>\tests\permissions-browser.cjs:34:109) {
+      'Expected: visible\n' +
+      'Error: element(s) not found\n' +
+    actual: undefined,
+    expected: 'visible',

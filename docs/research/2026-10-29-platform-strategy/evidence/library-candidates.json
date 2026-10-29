@@ -1,0 +1,79 @@
+[
+  [
+    "L00",
+    "Reuse existing engine / platform primitives",
+    "ไม่มีdependencyใหม่",
+    "Licenseของrepoไม่ได้ประกาศชัดในroot; ตรวจownershipก่อนแจก; dependencyเดิมตามlock",
+    "../../../package.json"
+  ],
+  [
+    "L01",
+    "Ajv",
+    "MIT",
+    "คงcopyright/license; strictschemaไม่ใช่permissioncheck; evaluatecompileuntrustedrefsอย่างจำกัด",
+    "https://raw.githubusercontent.com/ajv-validator/ajv/master/LICENSE"
+  ],
+  [
+    "L02",
+    "React Flow (xyflow)",
+    "MIT",
+    "coreMIT; Proexamples/services/assetsไม่เหมารวมอยู่ภายใต้MIT",
+    "https://raw.githubusercontent.com/xyflow/xyflow/main/LICENSE"
+  ],
+  [
+    "L03",
+    "TanStack Virtual",
+    "MIT",
+    "คงnotice; ไม่แก้serverquerybottleneckด้วยvirtualDOM",
+    "https://raw.githubusercontent.com/TanStack/virtual/main/LICENSE"
+  ],
+  [
+    "L04",
+    "dnd-kit",
+    "MIT",
+    "คงnotice; ต้องเพิ่มkeyboard/screenreadersupportเอง",
+    "https://raw.githubusercontent.com/clauderic/dnd-kit/master/LICENSE"
+  ],
+  [
+    "L05",
+    "Dexie.js core",
+    "Apache-2.0",
+    "คงlicense/notice; DexieCloudเป็นบริการต่างหาก ไม่รวมมาอัตโนมัติ",
+    "https://raw.githubusercontent.com/dexie/Dexie.js/master/LICENSE"
+  ],
+  [
+    "L06",
+    "OpenTelemetry JS",
+    "Apache-2.0",
+    "คงlicense/NOTICEตามrelease; exporter/backendhostingมีcostต่างหาก",
+    "https://raw.githubusercontent.com/open-telemetry/opentelemetry-js/main/LICENSE"
+  ],
+  [
+    "L07",
+    "jose",
+    "MIT",
+    "คงnotice; เป็นJOSEvalidation primitivesไม่ใช่completeOIDCSSOimplementation",
+    "https://raw.githubusercontent.com/panva/jose/main/LICENSE.md"
+  ],
+  [
+    "L08",
+    "Yjs",
+    "MIT",
+    "คงnotice; collaborationserver/mergepolicy/authต้องทำเอง; deferจนมีneed",
+    "https://raw.githubusercontent.com/yjs/yjs/main/LICENSE"
+  ],
+  [
+    "L09",
+    "PostgreSQL",
+    "PostgreSQL License",
+    "permissiveพร้อมnotice; ยังไม่เสนอreplaceSQLiteทันที; driverlicenseตรวจแยก",
+    "https://www.postgresql.org/about/licence/"
+  ],
+  [
+    "L10",
+    "Zod (alternative to Ajv)",
+    "MIT",
+    "คงnotice; เลือกvalidatorหลักหนึ่งตัว ลดdual-source schemas",
+    "https://raw.githubusercontent.com/colinhacks/zod/main/LICENSE"
+  ]
+]

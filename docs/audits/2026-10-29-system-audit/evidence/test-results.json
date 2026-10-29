@@ -1,0 +1,142 @@
+{
+  "unit": {
+    "tests": 323,
+    "passed": 323,
+    "failed": 0
+  },
+  "typecheck": "PASS with repository tsconfig",
+  "build": "PASS in isolated snapshot",
+  "additionalUnusedCheck": {
+    "diagnostics": 36,
+    "status": "FAIL supplementary rule not enabled in repository"
+  },
+  "suites": [
+    {
+      "mode": "permissions",
+      "status": "FAIL",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Legacy users heading selector timed out; downstream assertions not completed."
+    },
+    {
+      "mode": "workflows",
+      "status": "FAIL",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Final attachment href selector timed out after earlier PDF/webhook/queue checks; complete suite not passed."
+    },
+    {
+      "mode": "appoperations",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Scoped export/import, file inventory, usage and owner-only access completed."
+    },
+    {
+      "mode": "quickfilters",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Table/list filters, count chips, pagination, dashboard, radius save completed."
+    },
+    {
+      "mode": "api",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "15 TAP tests passed, 0 failed."
+    },
+    {
+      "mode": "mapdesign",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Map config, source-preserving navigation, calendar/chart responsive checks completed."
+    },
+    {
+      "mode": "realtime",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "SSE authorization, changes, dirty form, rollback, reconnect and revoke completed."
+    },
+    {
+      "mode": "pwa",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Two apps, app cookies, offline fallback and no business-response SW cache completed."
+    },
+    {
+      "mode": "approles",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Per-app roles, row/Action/Excel grants and revoke completed."
+    },
+    {
+      "mode": "restoreapps",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Multi-app restore, account matching, namespaces, Ref and session revoke completed."
+    },
+    {
+      "mode": "applifecycle",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Clone/delete and mobile layout completed."
+    },
+    {
+      "mode": "concurrentedit",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "409 version conflict, preserved draft, reload and child rollback completed."
+    },
+    {
+      "mode": "navcontract",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Header/drawer, dirty form navigation and reduced motion completed."
+    },
+    {
+      "mode": "exceloptions",
+      "status": "FAIL",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Legacy global role card selector timed out; later revoke/import-only UI checks not completed."
+    },
+    {
+      "mode": "custompagev2",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Custom views/forms/Actions, responsive and access checks completed."
+    },
+    {
+      "mode": "systemreport",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Owner-only metrics API/UI, tables/indexes, graphs and dark/mobile completed."
+    },
+    {
+      "mode": "valuetypes",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "User/Price/Percent/Rating API/forms/Excel completed."
+    },
+    {
+      "mode": "readinessperf",
+      "status": "PASS",
+      "expected": "Selected suite completes all assertions without failure",
+      "actual": "Existing 10,000-row bounded assertions completed; not a production load guarantee."
+    },
+    {
+      "mode": "readiness",
+      "status": "FAIL",
+      "expected": "All readiness, simulation, release and authorization assertions complete",
+      "actual": "Core simulation/draft publish/rollback/conflict steps executed; final legacy builderHealth.skipped.includes(Automation) assertion fails at tests/readiness-browser.cjs:18."
+    },
+    {
+      "mode": "conversion",
+      "status": "PASS",
+      "expected": "Conversion preview/apply/rollback and safety assertions all complete",
+      "actual": "Conversion UI/API completed: stale preview, backup, Ref/Key/Inline, invalid values and duplicate keys."
+    }
+  ],
+  "validSuites": 20,
+  "passedSuites": 16,
+  "failedSuites": 4,
+  "invalidModesExcluded": [
+    "applicationroles",
+    "readonlyaudit"
+  ]
+}

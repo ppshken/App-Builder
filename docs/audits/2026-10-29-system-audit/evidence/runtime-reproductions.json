@@ -1,0 +1,18 @@
+[
+  {
+    "id": "AUD-001",
+    "case": "builder with scope to unrelated table requests unreferenced synthetic attachment",
+    "expected": "deny",
+    "actual": "allow"
+  },
+  {
+    "id": "AUD-002",
+    "case": "21 sequential successful logins on isolated account",
+    "expected": "successful logins do not exhaust global failure quota",
+    "actual": {
+      "successes": 20,
+      "nextStatus": 429
+    },
+    "globalCount": 20
+  }
+]

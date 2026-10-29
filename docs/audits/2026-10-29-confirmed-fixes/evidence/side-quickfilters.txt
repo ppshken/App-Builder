@@ -1,0 +1,2 @@
+Integration mode: quickfilters
+Quick filters passed: saved builder configuration, table/list dropdowns, Ref labels, full-table choices, AND/search/empty/clear, pagination reset and responsive layout.

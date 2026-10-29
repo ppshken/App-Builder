@@ -1,3 +1,4 @@
+import {recordAppUsage} from './app-usage';
 import {accountUsername,requiredAccountText,assertAccountIdentity} from './account-fields';
 import {randomBytes,createHash,scrypt as scryptCallback,timingSafeEqual} from "node:crypto";
 import type Database from "better-sqlite3";
@@ -45,7 +46,8 @@ export async function login(input:Record<string,unknown>,database:Database.Datab
  // Do comparable work for unknown accounts rather than revealing registered emails.
  const dummy="scrypt-v1:"+"0".repeat(32)+":"+"0".repeat(128);
  const valid=await verifyPassword(input.password,user?.password_hash||dummy);
- if(!user||!valid||!user.active)throw new AuthError("อีเมลหรือรหัสผ่านไม่ถูกต้อง",401);
+ if(!user||!valid||!user.active){if(user)recordAppUsage(database,user,null,"login_failed","login",401);throw new AuthError("อีเมลหรือรหัสผ่านไม่ถูกต้อง",401);}
+ recordAppUsage(database,user,null,"login","login");
  database.prepare("DELETE FROM _auth_attempts WHERE scope=?").run(tokenHash(attempt));return createSession({id:user.id,name:user.name,email:user.email,role:user.role,...(user.username?{username:user.username}:{}),...(user.nickname?{nickname:user.nickname}:{}),...(user.department?{department:user.department}:{})},database);
 }
 export function assertSameOrigin(req:Request){const origin=req.headers.get("origin"),site=req.headers.get("sec-fetch-site"),target=new URL(req.url);let valid=true;if(origin){try{const source=new URL(origin);valid=source.host===(req.headers.get("host")||target.host)&&source.protocol===target.protocol;}catch{valid=false;}}if(site==="cross-site"||!valid)throw new AuthError("ทำรายการได้จากหน้าแอปนี้เท่านั้น",403);}

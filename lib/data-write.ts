@@ -1,3 +1,4 @@
+import {allocateAutoNumbers} from './auto-number';
 import {traceAction} from "./action-trace";
 import {assertRowVersion} from "./row-version";
 import {recordWorkflowEvent} from "./workflows";
@@ -35,7 +36,9 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         if (old)
             assertRowAllowed(table, old, "update");
         const input = Object.fromEntries(cols.filter(c => !c.is_virtual && Object.hasOwn(body, c.name)).map(c => [c.name, body[c.name]]));
-        const candidate = old ? { ...old, ...input } : calculateInsertRow(cols, input, now, email, context);
+        const generated=old?{}:allocateAutoNumbers(db,table,cols,input);
+        const insertColumns=cols.map(c=>c.auto_number?{...c,auto_number:null,is_editable:true}:c);
+        const candidate = old ? { ...old, ...input } : calculateInsertRow(insertColumns, {...input,...generated}, now, email, context);
         if(options.link)candidate[options.link.column]=options.link.id;
         assertReferenceWrites(cols, candidate, old);
         if (old)

@@ -1,0 +1,12 @@
+.action-workspace .action-nav-row {position:relative;min-width:0;}
+.action-workspace .action-nav-row .nav-item {width:100%;padding-right:68px;}
+.action-workspace .action-nav-tools {position:absolute;right:5px;top:50%;transform:translateY(-50%);display:flex;gap:2px;opacity:0;pointer-events:none;}
+.action-workspace .action-nav-row:hover .action-nav-tools,
+.action-workspace .action-nav-row:focus-within .action-nav-tools {opacity:1;pointer-events:auto;}
+.action-workspace .action-nav-tools button {display:grid;place-items:center;min-width:28px;min-height:28px;width:28px;height:28px;padding:5px;border:0;border-radius:5px;background:transparent;color:var(--mute);}
+.action-workspace .action-nav-tools button:hover {background:var(--accent-soft);color:var(--accent);}
+.action-workspace .action-nav-tools .action-nav-delete:hover {background:var(--danger-soft);color:var(--danger);}
+.action-workspace .action-nav-tools svg {width:16px;height:16px;}
+@media (hover:none), (pointer:coarse) {
+ .action-workspace .action-nav-tools {opacity:1;pointer-events:auto;}
+}

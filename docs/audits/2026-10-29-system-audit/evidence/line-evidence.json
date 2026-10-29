@@ -1,0 +1,136 @@
+{
+  "lib/permissions.ts": [
+    {
+      "anchor": "export function assertFileAccess",
+      "line": 46
+    }
+  ],
+  "lib/auth.ts": [
+    {
+      "anchor": "function throttle",
+      "line": 33
+    },
+    {
+      "anchor": "const scopes",
+      "line": 0
+    },
+    {
+      "anchor": "database.prepare(\"DELETE FROM _auth_attempts WHERE scope=?\")",
+      "line": 51
+    }
+  ],
+  "app/components/ViewDataTabs.tsx": [
+    {
+      "anchor": "selected?.value===chosen",
+      "line": 4
+    }
+  ],
+  "lib/user-fields.ts": [
+    {
+      "anchor": "export function userFieldOptions",
+      "line": 5
+    },
+    {
+      "anchor": "export function userFieldLabel",
+      "line": 7
+    }
+  ],
+  "scripts/integration.cjs": [
+    {
+      "anchor": "const browserTests",
+      "line": 35
+    },
+    {
+      "anchor": "const args =",
+      "line": 36
+    }
+  ],
+  "tests/permissions-browser.cjs": [
+    {
+      "anchor": "name:'ผู้ใช้และสิทธิ์'",
+      "line": 34
+    }
+  ],
+  "tests/workflows-browser.cjs": [
+    {
+      "anchor": "const fileLink=",
+      "line": 38
+    }
+  ],
+  "tests/excel-export-options-browser.cjs": [
+    {
+      "anchor": "users-role-card",
+      "line": 3
+    }
+  ],
+  "lib/api.ts": [
+    {
+      "anchor": "export async function readBody",
+      "line": 12
+    }
+  ],
+  "lib/backup-stages.ts": [
+    {
+      "anchor": "req.formData()",
+      "line": 18
+    }
+  ],
+  "app/api/backups/application/route.ts": [
+    {
+      "anchor": "readFileSync(join(path",
+      "line": 20
+    },
+    {
+      "anchor": "Buffer.concat(chunks)",
+      "line": 22
+    }
+  ],
+  "lib/media-inventory.ts": [
+    {
+      "anchor": "list.some",
+      "line": 6
+    },
+    {
+      "anchor": "SELECT * FROM _media_catalog",
+      "line": 20
+    }
+  ],
+  "lib/row-version.ts": [
+    {
+      "anchor": "version===undefined",
+      "line": 6
+    }
+  ],
+  "lib/workflow-runner.ts": [
+    {
+      "anchor": "Idempotency-Key",
+      "line": 32
+    },
+    {
+      "anchor": "async function sendWebhook",
+      "line": 32
+    }
+  ],
+  "lib/expression-context.ts": [
+    {
+      "anchor": "LIMIT 10001",
+      "line": 24
+    }
+  ],
+  "package.json": [
+    {
+      "anchor": "\"next\":",
+      "line": 34
+    }
+  ],
+  "package-lock.json": [
+    {
+      "anchor": "\"node_modules/next\":",
+      "line": 1202
+    },
+    {
+      "anchor": "\"node_modules/next/node_modules/postcss\":",
+      "line": 0
+    }
+  ]
+}

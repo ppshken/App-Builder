@@ -1,0 +1,10 @@
+Integration mode: tabcounts
+node : ExpectError: expect(locator).toHaveText(expected) failed
+    + CategoryInfo          : NotSpecified: (ExpectError: ex...xpected) failed:String) [], RemoteException
+Expected: "1"
+Received: "0"
+    at <workspace>\tests\data-tab-counts-browser.cjs:5:874 {
+    expected: '1',
+      'Expected: "1"\n' +
+      'Received: "0"\n' +
+    actual: '0',

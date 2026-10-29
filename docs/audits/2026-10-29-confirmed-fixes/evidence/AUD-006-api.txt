@@ -1,0 +1,9 @@
+Integration mode: api
+TAP version 13
+# tests 15
+# pass 15
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 19351.1501

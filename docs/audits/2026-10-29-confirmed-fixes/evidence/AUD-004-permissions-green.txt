@@ -1,0 +1,2 @@
+Integration mode: permissions
+PASS: user/role UI, table CRUD, private Ref/formulas/images, Action grants, direct API denial, runtime buttons and session revocation

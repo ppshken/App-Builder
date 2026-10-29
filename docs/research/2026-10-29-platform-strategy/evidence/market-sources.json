@@ -1,0 +1,452 @@
+[
+  {
+    "id": "S01",
+    "platform": "AppSheet",
+    "title": "Offline/Sync",
+    "url": "https://support.google.com/appsheet/answer/10107724?hl=en",
+    "evidence": "offline queue/sync และ browser/mediaข้อจำกัด",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S02",
+    "platform": "AppSheet",
+    "title": "Security essentials",
+    "url": "https://support.google.com/appsheet/answer/10105078?hl=en",
+    "evidence": "sign-in/app/data access/security filters; ไม่ใช่DB-nativeRLS",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S03",
+    "platform": "AppSheet",
+    "title": "Gemini creation governance",
+    "url": "https://support.google.com/appsheet/answer/11918568?hl=en-GB",
+    "evidence": "Gemini app creation + team restrictions; paid-account availability",
+    "stage": "Documented / paid",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S04",
+    "platform": "AppSheet",
+    "title": "Apps Script automation",
+    "url": "https://support.google.com/appsheet/answer/11997142?hl=en",
+    "evidence": "call scriptจากbot; head deploymentข้อจำกัด",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S05",
+    "platform": "Power Apps",
+    "title": "Connectors",
+    "url": "https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/connections-list",
+    "evidence": "tabular/action/custom connector contracts",
+    "stage": "Documented",
+    "published": "ไม่ยืนยันวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S06",
+    "platform": "Power Apps",
+    "title": "Power Fx business logic",
+    "url": "https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/app-business-logic",
+    "evidence": "formula delegationและcloud flows",
+    "stage": "Documented",
+    "published": "หน้าแสดง 2024-10-22",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S07",
+    "platform": "Power Apps",
+    "title": "Offline",
+    "url": "https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/offline-apps",
+    "evidence": "native mobile offline; browser canvasไม่รองรับ",
+    "stage": "Documented / runtime-specific",
+    "published": "ไม่ยืนยันวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S08",
+    "platform": "Power Apps",
+    "title": "ALM solutions",
+    "url": "https://learn.microsoft.com/en-us/power-platform/alm/overview-alm",
+    "evidence": "governance/solutions/lifecycle",
+    "stage": "Documented; บาง navigationแจ้งauthแต่เนื้อหาoverviewอ่านได้",
+    "published": "ไม่ยืนยันวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S09",
+    "platform": "Power Apps",
+    "title": "Generative pages",
+    "url": "https://learn.microsoft.com/en-us/power-apps/maker/model-driven-apps/generative-pages",
+    "evidence": "AI pagesสำหรับmodel-driven; connectors/custom APIส่วนหนึ่งpreview",
+    "stage": "Mixed: Documented + Preview integrations",
+    "published": "ไม่ยืนยันวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S10",
+    "platform": "Power Apps",
+    "title": "Component library ALM",
+    "url": "https://learn.microsoft.com/power-apps/maker/canvas-apps/component-library-alm",
+    "evidence": "reusable components/versioned dependenciesผ่านsolutions",
+    "stage": "Documented",
+    "published": "ไม่ยืนยันวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S11",
+    "platform": "Retool",
+    "title": "Apps concepts",
+    "url": "https://docs.retool.com/build/apps/concepts/intro",
+    "evidence": "new AI-assisted apps, resource governance, manual code, source control",
+    "stage": "Documented; Enterprise source-controlข้อจำกัด",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S12",
+    "platform": "Retool",
+    "title": "Permissions",
+    "url": "https://docs.retool.com/permissions/quickstart",
+    "evidence": "use/edit/own, groups, organization/object roles; plan-gated",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S13",
+    "platform": "Retool",
+    "title": "Workflows",
+    "url": "https://docs.retool.com/workflows",
+    "evidence": "separate backend workflow and query/resource concepts; classic editorยังมี",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S14",
+    "platform": "Budibase",
+    "title": "Datasources",
+    "url": "https://docs.budibase.com/docs/data-sources",
+    "evidence": "internal CouchDBและexternal schema mapping/custom sources",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S15",
+    "platform": "Budibase",
+    "title": "Plugins",
+    "url": "https://docs.budibase.com/docs/custom-plugin",
+    "evidence": "component/datasource extension import",
+    "stage": "Documented / permissions and planต้องตรวจ",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S16",
+    "platform": "Budibase",
+    "title": "Automation plugins",
+    "url": "https://docs.budibase.com/docs/custom-automations",
+    "evidence": "action-focused custom step; self-host onlyตามหน้า",
+    "stage": "Documented / self-host",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S17",
+    "platform": "Budibase",
+    "title": "AI",
+    "url": "https://docs.budibase.com/docs/quickstart-budibase-ai",
+    "evidence": "workspace providers, table schema/JS/automation AI; self-hostEnterprise",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S18",
+    "platform": "Budibase",
+    "title": "License",
+    "url": "https://raw.githubusercontent.com/Budibase/budibase/master/LICENSE",
+    "evidence": "package-specific GPLv3/MPL2/BSL",
+    "stage": "License text",
+    "published": "ไม่แสดงrelease date",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S19",
+    "platform": "Appsmith",
+    "title": "Introduction",
+    "url": "https://docs.appsmith.com/",
+    "evidence": "visual widgets/query/JS/Git",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S20",
+    "platform": "Appsmith",
+    "title": "Datasources",
+    "url": "https://docs.appsmith.com/connect-data/reference",
+    "evidence": "REST/GraphQL/SQL/S3/SMTP",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S21",
+    "platform": "Appsmith",
+    "title": "Git",
+    "url": "https://docs.appsmith.com/advanced-concepts/version-control-with-git",
+    "evidence": "branches/commit/push and versioned development",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S22",
+    "platform": "Appsmith",
+    "title": "Custom widgets",
+    "url": "https://github.com/appsmithorg/appsmith-docs/blob/main/website/docs/reference/widgets/custom.md",
+    "evidence": "custom widget model and event boundary",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S23",
+    "platform": "Appsmith",
+    "title": "Responsive widgets",
+    "url": "https://docs.appsmith.com/reference/responsive-widgets",
+    "evidence": "new responsive widgets explicitly ALPHA",
+    "stage": "Alpha",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S24",
+    "platform": "Appsmith",
+    "title": "License",
+    "url": "https://raw.githubusercontent.com/appsmithorg/appsmith/release/LICENSE",
+    "evidence": "Apache2 root license;ไม่ครอบคลุม paid contractทั้งหมด",
+    "stage": "License text",
+    "published": "ไม่แสดงrelease date",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S25",
+    "platform": "FlutterFlow",
+    "title": "AI Agent",
+    "url": "https://docs.flutterflow.io/concepts/ai-agent/",
+    "evidence": "desktop external coding agents edit pages/actions/state/theme",
+    "stage": "Documented / desktop prerequisite",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S26",
+    "platform": "FlutterFlow",
+    "title": "CLI build",
+    "url": "https://docs.flutterflow.io/flutterflow-cli/build/",
+    "evidence": "structured agent editing and library publishing; paid branching",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S27",
+    "platform": "FlutterFlow",
+    "title": "SQLite query",
+    "url": "https://docs.flutterflow.io/resources/backend-query/sqlite-query/",
+    "evidence": "local database query binding;ไม่ใช่อัตโนมัติoffline conflict sync",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S28",
+    "platform": "FlutterFlow",
+    "title": "AI suite",
+    "url": "https://www.flutterflow.io/ai",
+    "evidence": "Designer/agent/MCP/Test Pilot product offerings",
+    "stage": "Product documented; stageแต่ละตัวต้องตรวจaccount",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S29",
+    "platform": "Bubble",
+    "title": "AI agent current manual",
+    "url": "https://manual.bubble.io/help-guides/ai/bubble-ai-agent",
+    "evidence": "in-editor context-aware assistant; fresh fetchedpageต่างจากold searchcache",
+    "stage": "Documented; ไม่อนุมานGA",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S30",
+    "platform": "Bubble",
+    "title": "Release notes",
+    "url": "https://bubble.io/release-notes",
+    "evidence": "app planning, schema/workflow/API edits; issue-checker experimental",
+    "stage": "Mixed: shipped notes + Experimental checker",
+    "published": "รายการล่าสุดที่อ่าน 2026-09-09; มีรายการ 2026-07-29",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S31",
+    "platform": "Bubble",
+    "title": "Workflow privacy",
+    "url": "https://manual.bubble.io/help-guides/integrations/api/the-bubble-api/the-workflow-api/workflow-api-privacy-rules",
+    "evidence": "data access privacy != workflow execution authorization",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S32",
+    "platform": "Bubble",
+    "title": "Plugin versions",
+    "url": "https://manual.bubble.io/core-resources/bubbles-interface/plugins-tab",
+    "evidence": "pin/upgrade/test plugin version beforelive",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S33",
+    "platform": "Bubble",
+    "title": "Version control",
+    "url": "https://manual.bubble.io/help-guides/maintaining-an-application/version-control",
+    "evidence": "main/dev/live/savepoints; custom branchespaidtiers",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S34",
+    "platform": "n8n",
+    "title": "AI Workflow Builder",
+    "url": "https://docs.n8n.io/build/ways-of-building-workflows/ai-workflow-builder.md",
+    "evidence": "generate/refine/debug nodeflows;credits/availabilitypricing",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S35",
+    "platform": "n8n",
+    "title": "Queue mode",
+    "url": "https://github.com/n8n-io/n8n-docs/blob/main/docs/deploy/host-n8n/configure-n8n/scaling/enable-queue-mode.md",
+    "evidence": "DB job record + Redis dispatch + workers; multi-mainEnterprise",
+    "stage": "Documented / deployment-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S36",
+    "platform": "n8n",
+    "title": "Human tool approval",
+    "url": "https://docs.n8n.io/build/integrate-ai/ai-examples/human-in-the-loop-for-tools.md",
+    "evidence": "human approval for agent tool execution",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S37",
+    "platform": "n8n",
+    "title": "License FAQ",
+    "url": "https://support.n8n.io/article/can-i-use-your-license-for-my-use-case",
+    "evidence": "SUL internal use vs external-customer configuration requirescommercial",
+    "stage": "License FAQ",
+    "published": "Updated 2026-10-06",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S38",
+    "platform": "Directus",
+    "title": "Overview",
+    "url": "https://directus.com/docs/",
+    "evidence": "SQL data modeling / REST / GraphQL / permissions / MCP",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S39",
+    "platform": "Directus",
+    "title": "Flows",
+    "url": "https://directus.com/docs/guides/flows/",
+    "evidence": "event operations/data chain/accountability",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S40",
+    "platform": "Directus",
+    "title": "Extensions",
+    "url": "https://directus.com/docs/guides/extensions/overview",
+    "evidence": "app/API extension categories/lifecycle ecosystem",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S41",
+    "platform": "Directus",
+    "title": "Current license",
+    "url": "https://raw.githubusercontent.com/directus/directus/main/directus/license",
+    "evidence": "MSCL-1.0-GPL competing-use/license-key restrictions; futureGPL4years",
+    "stage": "License text",
+    "published": "Copyright2026; version-release dateไม่ยืนยัน",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S42",
+    "platform": "ToolJet",
+    "title": "Platform overview",
+    "url": "https://docs.tooljet.ai/docs/getting-started/platform-overview/",
+    "evidence": "AI/visual builder, sources, PG DB, workflows, environment",
+    "stage": "Documented / self-host and paid capabilitiesvary",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S43",
+    "platform": "ToolJet",
+    "title": "Access control",
+    "url": "https://docs.tooljet.ai/docs/user-management/role-based-access/access-control/",
+    "evidence": "granular app/datasource/module access",
+    "stage": "Documented / plan-dependent",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S44",
+    "platform": "ToolJet",
+    "title": "Plugin manifest",
+    "url": "https://docs.tooljet.com/docs/contributing-guide/marketplace/creating-a-plugin/",
+    "evidence": "schema-based plugin manifest/query extension",
+    "stage": "Documented",
+    "published": "ไม่แสดงวันที่อัปเดต",
+    "checked": "2026-10-29 Asia/Bangkok"
+  },
+  {
+    "id": "S45",
+    "platform": "ToolJet",
+    "title": "License",
+    "url": "https://raw.githubusercontent.com/ToolJet/ToolJet/develop/LICENSE",
+    "evidence": "Community AGPL3; paidfeaturesต่างสัญญา",
+    "stage": "License text",
+    "published": "ไม่แสดงrelease date",
+    "checked": "2026-10-29 Asia/Bangkok"
+  }
+]

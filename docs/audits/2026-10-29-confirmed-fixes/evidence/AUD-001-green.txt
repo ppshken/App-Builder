@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: AUD-001 scoped developer cannot read a known attachment outside app datasets
+ok 35 - AUD-001 scoped developer cannot read a known attachment outside app datasets
+# Subtest: AUD-001 explicitly shared readable table permits its attachment and revoked sharing denies it
+ok 36 - AUD-001 explicitly shared readable table permits its attachment and revoked sharing denies it
+# Subtest: AUD-001 pending upload exception requires uploader and current app provenance
+ok 37 - AUD-001 pending upload exception requires uploader and current app provenance
+# Subtest: AUD-001 ordinary reader file access still enforces row rules; central owner access remains
+ok 38 - AUD-001 ordinary reader file access still enforces row rules; central owner access remains
+# tests 327
+# pass 327
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8937.2017

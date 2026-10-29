@@ -1,0 +1,2 @@
+Integration mode: attachmentboundary
+AUD-001 Passed: HTTP cross-app/default/PWA denial, shared-table allow/revoke, own pending upload provenance.

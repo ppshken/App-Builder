@@ -1,0 +1,10 @@
+{
+  "id": "AUD-001",
+  "layer": "HTTP production API",
+  "sourceDataExpected": 403,
+  "sourceDataActual": 403,
+  "attachmentExpected": 403,
+  "attachmentActual": 200,
+  "syntheticPayloadMatched": true,
+  "scope": "developer assigned only to empty app A; attachment belongs to default app"
+}

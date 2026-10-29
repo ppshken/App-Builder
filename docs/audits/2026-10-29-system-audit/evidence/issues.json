@@ -1,0 +1,141 @@
+[
+  {
+    "id": "AUD-001",
+    "module": "M03 Authorization / M14 Attachments",
+    "severity": "P1 High",
+    "confidence": "High — reproduced at helper and production HTTP API layers",
+    "title": "ผู้พัฒนาแอปหนึ่งดาวน์โหลดไฟล์ของอีกแอปได้ หากทราบรหัสไฟล์",
+    "file": "lib/permissions.ts:46; lib/auth-api.ts:31; app/api/files/[id]/route.ts:2",
+    "root": "assertFileAccess returns immediately for access.builder, without checking access.datasets, attachment ownership or a readable row reference. The file handler then reads the global _files table. assertImageAccess applies a different, stricter dataset-aware rule.",
+    "steps": [
+      "สร้างไฟล์จำลองผูกกับตารางในแอปต้นทาง",
+      "สร้างแอป A แยกและมอบเฉพาะสิทธิ์พัฒนาแอป A ให้บัญชีจำลอง โดยไม่เชื่อมตารางต้นทาง",
+      "Login บัญชีดังกล่าวและเลือกแอป A",
+      "เรียก API ตารางต้นทาง แล้วเรียก /api/files/<synthetic-id> ด้วย session เดียวกัน"
+    ],
+    "expected": "ทั้งตารางและไฟล์ที่ไม่อยู่ในขอบเขตแอปต้องตอบ 403",
+    "actual": "ตารางตอบ 403 แต่ไฟล์ตอบ 200 และ bytes ตรงกับข้อมูลจำลอง",
+    "evidence": "[HTTP evidence](evidence/http-file-authorization.json), [helper evidence](evidence/runtime-reproductions.json)",
+    "impact": "Cross-app confidentiality boundary fails for attachments; a UUID is not an authorization boundary. Requires an authenticated app developer and knowledge of an attachment ID. No live attachment or real account was accessed.",
+    "fix": "Apply dataset-aware authorization for developers, like the image path. Require an authorized reference in the active app, or a narrowly scoped upload-owner/provenance exception for unfinished uploads. Preserve explicitly shared table access and owner-only central management.",
+    "regression": "Developer A vs file B (known ID); ordinary reader row allow/deny; shared-table file; own pending upload; revoked membership; default/PWA simultaneous apps; malformed/missing ID."
+  },
+  {
+    "id": "AUD-002",
+    "module": "M02 Authentication",
+    "severity": "P1 High",
+    "confidence": "High — isolated runtime reproduction",
+    "title": "Login สำเร็จก็นับเข้าขีดจำกัดส่วนกลาง จนทุกบัญชีถูกบล็อกได้",
+    "file": "lib/auth.ts:33-35, 51; app/api/auth/profile/route.ts:10",
+    "root": "throttle increments a global bucket for every validly formed login request. Successful login clears only the per-account hashed scope; global remains. The public bucket is shared across accounts and IPs for 15 minutes. Password-change validation also calls login.",
+    "steps": [
+      "เริ่มฐานข้อมูลจำลองใหม่และสร้างบัญชีที่ใช้งานได้",
+      "Login ด้วยข้อมูลที่ถูกต้องซ้ำ 20 ครั้ง",
+      "Login ครั้งที่ 21 ก่อนครบเวลา bucket"
+    ],
+    "expected": "Successful logins should not exhaust a shared failed-login quota and deny unrelated legitimate users",
+    "actual": "20 successes; the next request returns 429; global bucket count is 20",
+    "evidence": "[Runtime evidence AUD-002](evidence/runtime-reproductions.json)",
+    "impact": "Availability failure and a shared public denial-of-login mechanism; normal aggregate traffic can trigger it. The reported experiment used successful logins only, not a production flood.",
+    "fix": "Separate failed-attempt rate limits per account and trusted client identity/IP, with a deliberate aggregate abuse budget. Do not retain successful requests as failures. Keep atomic updates and generic error responses; verify reverse-proxy client identity before trusting forwarded headers.",
+    "regression": "More than 20 aggregate successful logins; success after prior failures; distinct users/IPs; one abusive account must not lock all users; password-change validation; concurrent failed attempts and expiry."
+  },
+  {
+    "id": "AUD-003",
+    "module": "M01 Framework / dependency security",
+    "severity": "P1 High; potential P0 impact on affected Windows production deployments",
+    "confidence": "High for vulnerable installed versions; application exploitability NOT TESTED",
+    "title": "Next.js และ PostCSS รุ่นที่ติดตั้งอยู่ใน affected ranges ของ security advisories",
+    "file": "package.json:34; package-lock.json:1202 (next); lockfile node_modules/postcss entry",
+    "root": "The lockfile and installed dependencies resolve Next.js 14.2.15 and PostCSS 8.4.31. npm audit --omit=dev reports 1 critical and 1 high vulnerable package. These are dependency findings, not proof that every advisory is exploitable in this app.",
+    "steps": [
+      "ใช้ package/lockfile ของสำเนาแยกโดยไม่ install/fix",
+      "รัน npm.cmd audit --omit=dev --ignore-scripts --registry=https://registry.npmjs.org --json",
+      "เทียบ affected versions กับ vendor advisories"
+    ],
+    "expected": "Production dependency gate contains no unresolved advisories applicable to the deployment",
+    "actual": "Registry audit flags 2 vulnerable packages (critical: 1, high: 1). Vendor Windows RCE advisory includes this Next version; vendor middleware advisory also includes it.",
+    "evidence": "[Dependency audit](evidence/dependency-audit.json); [Next vendor middleware advisory](https://github.com/vercel/next.js/security/advisories/GHSA-f82v-jwr5-mffw); [Next vendor Windows advisory](https://github.com/vercel/next.js/security/advisories/GHSA-p293-qw3h-jr36)",
+    "impact": "Potential framework-level security impact depends on OS and enabled paths. The repository checks sessions/rights in API handlers as well as routing, so middleware advisory presence alone does NOT prove bypass of those API checks. Windows-specific RCE must not be generalized to Linux.",
+    "fix": "Plan a supported, fully patched Next/React-compatible target and review migration changes, dynamic route APIs, caching and middleware behavior. Do not blindly run npm audit fix --force or treat one historical 14.x patch as fixing all current advisories. Re-audit and rerun security/E2E gates before rollout.",
+    "regression": "Unauthenticated and cross-app API matrix; rewritten/PWA routes; action/body limits; cache behavior; Docker build and native dependency compatibility on the actual Linux target. Destructive exploit tests require a separate approved lab."
+  },
+  {
+    "id": "AUD-004",
+    "module": "M23 QA / regression coverage",
+    "severity": "P2 Medium",
+    "confidence": "High for failed assertions; underlying runtime paths after failure remain untested",
+    "title": "E2E เดิม 4 ชุดไม่ตรงกับ contract ของ UI ปัจจุบัน ทำให้ทดสอบไม่ครบ",
+    "file": "tests/permissions-browser.cjs:34; tests/workflows-browser.cjs:38; tests/excel-export-options-browser.cjs:3; app/components/AttachmentValue.tsx:7; tests/readiness-browser.cjs:18",
+    "root": "Selectors still expect the legacy users heading/global role cards and an exact attachment href without the application query parameter. Current routing centralizes user management; AttachmentValue builds scoped URLs through appResourceUrl.",
+    "steps": [
+      "รัน production integration modes permissions, workflows, exceloptions แยกฐานข้อมูล",
+      "สังเกต assertion ที่รอ heading, legacy role card และ exact attachment link"
+    ],
+    "expected": "Selected suites finish all current behavior assertions and fail only on an actual contract regression",
+    "actual": "Three legacy selector timeouts and one legacy builder Automation-skipped expectation failure; downstream checks are incomplete.",
+    "evidence": "[permissions failure](evidence/permissions.log), [workflows failure](evidence/workflows.log), [Excel failure](evidence/exceloptions.log)",
+    "impact": "Reduced regression protection and noisy gates. This finding is a test-maintenance failure, not proof that the three product features are broken.",
+    "fix": "After approval, update navigation/selectors against the intended UI contract; assert semantic attachment role/name and parsed scoped URL. Keep authorization assertions and cover the per-app role workflow rather than removing checks to get a green result.",
+    "regression": "All 3 full suites must complete after approved changes; intentionally remove permissions/file target to ensure tests still fail."
+  },
+  {
+    "id": "AUD-005",
+    "module": "M07 View data tabs",
+    "severity": "P2 Medium",
+    "confidence": "High — browser and authorized API compared on synthetic rows",
+    "title": "แท็บที่เลือกจาก เพิ่มเติม แสดงจำนวนเป็น 0 แม้มีข้อมูล",
+    "file": "app/components/ViewDataTabs.tsx:4",
+    "root": "The visible chip set is sliced to 50. For a selected value outside this set, the fallback explicitly replaces selected.count with 0 whenever data.total is available. This discards the valid count fetched in the full options/more results.",
+    "steps": [
+      "สร้าง View ตารางที่มีคอลัมน์แท็บ 60 ค่าไม่ซ้ำ แต่ละค่ามี 1 แถว",
+      "เปิด เพิ่มเติม แล้วเลือกค่า State 55",
+      "เทียบ badge ของชิปกับ option_counts API"
+    ],
+    "expected": "Badge is 1, equal to its source count",
+    "actual": "API count is 1; selected chip badge is 0",
+    "evidence": "[Browser/API evidence](evidence/tabs-reproduction.json); screenshot retained in isolated audit artifacts (synthetic data only)",
+    "impact": "Incorrect UI state and misleading counts for high-cardinality tab columns. Row filtering still works in the reproduced case.",
+    "fix": "Use the latest matching count from the source/more option; distinguish a confirmed missing value from a value omitted by the 50/500 display cap. Invalidate stale selected counts on data revision without forcing a known value to zero.",
+    "regression": "Selection 51–500; server-searched option beyond 500; refresh after count change; deleted selected value; empty values; Slice/row permissions; both table and list layouts."
+  },
+  {
+    "id": "AUD-006",
+    "module": "M23 Test runner",
+    "severity": "P2 Medium",
+    "confidence": "High — unknown mode executed and returned a successful API test summary",
+    "title": "สะกดชื่อ integration mode ผิด แต่ runner กลับรายงานผล API ชุดอื่นผ่าน",
+    "file": "scripts/integration.cjs:35-36",
+    "root": "Unknown process.argv[2] values fall through to the default API test list. There is no allowlist rejection or explicit api/default distinction.",
+    "steps": [
+      "รัน node scripts/integration.cjs readonlyaudit ซึ่งไม่มีใน browserTests",
+      "อ่านชนิด test ที่ถูกรันและผลคำสั่ง"
+    ],
+    "expected": "Unknown mode exits nonzero and lists accepted modes; no substitute suite is silently counted",
+    "actual": "The runner executes default API tests: 15 passed / 0 failed. The originally mistyped applicationroles command behaved the same; correct approles was run separately.",
+    "evidence": "[Unknown-mode log](evidence/invalidmode.log); scripts/integration.cjs:36",
+    "impact": "CI and manual audits can falsely believe a requested feature suite passed. These fallback runs were excluded from coverage in this report.",
+    "fix": "Reject unknown names explicitly. Preserve deliberate no-argument/api behavior; print the selected file list/mode before execution and emit structured suite identity and status.",
+    "regression": "Known mode; explicit api; no argument as documented; misspelling/unknown mode must exit nonzero before launching tests."
+  },
+  {
+    "id": "AUD-007",
+    "module": "M13 PDF User fields / M24 Performance",
+    "severity": "P2 Medium",
+    "confidence": "High for measured query amplification; production latency under load NOT TESTED",
+    "title": "การ resolve ชื่อ User ซ้ำทำ N+1 queries จำนวนมากในรายงาน PDF",
+    "file": "lib/user-fields.ts:5,7; lib/pdf-report.ts:21",
+    "root": "userFieldLabel calls userFieldOptions for every label. userFieldOptions reads all active users and performs app-access/profile lookups for each. The PDF value renderer calls userFieldLabel separately for User cells. Excel already builds a user map once and is not assumed to have the same per-cell behavior.",
+    "steps": [
+      "สร้างผู้ใช้จำลอง 100 รายในฐานข้อมูล memory",
+      "นับ SQL statements โดยไม่บันทึก SQL หรือค่าผู้ใช้",
+      "เรียก userFieldLabel 20 ครั้งภายใต้ scope เดียวกัน"
+    ],
+    "expected": "Resolve an authorized lookup map once per request/report; repeated labels should not rescan the user catalog",
+    "actual": "12,020 SQL statements for 20 labels; 118 ms in the local synthetic run",
+    "evidence": "[Measured query counts](evidence/performance-reproductions.json) DR-001a; PDF call site lib/pdf-report.ts:21",
+    "impact": "Repeated synchronous queries amplify cost as users and PDF User cells grow. The measurement establishes query amplification; it is not a claimed production throughput/SLA result.",
+    "fix": "Build an authorized User label map once per report/request; batch profile and membership queries. Scope any cache by database/application/user/permissions and never use a global unkeyed authorization cache.",
+    "regression": "Report with many repeated/different User cells and 100+ users; assert a query budget scaling with users plus cells rather than users times cells; inactive/revoked/cross-app users remain hidden."
+  }
+]

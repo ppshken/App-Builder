@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 1,
+    "critical": 1,
+    "total": 2
+  },
+  "packages": [
+    {
+      "name": "next",
+      "severity": "critical",
+      "range": "0.9.9 - 16.3.0-preview.10",
+      "fixAvailable": {
+        "name": "next",
+        "version": "16.4.3",
+        "isSemVerMajor": true
+      }
+    },
+    {
+      "name": "postcss",
+      "severity": "high",
+      "range": "<=8.5.22",
+      "fixAvailable": {
+        "name": "next",
+        "version": "16.4.3",
+        "isSemVerMajor": true
+      }
+    }
+  ]
+}

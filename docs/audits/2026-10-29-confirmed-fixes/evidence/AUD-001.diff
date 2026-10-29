@@ -1,0 +1,30 @@
+diff --git a/.test-data/confirmed-fixes/AUD-001-permissions.before.ts b/lib/permissions.ts
+index fdba6b0..b09e021 100644
+--- a/.test-data/confirmed-fixes/AUD-001-permissions.before.ts
++++ b/lib/permissions.ts
+@@ -43,7 +43,24 @@ export function assertImageAccess(id:string){
+ import type {Column} from "./columns";
+ export function assertReferenceWrites(cols:Column[],row:Record<string,unknown>,before:Record<string,unknown>={}){assertUserFields(cols,row,before);for(const c of cols.filter(c=>!c.is_virtual&&c.ref_table&&(c.type==="ref"||c.type==="list"))){const normalize=(v:unknown)=>{if(c.type==="list"&&typeof v==="string"){try{return JSON.parse(v);}catch{}}return v;};const value=normalize(row[c.name]),old=normalize(before[c.name]);if(value!=null&&value!==""&&(!Array.isArray(value)||value.length)&&JSON.stringify(value)!==JSON.stringify(old))assertTablePermission(c.ref_table!,"read");if(value!=null&&value!==""&&JSON.stringify(value)!==JSON.stringify(old)){for(const id of Array.isArray(value)?value:[value]){const target=db.prepare(`SELECT * FROM "t_${c.ref_table}" WHERE id=?`).get(id) as any;if(target)assertRowAllowed(c.ref_table!,target);}}}}
+ 
+-export function assertFileAccess(id:string){if(currentAccess().owner&&!db.prepare("SELECT 1 FROM _files WHERE id=?").get(id))return;const access=currentAccess();if(access.owner||access.builder)return;let referenced=false;for(const {name} of (db.prepare("SELECT name FROM _tables").all() as {name:string}[]).filter(t=>canRead(t.name)))for(const c of columnsOf(name).filter(c=>c.type==="file"&&!c.is_virtual)){const rows=db.prepare('SELECT * FROM "t_'+name+'" WHERE "'+c.name+'"=?').all('/api/files/'+id) as Record<string,any>[];if(rows.length){referenced=true;if(canRead(name)&&rows.some(row=>rowAllowed(name,row)))return;}}if(!referenced&&(access.builder||Object.values(access.tables).some(t=>t.read&&(t.create||t.update)))&&db.prepare('SELECT 1 FROM _file_uploads WHERE file_id=? AND user_id=?').get(id,currentUser()?.id))return;throw new AuthError('ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้',403);}
++export function assertFileAccess(id:string){
++ const access=currentAccess();
++ if(access.owner||access.builder&&!access.datasets)return;
++ let referenced=false;
++ for(const {name} of (db.prepare('SELECT name FROM _tables').all() as {name:string}[]).filter(t=>canRead(t.name))){
++  for(const c of columnsOf(name).filter(c=>c.type==='file'&&!c.is_virtual)){
++   const rows=db.prepare('SELECT * FROM "t_'+name+'" WHERE "'+c.name+'"=?').all('/api/files/'+id) as Record<string,any>[];
++   if(rows.length){referenced=true;if(rows.some(row=>rowAllowed(name,row)))return;}
++  }
++ }
++ const canUpload=access.builder||Object.values(access.tables).some(t=>t.read&&(t.create||t.update));
++ if(!referenced&&canUpload&&db.prepare('SELECT 1 FROM _file_uploads WHERE file_id=? AND user_id=?').get(id,currentUser()?.id)){
++  // Unreferenced upload ownership alone cannot establish which app may read it.
++  if(!access.datasets||db.prepare("SELECT 1 FROM _media_catalog WHERE kind='file' AND id=? AND app_id=? AND user_id=?").get(id,currentApplication()?.id||'default',currentUser()?.id))return;
++ }
++ throw new AuthError('ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้',403);
++}
++
+ 
+ export function canExport(table:string){const rights=tableAccess(currentAccess(),table);return rights.read&&!!rights.export;}
+ export function assertExcelExport(table:string){if(!canExport(table))throw new AuthError("ไม่มีสิทธิ์ส่งออก Excel ของตารางนี้",403);}

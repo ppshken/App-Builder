@@ -23,7 +23,7 @@ import {DEFAULT_SETTINGS,validateSettings} from "./app-settings";
 import {validateDisplay} from "./view-display";
 import {migrateListReferences,assertStoredListReferences} from "./list-reference-migration";
 
-const META = ["_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
+const META = ["_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
 export type BackupInfo={name:string;size:number;created:string;reason:string};
@@ -45,17 +45,18 @@ function supportedTables(db:Database.Database) {
  const tables=db.prepare("SELECT name,label FROM _tables ORDER BY name").all() as {name:string;label:string}[];
  if(tables.length>2000)throw Error("ไฟล์สำรองมีตารางมากเกินกว่าระบบกู้คืนรองรับ");
  for(const t of tables){assertIdentifier(t.name);if(typeof t.label!=="string")throw Error("ชื่อตารางในไฟล์สำรองไม่ถูกต้อง");}
- const names=new Set([...META,...AUTH_TABLES,...appConfigs,"sqlite_sequence",...tables.map(t=>`t_${t.name}`)]);
+ const names=new Set([...META,...AUTH_TABLES,...appConfigs,"_app_usage","_media_catalog","sqlite_sequence",...tables.map(t=>`t_${t.name}`)]);
  if(all.some(o=>o.type==="table"&&!names.has(o.name)))throw Error("ไฟล์นี้มีตารางนอกระบบที่ยังไม่รองรับการกู้คืน กรุณาใช้ไฟล์สำรองของ No-code Builder");
  return tables;
 }
 // Rebuild into a fresh, trusted schema. Never execute SQL definitions from an uploaded file.
-export function inspectBackup(sourceFile:string,stageFile:string,current?:Database.Database):RestoreSummary {
+export function inspectBackup(sourceFile:string,stageFile:string,current?:Database.Database,applicationPackage=false):RestoreSummary {
  const size=lstatSync(sourceFile).size;if(size<100||size>MAX_BACKUP_BYTES)throw Error("ไฟล์สำรองต้องเป็น SQLite และมีขนาดไม่เกิน 512 MB");
  const fd=openSync(sourceFile,"r"),header=Buffer.alloc(16);try{readSync(fd,header,0,16,0);}finally{closeSync(fd);}if(header.toString("ascii")!=="SQLite format 3\0")throw Error("ไฟล์นี้ไม่ใช่ SQLite กรุณาเลือกไฟล์ .db ที่สำรองไว้");
  const source=new Database(sourceFile,{readonly:true,fileMustExist:true});let stage:Database.Database|undefined;
  try {
   source.pragma("trusted_schema = OFF");
+  const scoped=source.pragma("application_id",{simple:true})===1313030480;if(scoped!==applicationPackage)throw Error(scoped?"ไฟล์นี้เป็นสำรองรายแอป กรุณาใช้แท็บสำรองแยกแอป":"กรุณาเลือกไฟล์สำรองรายแอป");
   if(source.pragma("integrity_check",{simple:true})!=="ok")throw Error("ไฟล์สำรองเสียหาย กรุณาเลือกไฟล์อื่น");
   const tables=supportedTables(source),all=objects(source),has=(name:string)=>all.some(o=>o.name===name&&o.type==="table");
   const schemas:Record<string,Column[]>={};for(const t of tables){const cols=readColumns(source,t.name);if(!cols.length||cols.length>200)throw Error(`คอลัมน์ของตาราง "${t.label}" ไม่ถูกต้อง`);schemas[t.name]=cols;}
@@ -114,7 +115,7 @@ export function inspectBackup(sourceFile:string,stageFile:string,current?:Databa
 export function restoreBackup(db:Database.Database,path:string,stageFile:string){
  const stage=new Database(stageFile,{readonly:true,fileMustExist:true});try{
   supportedTables(db);const tables=supportedTables(stage),schema=trustedRestoreObjects(stage),config=restoreConfigTables(stage),replaced=new Set([...META,...RESTORED_SECURITY,'_user_setting_defs','_user_setting_values',...config,...tables.map(t=>'t_'+t.name)]);
-  const preserved=(name:string)=>AUTH_TABLES.includes(name)&&!RESTORED_SECURITY.includes(name)&&!['_user_setting_defs','_user_setting_values'].includes(name)||name==='_audit_log';
+  const preserved=(name:string)=>AUTH_TABLES.includes(name)&&!RESTORED_SECURITY.includes(name)&&!['_user_setting_defs','_user_setting_values'].includes(name)||['_audit_log','_app_usage','_media_catalog'].includes(name);
   stage.pragma('trusted_schema=OFF');if((stage.pragma('foreign_key_check') as unknown[]).length)throw Error('ไฟล์เตรียมกู้คืนมีข้อมูลอ้างอิงไม่ครบ');
   const preferences=new Map(restoreApplications(db).map(id=>[id,db.prepare('SELECT user_id,name,value_json FROM "'+applicationTable(id,'_user_setting_values')+'"').all() as {user_id:number;name:string;value_json:string}[]]));
   const restoreAudit=auditContext(),before=createBackup(db,path,"restore");

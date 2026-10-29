@@ -1,0 +1,9051 @@
+{
+  "counts": {
+    "typescriptFiles": 307,
+    "routes": 53,
+    "methods": 92,
+    "imports": 1725
+  },
+  "routes": [
+    {
+      "path": "app/api/actions/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/app-activity/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/app-icon/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/app-management/route.ts",
+      "methods": [
+        "GET",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/application-access/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/applications/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/audit-log/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/auth/login/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/auth/logout/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/auth/profile/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/auth/session/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/auth/setup/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/backups/application/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/backups/restore/route.ts",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/backups/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/backups/[name]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/branding/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/data/[table]/clear/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/data/[table]/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/data/[table]/validate/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/excel/[table]/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/expression-data/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/field-users/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/files/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/files/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/health/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/api/images/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/images/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/lists/[table]/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/pdf-templates/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/performance/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/readiness/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/realtime/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/releases/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/scan/[table]/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/settings/route.ts",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/slices/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/system-report/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/tables/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/tables/[name]/convert/route.ts",
+      "methods": [
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/tables/[name]/duplicates/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/tables/[name]/raw/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/tables/[name]/route.ts",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/user-settings/route.ts",
+      "methods": [
+        "GET",
+        "PUT",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/users/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/view-data/[table]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/views/preview/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/views/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "delegated withAuth in lib/view-api.ts"
+    },
+    {
+      "path": "app/api/workflows/files/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/api/workflows/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ],
+      "auth": "withAuth"
+    },
+    {
+      "path": "app/app/[appId]/manifest.webmanifest/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/app/[appId]/offline/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    },
+    {
+      "path": "app/app/[appId]/sw.js/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "auth": "route-local/public"
+    }
+  ],
+  "imports": [
+    {
+      "from": "app/actions/page.tsx",
+      "to": "../components/RuleManager",
+      "line": 1
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/custom-page",
+      "line": 1
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/application-role-grants",
+      "line": 2
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/workflow-validation",
+      "line": 3
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/action-config",
+      "line": 4
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/api",
+      "line": 5
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 6
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/unique",
+      "line": 7
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "next/server",
+      "line": 8
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/db",
+      "line": 9
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/columns",
+      "line": 10
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/automation",
+      "line": 11
+    },
+    {
+      "from": "app/api/actions/route.ts",
+      "to": "@/lib/api",
+      "line": 12
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "@/lib/application-context",
+      "line": 3
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "@/lib/permissions",
+      "line": 4
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "@/lib/db",
+      "line": 5
+    },
+    {
+      "from": "app/api/app-activity/route.ts",
+      "to": "@/lib/app-usage",
+      "line": 6
+    },
+    {
+      "from": "app/api/app-icon/route.ts",
+      "to": "@/lib/db",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-icon/route.ts",
+      "to": "@/lib/settings-server",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-icon/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-icon/route.ts",
+      "to": "@/lib/application-context",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/permissions",
+      "line": 3
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/auth",
+      "line": 5
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/api",
+      "line": 6
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/media-inventory",
+      "line": 7
+    },
+    {
+      "from": "app/api/app-management/route.ts",
+      "to": "@/lib/app-usage",
+      "line": 8
+    },
+    {
+      "from": "app/api/application-access/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/application-access/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/application-access/route.ts",
+      "to": "@/lib/permissions",
+      "line": 1
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/application-lifecycle",
+      "line": 1
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/applications",
+      "line": 2
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/application-roles",
+      "line": 3
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/platform-overview",
+      "line": 4
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/database-backup",
+      "line": 5
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "next/server",
+      "line": 6
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 7
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/permissions",
+      "line": 8
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/auth",
+      "line": 9
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/api",
+      "line": 10
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/application-context",
+      "line": 11
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/releases",
+      "line": 12
+    },
+    {
+      "from": "app/api/applications/route.ts",
+      "to": "@/lib/applications",
+      "line": 13
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "@/lib/audit-log",
+      "line": 3
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "@/lib/permissions",
+      "line": 4
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "@/lib/auth",
+      "line": 5
+    },
+    {
+      "from": "app/api/audit-log/route.ts",
+      "to": "@/lib/api",
+      "line": 6
+    },
+    {
+      "from": "app/api/auth/login/route.ts",
+      "to": "@/lib/landing-page",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/login/route.ts",
+      "to": "@/lib/auth",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/login/route.ts",
+      "to": "@/lib/auth-response",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/login/route.ts",
+      "to": "@/lib/api",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/logout/route.ts",
+      "to": "@/lib/app-usage",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/logout/route.ts",
+      "to": "@/lib/auth",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/logout/route.ts",
+      "to": "@/lib/auth-response",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/logout/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/profile/route.ts",
+      "to": "@/lib/account-fields",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/profile/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/profile/route.ts",
+      "to": "@/lib/auth",
+      "line": 3
+    },
+    {
+      "from": "app/api/auth/profile/route.ts",
+      "to": "@/lib/auth-response",
+      "line": 4
+    },
+    {
+      "from": "app/api/auth/session/route.ts",
+      "to": "@/lib/auth",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/session/route.ts",
+      "to": "@/lib/auth-response",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/session/route.ts",
+      "to": "@/lib/permissions",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/session/route.ts",
+      "to": "@/lib/access",
+      "line": 2
+    },
+    {
+      "from": "app/api/auth/setup/route.ts",
+      "to": "@/lib/auth",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/setup/route.ts",
+      "to": "@/lib/auth-response",
+      "line": 1
+    },
+    {
+      "from": "app/api/auth/setup/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "better-sqlite3",
+      "line": 2
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "node:crypto",
+      "line": 3
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "node:fs",
+      "line": 4
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "node:path",
+      "line": 5
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 6
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/permissions",
+      "line": 7
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/db",
+      "line": 8
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/application-backups",
+      "line": 9
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/backups",
+      "line": 10
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/restore-applications",
+      "line": 11
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/api",
+      "line": 12
+    },
+    {
+      "from": "app/api/backups/application/route.ts",
+      "to": "@/lib/app-usage",
+      "line": 13
+    },
+    {
+      "from": "app/api/backups/restore/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/backups/restore/route.ts",
+      "to": "@/lib/backup-stages",
+      "line": 2
+    },
+    {
+      "from": "app/api/backups/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/backups/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/backups/route.ts",
+      "to": "@/lib/db",
+      "line": 3
+    },
+    {
+      "from": "app/api/backups/route.ts",
+      "to": "@/lib/backups",
+      "line": 4
+    },
+    {
+      "from": "app/api/backups/route.ts",
+      "to": "@/lib/api",
+      "line": 5
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "node:fs",
+      "line": 2
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 3
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "@/lib/backups",
+      "line": 5
+    },
+    {
+      "from": "app/api/backups/[name]/route.ts",
+      "to": "@/lib/api",
+      "line": 6
+    },
+    {
+      "from": "app/api/branding/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/branding/route.ts",
+      "to": "@/lib/settings-server",
+      "line": 2
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/auth",
+      "line": 1
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/delete-record",
+      "line": 2
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 4
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/permissions",
+      "line": 5
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/db",
+      "line": 6
+    },
+    {
+      "from": "app/api/data/[table]/clear/route.ts",
+      "to": "@/lib/api",
+      "line": 7
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/map-view-scope",
+      "line": 1
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/view-filter-options",
+      "line": 2
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/sql-page-window",
+      "line": 3
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/form-save",
+      "line": 4
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/delete-record",
+      "line": 5
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/view-records",
+      "line": 6
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/data-write",
+      "line": 7
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/row-access",
+      "line": 8
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 9
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/permissions",
+      "line": 10
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 11
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/data-filters",
+      "line": 12
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/enumlist-reference-updates",
+      "line": 13
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/unique",
+      "line": 14
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "next/server",
+      "line": 15
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/db",
+      "line": 16
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/columns",
+      "line": 17
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 18
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/automation",
+      "line": 19
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/images",
+      "line": 20
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/expression-context",
+      "line": 21
+    },
+    {
+      "from": "app/api/data/[table]/route.ts",
+      "to": "@/lib/lists",
+      "line": 22
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/row-access",
+      "line": 1
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/auth",
+      "line": 2
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/api",
+      "line": 3
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 4
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "next/server",
+      "line": 5
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/db",
+      "line": 6
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/api",
+      "line": 7
+    },
+    {
+      "from": "app/api/data/[table]/validate/route.ts",
+      "to": "@/lib/unique",
+      "line": 8
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/db",
+      "line": 3
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 4
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/excel",
+      "line": 5
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/backups",
+      "line": 6
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/auth",
+      "line": 7
+    },
+    {
+      "from": "app/api/excel/[table]/route.ts",
+      "to": "@/lib/permissions",
+      "line": 8
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/action-config",
+      "line": 1
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/api",
+      "line": 2
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 3
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "next/server",
+      "line": 4
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/db",
+      "line": 5
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/expression-context",
+      "line": 7
+    },
+    {
+      "from": "app/api/expression-data/route.ts",
+      "to": "@/lib/api",
+      "line": 8
+    },
+    {
+      "from": "app/api/field-users/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/field-users/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/field-users/route.ts",
+      "to": "@/lib/user-fields",
+      "line": 1
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/application-context",
+      "line": 1
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/file-storage",
+      "line": 2
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "node:crypto",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/db",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/permissions",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/auth",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/api",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/route.ts",
+      "to": "@/lib/files",
+      "line": 3
+    },
+    {
+      "from": "app/api/files/[id]/route.ts",
+      "to": "@/lib/file-storage",
+      "line": 1
+    },
+    {
+      "from": "app/api/files/[id]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/files/[id]/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/files/[id]/route.ts",
+      "to": "@/lib/api",
+      "line": 2
+    },
+    {
+      "from": "app/api/health/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/health/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/application-context",
+      "line": 1
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/settings-server",
+      "line": 2
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/image-files",
+      "line": 3
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/permissions",
+      "line": 5
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/auth",
+      "line": 6
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/api",
+      "line": 7
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/permissions",
+      "line": 8
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 9
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "node:crypto",
+      "line": 10
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "next/server",
+      "line": 11
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/db",
+      "line": 12
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/api",
+      "line": 13
+    },
+    {
+      "from": "app/api/images/route.ts",
+      "to": "@/lib/images",
+      "line": 14
+    },
+    {
+      "from": "app/api/images/[id]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/images/[id]/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/images/[id]/route.ts",
+      "to": "@/lib/api",
+      "line": 3
+    },
+    {
+      "from": "app/api/lists/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/lists/[table]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/lists/[table]/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/lists/[table]/route.ts",
+      "to": "@/lib/lists",
+      "line": 4
+    },
+    {
+      "from": "app/api/lists/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 5
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/api",
+      "line": 3
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/workflows",
+      "line": 5
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/workflow-config",
+      "line": 6
+    },
+    {
+      "from": "app/api/pdf-templates/route.ts",
+      "to": "@/lib/pdf-report",
+      "line": 7
+    },
+    {
+      "from": "app/api/performance/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/performance/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/performance/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/performance/route.ts",
+      "to": "@/lib/performance-report",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/permissions",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/auth",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/readiness",
+      "line": 1
+    },
+    {
+      "from": "app/api/readiness/route.ts",
+      "to": "@/lib/simulation",
+      "line": 1
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "node:crypto",
+      "line": 1
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/application-context",
+      "line": 2
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/applications",
+      "line": 3
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 4
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/auth",
+      "line": 5
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/permissions",
+      "line": 6
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/access",
+      "line": 7
+    },
+    {
+      "from": "app/api/realtime/route.ts",
+      "to": "@/lib/db",
+      "line": 8
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "@/lib/permissions",
+      "line": 1
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "@/lib/auth",
+      "line": 1
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/releases/route.ts",
+      "to": "@/lib/releases",
+      "line": 1
+    },
+    {
+      "from": "app/api/scan/[table]/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/scan/[table]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/scan/[table]/route.ts",
+      "to": "@/lib/barcode-reference",
+      "line": 1
+    },
+    {
+      "from": "app/api/scan/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/permissions",
+      "line": 1
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/images",
+      "line": 2
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/settings-server",
+      "line": 3
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/api",
+      "line": 4
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 5
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "next/server",
+      "line": 6
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/db",
+      "line": 7
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/app-settings",
+      "line": 8
+    },
+    {
+      "from": "app/api/settings/route.ts",
+      "to": "@/lib/api",
+      "line": 9
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/view-display",
+      "line": 3
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "next/server",
+      "line": 4
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/db",
+      "line": 5
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/automation",
+      "line": 7
+    },
+    {
+      "from": "app/api/slices/route.ts",
+      "to": "@/lib/api",
+      "line": 8
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "@/lib/permissions",
+      "line": 3
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "@/lib/auth",
+      "line": 4
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "@/lib/api",
+      "line": 5
+    },
+    {
+      "from": "app/api/system-report/route.ts",
+      "to": "@/lib/system-report",
+      "line": 6
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/application-context",
+      "line": 1
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/api",
+      "line": 2
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/permissions",
+      "line": 3
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 4
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/database-backup",
+      "line": 5
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "next/server",
+      "line": 6
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/db",
+      "line": 7
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/columns",
+      "line": 8
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/metadata",
+      "line": 9
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/schema",
+      "line": 10
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/api",
+      "line": 11
+    },
+    {
+      "from": "app/api/tables/route.ts",
+      "to": "@/lib/lists",
+      "line": 12
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "node:crypto",
+      "line": 4
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/db",
+      "line": 5
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/api",
+      "line": 6
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/backups",
+      "line": 7
+    },
+    {
+      "from": "app/api/tables/[name]/convert/route.ts",
+      "to": "@/lib/column-conversion",
+      "line": 8
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "@/lib/unique",
+      "line": 5
+    },
+    {
+      "from": "app/api/tables/[name]/duplicates/route.ts",
+      "to": "@/lib/api",
+      "line": 6
+    },
+    {
+      "from": "app/api/tables/[name]/raw/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/tables/[name]/raw/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/tables/[name]/raw/route.ts",
+      "to": "@/lib/db",
+      "line": 3
+    },
+    {
+      "from": "app/api/tables/[name]/raw/route.ts",
+      "to": "@/lib/api",
+      "line": 4
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/custom-page",
+      "line": 1
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/application-role-grants",
+      "line": 2
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/workflow-dependencies",
+      "line": 3
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/action-config",
+      "line": 4
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/api",
+      "line": 5
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 6
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/database-backup",
+      "line": 7
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/inline-views",
+      "line": 8
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/view-display",
+      "line": 9
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "next/server",
+      "line": 10
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/db",
+      "line": 11
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/columns",
+      "line": 12
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/expression",
+      "line": 13
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/metadata",
+      "line": 14
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/schema",
+      "line": 15
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/api",
+      "line": 16
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/automation",
+      "line": 17
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/formula-dependencies",
+      "line": 18
+    },
+    {
+      "from": "app/api/tables/[name]/route.ts",
+      "to": "@/lib/lists",
+      "line": 19
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/db",
+      "line": 1
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/database-backup",
+      "line": 2
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "next/server",
+      "line": 3
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 4
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/permissions",
+      "line": 5
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/user-settings",
+      "line": 6
+    },
+    {
+      "from": "app/api/user-settings/route.ts",
+      "to": "@/lib/api",
+      "line": 7
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/builder-security",
+      "line": 1
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/backups",
+      "line": 3
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "next/server",
+      "line": 4
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 5
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/permissions",
+      "line": 6
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/user-management",
+      "line": 7
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/api",
+      "line": 8
+    },
+    {
+      "from": "app/api/users/route.ts",
+      "to": "@/lib/auth",
+      "line": 9
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/permissions",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/db",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/api",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/view-records",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/expression-context",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/row-access",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/automation",
+      "line": 1
+    },
+    {
+      "from": "app/api/view-data/[table]/route.ts",
+      "to": "@/lib/special-view-data",
+      "line": 1
+    },
+    {
+      "from": "app/api/views/preview/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/views/preview/route.ts",
+      "to": "@/lib/view-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/views/route.ts",
+      "to": "@/lib/view-api",
+      "line": 1
+    },
+    {
+      "from": "app/api/workflows/files/[id]/route.ts",
+      "to": "@/lib/file-storage",
+      "line": 1
+    },
+    {
+      "from": "app/api/workflows/files/[id]/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/workflows/files/[id]/route.ts",
+      "to": "@/lib/db",
+      "line": 2
+    },
+    {
+      "from": "app/api/workflows/files/[id]/route.ts",
+      "to": "@/lib/api",
+      "line": 2
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "@/lib/auth-api",
+      "line": 2
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "@/lib/api",
+      "line": 3
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "@/lib/db",
+      "line": 4
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "@/lib/permissions",
+      "line": 5
+    },
+    {
+      "from": "app/api/workflows/route.ts",
+      "to": "@/lib/workflows",
+      "line": 6
+    },
+    {
+      "from": "app/app/[appId]/icon/[size]/route.tsx",
+      "to": "next/og",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/icon/[size]/route.tsx",
+      "to": "@/lib/pwa-server",
+      "line": 2
+    },
+    {
+      "from": "app/app/[appId]/icon/[size]/route.tsx",
+      "to": "@/app/components/Icon",
+      "line": 3
+    },
+    {
+      "from": "app/app/[appId]/login/page.tsx",
+      "to": "@/app/login/page",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/manifest.webmanifest/route.ts",
+      "to": "@/lib/pwa-server",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/manifest.webmanifest/route.ts",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/app/[appId]/offline/route.ts",
+      "to": "@/lib/pwa-server",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/offline/route.ts",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/app/[appId]/page.tsx",
+      "to": "@/app/run/page",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/sw.js/route.ts",
+      "to": "@/lib/pwa-server",
+      "line": 1
+    },
+    {
+      "from": "app/app/[appId]/sw.js/route.ts",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/app/[appId]/sw.js/route.ts",
+      "to": "@/lib/pwa-worker",
+      "line": 3
+    },
+    {
+      "from": "app/app/[appId]/sw.js/route.ts",
+      "to": "node:fs",
+      "line": 4
+    },
+    {
+      "from": "app/app/[appId]/sw.js/route.ts",
+      "to": "node:path",
+      "line": 5
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "../apps/ApplicationRolesEditor",
+      "line": 3
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "../components/UserSettingsEditor",
+      "line": 4
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "next/navigation",
+      "line": 5
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "../apps/ApplicationAccessEditor",
+      "line": 7
+    },
+    {
+      "from": "app/app-access/page.tsx",
+      "to": "@/lib/applications",
+      "line": 8
+    },
+    {
+      "from": "app/apps/ApplicationAccessEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/apps/ApplicationAccessEditor.tsx",
+      "to": "../components/Icon",
+      "line": 3
+    },
+    {
+      "from": "app/apps/ApplicationAccessEditor.tsx",
+      "to": "@/lib/applications",
+      "line": 4
+    },
+    {
+      "from": "app/apps/ApplicationAccessEditor.tsx",
+      "to": "@/lib/access",
+      "line": 5
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "../components/SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 4
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "../components/Icon",
+      "line": 5
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "@/lib/action-config",
+      "line": 6
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "@/lib/applications",
+      "line": 7
+    },
+    {
+      "from": "app/apps/ApplicationRolesEditor.tsx",
+      "to": "@/lib/access",
+      "line": 8
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "../components/Icon",
+      "line": 3
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "../components/EditorDialog",
+      "line": 4
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 5
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "@/lib/applications",
+      "line": 6
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "@/lib/media-inventory",
+      "line": 7
+    },
+    {
+      "from": "app/apps/AppOperationsManager.tsx",
+      "to": "@/lib/backups",
+      "line": 8
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "next/dynamic",
+      "line": 3
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "next/link",
+      "line": 4
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "next/navigation",
+      "line": 5
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "../components/AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "../components/Icon",
+      "line": 7
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "../components/DraftBanner",
+      "line": 8
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "../components/SearchSelect",
+      "line": 9
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "./ApplicationAccessEditor",
+      "line": 13
+    },
+    {
+      "from": "app/apps/CentralManagement.tsx",
+      "to": "@/lib/applications",
+      "line": 14
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "../components/AppIcon",
+      "line": 2
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "../components/EditorDialog",
+      "line": 3
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 4
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "@/lib/pwa",
+      "line": 5
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "react",
+      "line": 6
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "next/navigation",
+      "line": 7
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "next/link",
+      "line": 8
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "next/dynamic",
+      "line": 9
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 12
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 13
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "../components/Icon",
+      "line": 14
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "@/lib/applications",
+      "line": 15
+    },
+    {
+      "from": "app/apps/page.tsx",
+      "to": "./applications.css",
+      "line": 16
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "../components/Icon",
+      "line": 3
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "../components/SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "@/lib/system-report",
+      "line": 5
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "@/lib/system-metrics",
+      "line": 6
+    },
+    {
+      "from": "app/apps/SystemReportPanel.tsx",
+      "to": "./system-report.css",
+      "line": 7
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "@/lib/audit-display",
+      "line": 3
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "../components/AuthProvider",
+      "line": 4
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "../components/SearchSelect",
+      "line": 5
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "../components/EditorDialog",
+      "line": 6
+    },
+    {
+      "from": "app/audit-log/AuditLogManager.tsx",
+      "to": "../components/Icon",
+      "line": 7
+    },
+    {
+      "from": "app/audit-log/page.tsx",
+      "to": "next/navigation",
+      "line": 1
+    },
+    {
+      "from": "app/backups/BackupManager.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 2
+    },
+    {
+      "from": "app/backups/BackupManager.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/backups/BackupManager.tsx",
+      "to": "@/lib/backups",
+      "line": 4
+    },
+    {
+      "from": "app/backups/BackupManager.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 5
+    },
+    {
+      "from": "app/backups/BackupManager.tsx",
+      "to": "../components/Icon",
+      "line": 6
+    },
+    {
+      "from": "app/backups/page.tsx",
+      "to": "next/navigation",
+      "line": 1
+    },
+    {
+      "from": "app/components/ActionButton.tsx",
+      "to": "@/lib/automation",
+      "line": 2
+    },
+    {
+      "from": "app/components/ActionButton.tsx",
+      "to": "@/lib/action-config",
+      "line": 3
+    },
+    {
+      "from": "app/components/ActionButton.tsx",
+      "to": "@/lib/app-settings",
+      "line": 4
+    },
+    {
+      "from": "app/components/ActionButton.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/ActionPreview.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ActionPreview.tsx",
+      "to": "./DesignerPreview",
+      "line": 3
+    },
+    {
+      "from": "app/components/ActionPreview.tsx",
+      "to": "@/lib/automation",
+      "line": 4
+    },
+    {
+      "from": "app/components/ActionPreview.tsx",
+      "to": "@/lib/views",
+      "line": 5
+    },
+    {
+      "from": "app/components/ActionValueEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ActionValueEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 3
+    },
+    {
+      "from": "app/components/ActionValueEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/components/ActionValueEditor.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/AppDisplayDefaultsEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppDisplayDefaultsEditor.tsx",
+      "to": "@/lib/views",
+      "line": 3
+    },
+    {
+      "from": "app/components/AppDisplayDefaultsEditor.tsx",
+      "to": "@/lib/view-display",
+      "line": 4
+    },
+    {
+      "from": "app/components/AppDisplayDefaultsEditor.tsx",
+      "to": "./DefaultLayoutPreview",
+      "line": 5
+    },
+    {
+      "from": "app/components/AppDisplayDefaultsEditor.tsx",
+      "to": "./ViewDisplayEditor",
+      "line": 6
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "./AppIcon",
+      "line": 4
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "@/lib/app-settings",
+      "line": 6
+    },
+    {
+      "from": "app/components/AppHeader.tsx",
+      "to": "@/lib/header-settings",
+      "line": 7
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "@/lib/app-settings",
+      "line": 3
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "@/lib/header-settings",
+      "line": 4
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "@/lib/views",
+      "line": 5
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "@/lib/user-settings",
+      "line": 6
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "@/lib/image-upload",
+      "line": 7
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "./AuthProvider",
+      "line": 8
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "./AppHeader",
+      "line": 9
+    },
+    {
+      "from": "app/components/AppHeaderEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 10
+    },
+    {
+      "from": "app/components/AppIcon.tsx",
+      "to": "./AuthProvider",
+      "line": 1
+    },
+    {
+      "from": "app/components/AppIcon.tsx",
+      "to": "react",
+      "line": 1
+    },
+    {
+      "from": "app/components/AppIcon.tsx",
+      "to": "./Icon",
+      "line": 1
+    },
+    {
+      "from": "app/components/AppIcon.tsx",
+      "to": "@/lib/media-settings",
+      "line": 1
+    },
+    {
+      "from": "app/components/AppIcon.tsx",
+      "to": "@/lib/app-settings",
+      "line": 1
+    },
+    {
+      "from": "app/components/AppLoading.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppLoading.tsx",
+      "to": "@/lib/app-settings",
+      "line": 3
+    },
+    {
+      "from": "app/components/AppSettingsProvider.tsx",
+      "to": "./AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppSettingsProvider.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/AppSettingsProvider.tsx",
+      "to": "@/lib/app-settings",
+      "line": 4
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "../apps/applications.css",
+      "line": 4
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./MyProfile",
+      "line": 5
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./ConnectionStatus",
+      "line": 6
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./DraftBanner",
+      "line": 7
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./AppIcon",
+      "line": 8
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./AuthProvider",
+      "line": 10
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "react",
+      "line": 11
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "next/navigation",
+      "line": 12
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "next/link",
+      "line": 13
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./Icon",
+      "line": 14
+    },
+    {
+      "from": "app/components/AppShell.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 15
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "./UserField",
+      "line": 2
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "@/lib/value-types",
+      "line": 3
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "@/lib/scalar-fields",
+      "line": 4
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "./AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "@/lib/pwa",
+      "line": 6
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "@/lib/columns",
+      "line": 7
+    },
+    {
+      "from": "app/components/AttachmentValue.tsx",
+      "to": "./PreviewImage",
+      "line": 7
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "./ConfirmDialog",
+      "line": 4
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/auth",
+      "line": 5
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "./PerformanceRecorder",
+      "line": 6
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/uuid",
+      "line": 7
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 8
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/access",
+      "line": 9
+    },
+    {
+      "from": "app/components/AuthProvider.tsx",
+      "to": "@/lib/expression",
+      "line": 10
+    },
+    {
+      "from": "app/components/CalendarView.tsx",
+      "to": "./RecordLabel",
+      "line": 2
+    },
+    {
+      "from": "app/components/CalendarView.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/CalendarView.tsx",
+      "to": "@/lib/special-view-data",
+      "line": 3
+    },
+    {
+      "from": "app/components/CalendarView.tsx",
+      "to": "@/lib/view-display",
+      "line": 3
+    },
+    {
+      "from": "app/components/CalendarView.tsx",
+      "to": "./SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChartView.tsx",
+      "to": "./RecordLabel",
+      "line": 2
+    },
+    {
+      "from": "app/components/ChartView.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChartView.tsx",
+      "to": "@/lib/special-view-data",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChartView.tsx",
+      "to": "@/lib/view-display",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChartView.tsx",
+      "to": "./EditorDialog",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChoiceInput.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ChoiceInput.tsx",
+      "to": "react-dom",
+      "line": 3
+    },
+    {
+      "from": "app/components/ChoiceInput.tsx",
+      "to": "./RecordLabel",
+      "line": 4
+    },
+    {
+      "from": "app/components/ChoiceInput.tsx",
+      "to": "./SearchSelect",
+      "line": 5
+    },
+    {
+      "from": "app/components/ColumnCell.tsx",
+      "to": "./FormulaEditor",
+      "line": 2
+    },
+    {
+      "from": "app/components/ColumnCell.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/ColumnCell.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "@/lib/columns",
+      "line": 4
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "@/lib/column-conversion",
+      "line": 5
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "./EditorDialog",
+      "line": 6
+    },
+    {
+      "from": "app/components/ColumnConversionDialog.tsx",
+      "to": "./ColumnEditor",
+      "line": 7
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "@/app/components/FormulaEditor",
+      "line": 2
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 5
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "./ExpressionAssistant",
+      "line": 6
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "./Icon",
+      "line": 7
+    },
+    {
+      "from": "app/components/ColumnEditor.tsx",
+      "to": "@/lib/expression",
+      "line": 8
+    },
+    {
+      "from": "app/components/ConfirmDialog.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ConnectionStatus.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/CustomPage.tsx",
+      "to": "@/lib/expression",
+      "line": 2
+    },
+    {
+      "from": "app/components/CustomPage.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/CustomPage.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/CustomPage.tsx",
+      "to": "@/lib/custom-page",
+      "line": 5
+    },
+    {
+      "from": "app/components/CustomPage.tsx",
+      "to": "./custom-page.css",
+      "line": 6
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/custom-page",
+      "line": 3
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/uuid",
+      "line": 4
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/columns",
+      "line": 5
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/automation",
+      "line": 6
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "./ExpressionAssistant",
+      "line": 7
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "./IconPicker",
+      "line": 8
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/columns",
+      "line": 9
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "@/lib/views",
+      "line": 10
+    },
+    {
+      "from": "app/components/CustomPageDesigner.tsx",
+      "to": "./CustomPage",
+      "line": 11
+    },
+    {
+      "from": "app/components/CustomPageDisplayEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/CustomPageDisplayEditor.tsx",
+      "to": "@/lib/custom-page",
+      "line": 3
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./RuntimeTable",
+      "line": 3
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "@/lib/views",
+      "line": 4
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "@/lib/expression",
+      "line": 5
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "@/lib/custom-page",
+      "line": 6
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "@/lib/automation",
+      "line": 7
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 8
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./AuthProvider",
+      "line": 9
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./CustomPage",
+      "line": 10
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./useCustomBindings",
+      "line": 11
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./ConfirmDialog",
+      "line": 12
+    },
+    {
+      "from": "app/components/CustomRuntimeView.tsx",
+      "to": "./ViewNotice",
+      "line": 13
+    },
+    {
+      "from": "app/components/DataFilters.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/DataFilters.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/DataFilters.tsx",
+      "to": "@/lib/columns",
+      "line": 4
+    },
+    {
+      "from": "app/components/DataFilters.tsx",
+      "to": "@/lib/data-filters",
+      "line": 5
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "./FormulaEditor",
+      "line": 2
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 4
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "@/lib/data-decoration",
+      "line": 5
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 6
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "./IconPicker",
+      "line": 7
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "./DecoratedValue",
+      "line": 8
+    },
+    {
+      "from": "app/components/DataStylesEditor.tsx",
+      "to": "./Icon",
+      "line": 9
+    },
+    {
+      "from": "app/components/DecoratedValue.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/DecoratedValue.tsx",
+      "to": "@/lib/data-decoration",
+      "line": 3
+    },
+    {
+      "from": "app/components/DecoratedValue.tsx",
+      "to": "@/lib/expression",
+      "line": 4
+    },
+    {
+      "from": "app/components/DecoratedValue.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/DefaultLayoutPreview.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/DefaultLayoutPreview.tsx",
+      "to": "@/lib/view-display",
+      "line": 3
+    },
+    {
+      "from": "app/components/DefaultLayoutPreview.tsx",
+      "to": "./MapView",
+      "line": 4
+    },
+    {
+      "from": "app/components/DefaultLayoutPreview.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/DesignerPreview.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/DesignerPreview.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/DesignerPreview.tsx",
+      "to": "@/lib/automation",
+      "line": 4
+    },
+    {
+      "from": "app/components/DesignerPreview.tsx",
+      "to": "@/lib/views",
+      "line": 5
+    },
+    {
+      "from": "app/components/DesignerPreview.tsx",
+      "to": "./Icon",
+      "line": 6
+    },
+    {
+      "from": "app/components/DraftBanner.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/DraftBanner.tsx",
+      "to": "next/link",
+      "line": 2
+    },
+    {
+      "from": "app/components/DraftBanner.tsx",
+      "to": "./AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/DuplicateInspector.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/DuplicateInspector.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/DuplicateInspector.tsx",
+      "to": "@/lib/columns",
+      "line": 4
+    },
+    {
+      "from": "app/components/DuplicateInspector.tsx",
+      "to": "./EditorDialog",
+      "line": 5
+    },
+    {
+      "from": "app/components/DuplicateInspector.tsx",
+      "to": "@/lib/unique",
+      "line": 6
+    },
+    {
+      "from": "app/components/EditorDialog.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/EditorDialog.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "./EditorDialog",
+      "line": 3
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "./SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "@/lib/access",
+      "line": 6
+    },
+    {
+      "from": "app/components/ExcelTransfer.tsx",
+      "to": "@/lib/excel",
+      "line": 7
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "@/app/components/FormulaEditor",
+      "line": 2
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "@/lib/expression",
+      "line": 7
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "./EditorDialog",
+      "line": 8
+    },
+    {
+      "from": "app/components/ExpressionAssistant.tsx",
+      "to": "./Icon",
+      "line": 9
+    },
+    {
+      "from": "app/components/FilterColumnEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/FilterColumnEditor.tsx",
+      "to": "./Icon",
+      "line": 2
+    },
+    {
+      "from": "app/components/FilterColumnEditor.tsx",
+      "to": "@/lib/view-filter-config",
+      "line": 2
+    },
+    {
+      "from": "app/components/FilterColumnEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 2
+    },
+    {
+      "from": "app/components/FormulaEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/FormulaEditor.tsx",
+      "to": "@/lib/formula-highlight",
+      "line": 3
+    },
+    {
+      "from": "app/components/FormulaEditor.tsx",
+      "to": "@/lib/formula-editing",
+      "line": 4
+    },
+    {
+      "from": "app/components/FormulaEditor.tsx",
+      "to": "@/lib/formula-completion",
+      "line": 5
+    },
+    {
+      "from": "app/components/FormulaEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/components/GroupByEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/GroupByEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 3
+    },
+    {
+      "from": "app/components/GroupByEditor.tsx",
+      "to": "@/lib/view-groups",
+      "line": 4
+    },
+    {
+      "from": "app/components/GroupNavigation.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/GroupNavigation.tsx",
+      "to": "@/lib/view-groups",
+      "line": 3
+    },
+    {
+      "from": "app/components/Icon.tsx",
+      "to": "react",
+      "line": 1
+    },
+    {
+      "from": "app/components/Icon.tsx",
+      "to": "@/lib/icons",
+      "line": 2
+    },
+    {
+      "from": "app/components/Icon.tsx",
+      "to": "@/lib/icons",
+      "line": 3
+    },
+    {
+      "from": "app/components/IconPicker.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/IconPicker.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/IconPicker.tsx",
+      "to": "@/lib/icons",
+      "line": 4
+    },
+    {
+      "from": "app/components/IconPicker.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/ImagePreviewProvider.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ImagePreviewProvider.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/view-groups",
+      "line": 2
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./useActionPreview",
+      "line": 3
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./AttachmentValue",
+      "line": 4
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./DecoratedValue",
+      "line": 5
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./RecordLabel",
+      "line": 6
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/action-navigation",
+      "line": 7
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./AuthProvider",
+      "line": 8
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/access",
+      "line": 9
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 10
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 11
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./PreviewImage",
+      "line": 12
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "react",
+      "line": 13
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "next/link",
+      "line": 14
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/views",
+      "line": 15
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/view-display",
+      "line": 16
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/columns",
+      "line": 17
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/automation",
+      "line": 18
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "@/lib/datetime",
+      "line": 19
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./PagedList",
+      "line": 20
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./ActionButton",
+      "line": 21
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./Icon",
+      "line": 22
+    },
+    {
+      "from": "app/components/InlineRelated.tsx",
+      "to": "./ConfirmDialog",
+      "line": 23
+    },
+    {
+      "from": "app/components/LocationField.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/LocationField.tsx",
+      "to": "./LocationMap",
+      "line": 3
+    },
+    {
+      "from": "app/components/LocationField.tsx",
+      "to": "@/lib/location",
+      "line": 4
+    },
+    {
+      "from": "app/components/LocationMap.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/LocationMap.tsx",
+      "to": "leaflet",
+      "line": 3
+    },
+    {
+      "from": "app/components/LocationMap.tsx",
+      "to": "@/lib/location",
+      "line": 4
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "./map-view.css",
+      "line": 2
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "./RecordLabel",
+      "line": 3
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "./Icon",
+      "line": 4
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "./AuthProvider",
+      "line": 5
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "@/lib/pwa",
+      "line": 6
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "./ImagePreviewProvider",
+      "line": 7
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "react",
+      "line": 8
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "@/lib/special-view-data",
+      "line": 9
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "@/lib/special-view-data",
+      "line": 10
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "@/lib/view-display",
+      "line": 11
+    },
+    {
+      "from": "app/components/MapView.tsx",
+      "to": "leaflet",
+      "line": 12
+    },
+    {
+      "from": "app/components/MyProfile.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/MyProfile.tsx",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/MyProfile.tsx",
+      "to": "./Icon",
+      "line": 4
+    },
+    {
+      "from": "app/components/MyProfile.tsx",
+      "to": "./useRuntimeExit",
+      "line": 5
+    },
+    {
+      "from": "app/components/NavigationBar.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/NavigationBar.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/NavigationBar.tsx",
+      "to": "@/lib/icons",
+      "line": 4
+    },
+    {
+      "from": "app/components/NavigationBar.tsx",
+      "to": "@/lib/navigation",
+      "line": 5
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "./NavigationBar",
+      "line": 3
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "@/lib/navigation",
+      "line": 6
+    },
+    {
+      "from": "app/components/NavigationBarEditor.tsx",
+      "to": "@/lib/views",
+      "line": 7
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "./Icon",
+      "line": 2
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "./RecordLabel",
+      "line": 3
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "next/link",
+      "line": 6
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "./AppLoading",
+      "line": 7
+    },
+    {
+      "from": "app/components/PagedList.tsx",
+      "to": "@/lib/columns",
+      "line": 8
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/uuid",
+      "line": 2
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/expression",
+      "line": 5
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/part-of-records",
+      "line": 7
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/views",
+      "line": 8
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/access",
+      "line": 9
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./AuthProvider",
+      "line": 10
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./InlineRelated",
+      "line": 11
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./PagedList",
+      "line": 12
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./RuntimeTable",
+      "line": 13
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./Icon",
+      "line": 14
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "./AppLoading",
+      "line": 15
+    },
+    {
+      "from": "app/components/PartOfForms.tsx",
+      "to": "@/lib/view-display",
+      "line": 16
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "@/lib/uuid",
+      "line": 2
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "react-dom",
+      "line": 5
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "./Icon",
+      "line": 6
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "./SearchSelect",
+      "line": 6
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "./ConfirmDialog",
+      "line": 6
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "./PdfTableProperties",
+      "line": 7
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "@/lib/pdf-design",
+      "line": 8
+    },
+    {
+      "from": "app/components/PdfDesigner.tsx",
+      "to": "@/lib/columns",
+      "line": 9
+    },
+    {
+      "from": "app/components/PdfTableProperties.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/PdfTableProperties.tsx",
+      "to": "./SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/components/PdfTableProperties.tsx",
+      "to": "./FormulaEditor",
+      "line": 4
+    },
+    {
+      "from": "app/components/PdfTableProperties.tsx",
+      "to": "@/lib/pdf-design",
+      "line": 5
+    },
+    {
+      "from": "app/components/PdfTableProperties.tsx",
+      "to": "@/lib/columns",
+      "line": 6
+    },
+    {
+      "from": "app/components/PerformanceRecorder.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/PerformanceRecorder.tsx",
+      "to": "@/lib/performance-client",
+      "line": 3
+    },
+    {
+      "from": "app/components/PreviewImage.tsx",
+      "to": "./AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/PreviewImage.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/components/PreviewImage.tsx",
+      "to": "./ImagePreviewProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/ProfileAvatarField.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RealtimeSync.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/components/RealtimeSync.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/RealtimeSync.tsx",
+      "to": "next/navigation",
+      "line": 4
+    },
+    {
+      "from": "app/components/RealtimeSync.tsx",
+      "to": "./AuthProvider",
+      "line": 5
+    },
+    {
+      "from": "app/components/RealtimeSync.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 6
+    },
+    {
+      "from": "app/components/RecordLabel.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RelatedDisplayEditor.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/RelatedDisplayEditor.tsx",
+      "to": "@/lib/views",
+      "line": 3
+    },
+    {
+      "from": "app/components/RelatedDisplayEditor.tsx",
+      "to": "@/lib/lists",
+      "line": 4
+    },
+    {
+      "from": "app/components/RelatedDisplayEditor.tsx",
+      "to": "@/lib/view-display",
+      "line": 5
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./SimulationTester",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./ActionValueEditor",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/app/components/FormulaEditor",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 5
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 6
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "react",
+      "line": 7
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "next/link",
+      "line": 8
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/lib/columns",
+      "line": 9
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/lib/expression",
+      "line": 10
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./IconPicker",
+      "line": 11
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./ActionButton",
+      "line": 12
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./ActionPreview",
+      "line": 13
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/lib/action-config",
+      "line": 14
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "@/lib/views",
+      "line": 15
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./Icon",
+      "line": 16
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./ConfirmDialog",
+      "line": 17
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./AppShell",
+      "line": 18
+    },
+    {
+      "from": "app/components/RuleManager.tsx",
+      "to": "./ExpressionAssistant",
+      "line": 19
+    },
+    {
+      "from": "app/components/RuntimeCloseButton.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeHeaderHost.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeNestedGuards.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeNestedGuards.tsx",
+      "to": "./useRuntimeExit",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimePageTrail.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimePageTrail.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimePageTrail.tsx",
+      "to": "./RuntimeCloseButton",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimePwa.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimePwa.tsx",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimePwa.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimePwa.tsx",
+      "to": "./EditorDialog",
+      "line": 5
+    },
+    {
+      "from": "app/components/RuntimePwa.tsx",
+      "to": "@/lib/pwa",
+      "line": 6
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "react-dom",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./RuntimeNestedGuards",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./RuntimeHeaderHost",
+      "line": 5
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./RuntimePageTrail",
+      "line": 6
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./Icon",
+      "line": 7
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./useRuntimeExit",
+      "line": 8
+    },
+    {
+      "from": "app/components/RuntimeScreen.tsx",
+      "to": "./RuntimeCloseButton",
+      "line": 9
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ScannableField",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/barcode",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/columns",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/views",
+      "line": 6
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./useRealtimeRevision",
+      "line": 7
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./GroupNavigation",
+      "line": 8
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/view-groups",
+      "line": 9
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./RuntimeCloseButton",
+      "line": 10
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./useRuntimeExit",
+      "line": 11
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ViewNotice",
+      "line": 12
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/uuid",
+      "line": 13
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/view-display",
+      "line": 15
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./useActionPreview",
+      "line": 17
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/draft-expression",
+      "line": 18
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/columns",
+      "line": 19
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./SignatureField",
+      "line": 20
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./UserField",
+      "line": 21
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/value-types",
+      "line": 22
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./AttachmentValue",
+      "line": 23
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./PartOfForms",
+      "line": 24
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/part-of-records",
+      "line": 25
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/view-names",
+      "line": 27
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./DecoratedValue",
+      "line": 28
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./RecordLabel",
+      "line": 29
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./LocationField",
+      "line": 30
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./LocationMap",
+      "line": 31
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/location",
+      "line": 32
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/image-upload",
+      "line": 33
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/action-navigation",
+      "line": 35
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ExcelTransfer",
+      "line": 36
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ActionButton",
+      "line": 37
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/action-config",
+      "line": 38
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/access",
+      "line": 40
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./AuthProvider",
+      "line": 41
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./TableTabs",
+      "line": 42
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 43
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ViewDataTabs",
+      "line": 44
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ViewQuickFilters",
+      "line": 45
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./ChoiceInput",
+      "line": 46
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 47
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./DataFilters",
+      "line": 48
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/data-filters",
+      "line": 49
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "react",
+      "line": 51
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 53
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./PreviewImage",
+      "line": 54
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./InlineRelated",
+      "line": 55
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "./PagedList",
+      "line": 56
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/lists",
+      "line": 57
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "next/link",
+      "line": 58
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 59
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/ConfirmDialog",
+      "line": 60
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/RuntimeScreen",
+      "line": 61
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/EditorDialog",
+      "line": 62
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/app/components/Icon",
+      "line": 63
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/columns",
+      "line": 64
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/datetime",
+      "line": 65
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/view-display",
+      "line": 66
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/views",
+      "line": 67
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/automation",
+      "line": 68
+    },
+    {
+      "from": "app/components/RuntimeTable.tsx",
+      "to": "@/lib/expression",
+      "line": 69
+    },
+    {
+      "from": "app/components/RuntimeTransition.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeTransition.tsx",
+      "to": "@/lib/runtime-page-stack",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimeTransition.tsx",
+      "to": "@/lib/views",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeTransition.tsx",
+      "to": "./AppLoading",
+      "line": 5
+    },
+    {
+      "from": "app/components/RuntimeTransition.tsx",
+      "to": "@/lib/performance-client",
+      "line": 6
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "./CustomRuntimeView",
+      "line": 2
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "./Icon",
+      "line": 3
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "./RuntimeTable",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "./SpecialRuntimeView",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "@/lib/views",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 4
+    },
+    {
+      "from": "app/components/RuntimeViewRenderer.tsx",
+      "to": "@/lib/view-display",
+      "line": 4
+    },
+    {
+      "from": "app/components/ScannableField.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ScannableField.tsx",
+      "to": "./EditorDialog",
+      "line": 3
+    },
+    {
+      "from": "app/components/ScannableField.tsx",
+      "to": "./Icon",
+      "line": 4
+    },
+    {
+      "from": "app/components/ScannableField.tsx",
+      "to": "@/lib/barcode",
+      "line": 5
+    },
+    {
+      "from": "app/components/ScannableField.tsx",
+      "to": "./barcode-scanner.css",
+      "line": 6
+    },
+    {
+      "from": "app/components/SearchSelect.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/SearchSelect.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/components/SearchSelect.tsx",
+      "to": "react-dom",
+      "line": 4
+    },
+    {
+      "from": "app/components/SearchSelect.tsx",
+      "to": "./RecordLabel",
+      "line": 5
+    },
+    {
+      "from": "app/components/SearchSelect.tsx",
+      "to": "./Icon",
+      "line": 6
+    },
+    {
+      "from": "app/components/SignatureField.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/SimulationTester.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/SimulationTester.tsx",
+      "to": "@/lib/action-trace",
+      "line": 3
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./useRealtimeRevision",
+      "line": 2
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 3
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "@/lib/view-display",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "@/lib/special-view-data",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "@/lib/views",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./AuthProvider",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "@/lib/access",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./AppLoading",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./Icon",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./MapView",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./ChartView",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./CalendarView",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialRuntimeView.tsx",
+      "to": "./RuntimeTable",
+      "line": 5
+    },
+    {
+      "from": "app/components/SpecialViewEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/SpecialViewEditor.tsx",
+      "to": "@/lib/views",
+      "line": 2
+    },
+    {
+      "from": "app/components/SpecialViewEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 2
+    },
+    {
+      "from": "app/components/SpecialViewEditor.tsx",
+      "to": "@/lib/view-display",
+      "line": 2
+    },
+    {
+      "from": "app/components/TableTabs.tsx",
+      "to": "next/link",
+      "line": 1
+    },
+    {
+      "from": "app/components/TableTabs.tsx",
+      "to": "./Icon",
+      "line": 2
+    },
+    {
+      "from": "app/components/useActionPreview.ts",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/useActionPreview.ts",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/useActionPreview.ts",
+      "to": "@/lib/action-config",
+      "line": 4
+    },
+    {
+      "from": "app/components/useActionPreview.ts",
+      "to": "@/lib/automation",
+      "line": 5
+    },
+    {
+      "from": "app/components/useCustomBindings.ts",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/useCustomBindings.ts",
+      "to": "@/lib/custom-binding-scope",
+      "line": 3
+    },
+    {
+      "from": "app/components/useCustomBindings.ts",
+      "to": "@/lib/expression",
+      "line": 4
+    },
+    {
+      "from": "app/components/useCustomBindings.ts",
+      "to": "@/lib/custom-page",
+      "line": 5
+    },
+    {
+      "from": "app/components/useCustomBindings.ts",
+      "to": "./AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/components/useRealtimeRevision.ts",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/useRealtimeRevision.ts",
+      "to": "@/lib/runtime-cache",
+      "line": 3
+    },
+    {
+      "from": "app/components/UserField.tsx",
+      "to": "./UserLabel",
+      "line": 2
+    },
+    {
+      "from": "app/components/UserField.tsx",
+      "to": "./SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/components/UserField.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/UserField.tsx",
+      "to": "./AuthProvider",
+      "line": 4
+    },
+    {
+      "from": "app/components/UserLabel.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "next/navigation",
+      "line": 3
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "@/lib/user-settings",
+      "line": 4
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "@/lib/expression",
+      "line": 5
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "./EditorDialog",
+      "line": 6
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "./ConfirmDialog",
+      "line": 7
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "./SearchSelect",
+      "line": 8
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "./AppLoading",
+      "line": 9
+    },
+    {
+      "from": "app/components/UserSettingsEditor.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 10
+    },
+    {
+      "from": "app/components/useRuntimeExit.ts",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "@/app/components/FormulaEditor",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "./AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "react",
+      "line": 4
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 5
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "@/lib/view-visibility",
+      "line": 6
+    },
+    {
+      "from": "app/components/ViewConditionEditor.tsx",
+      "to": "./Icon",
+      "line": 7
+    },
+    {
+      "from": "app/components/ViewDataTabs.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDataTabs.tsx",
+      "to": "./AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDataTabs.tsx",
+      "to": "./SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDataTabs.tsx",
+      "to": "@/lib/columns",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDataTabs.tsx",
+      "to": "@/lib/data-filters",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/view-filter-config",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "./FilterColumnEditor",
+      "line": 3
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "./SpecialViewEditor",
+      "line": 4
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 5
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "react",
+      "line": 6
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/automation",
+      "line": 7
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/views",
+      "line": 8
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/columns",
+      "line": 9
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/lists",
+      "line": 10
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/view-display",
+      "line": 11
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "./AppSettingsProvider",
+      "line": 12
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "@/lib/view-display",
+      "line": 13
+    },
+    {
+      "from": "app/components/ViewDisplayEditor.tsx",
+      "to": "./Icon",
+      "line": 14
+    },
+    {
+      "from": "app/components/ViewNotice.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewQuickFilters.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewQuickFilters.tsx",
+      "to": "./SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewQuickFilters.tsx",
+      "to": "./AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewQuickFilters.tsx",
+      "to": "@/lib/columns",
+      "line": 2
+    },
+    {
+      "from": "app/components/ViewQuickFilters.tsx",
+      "to": "@/lib/data-filters",
+      "line": 2
+    },
+    {
+      "from": "app/components/WorkflowActivity.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/components/WorkflowActivity.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 2
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "./SchemaDiagram",
+      "line": 2
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 4
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 5
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "react",
+      "line": 6
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "next/navigation",
+      "line": 7
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "next/link",
+      "line": 8
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "../components/ColumnEditor",
+      "line": 9
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "../components/EditorDialog",
+      "line": 10
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "../components/Icon",
+      "line": 11
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "../components/AppShell",
+      "line": 12
+    },
+    {
+      "from": "app/data/page.tsx",
+      "to": "@/lib/columns",
+      "line": 13
+    },
+    {
+      "from": "app/data/SchemaDiagram.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/data/SchemaDiagram.tsx",
+      "to": "next/link",
+      "line": 3
+    },
+    {
+      "from": "app/data/SchemaDiagram.tsx",
+      "to": "../components/Icon",
+      "line": 4
+    },
+    {
+      "from": "app/data/SchemaDiagram.tsx",
+      "to": "@/lib/schema-diagram",
+      "line": 5
+    },
+    {
+      "from": "app/data/SchemaDiagram.tsx",
+      "to": "./schema-diagram.css",
+      "line": 6
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "@/lib/columns",
+      "line": 3
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "@/lib/views",
+      "line": 4
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "@/lib/data-decoration",
+      "line": 5
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/DesignerPreview",
+      "line": 6
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/DataStylesEditor",
+      "line": 7
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/SearchSelect",
+      "line": 8
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/Icon",
+      "line": 9
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 10
+    },
+    {
+      "from": "app/decorations/page.tsx",
+      "to": "../components/AppShell",
+      "line": 11
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "@/lib/uuid",
+      "line": 2
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "@/app/components/FormulaEditor",
+      "line": 4
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "@/lib/formula-guide",
+      "line": 6
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "@/lib/expression",
+      "line": 7
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 8
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "../components/Icon",
+      "line": 9
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "../components/EditorDialog",
+      "line": 10
+    },
+    {
+      "from": "app/formulas/page.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 11
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/pwa-server",
+      "line": 1
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/application-context",
+      "line": 3
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/applications",
+      "line": 4
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./components/RealtimeSync",
+      "line": 5
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/db",
+      "line": 6
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/releases",
+      "line": 7
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "leaflet/dist/leaflet.css",
+      "line": 8
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/landing-page",
+      "line": 9
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/settings-server",
+      "line": 10
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/app-settings",
+      "line": 11
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "react",
+      "line": 12
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "next/headers",
+      "line": 13
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "next/navigation",
+      "line": 14
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/auth",
+      "line": 15
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/user-settings",
+      "line": 16
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/permissions",
+      "line": 17
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "@/lib/access",
+      "line": 18
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./components/AuthProvider",
+      "line": 19
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./fonts.css",
+      "line": 20
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./globals.css",
+      "line": 21
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./runtime-layout.css",
+      "line": 22
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./components/ImagePreviewProvider",
+      "line": 23
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./components/AppShell",
+      "line": 24
+    },
+    {
+      "from": "app/layout.tsx",
+      "to": "./components/AppSettingsProvider",
+      "line": 25
+    },
+    {
+      "from": "app/loading.tsx",
+      "to": "./components/AppLoading",
+      "line": 1
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/lib/pwa",
+      "line": 2
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/app/components/AppIcon",
+      "line": 3
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/app/components/AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/app/components/AppSettingsProvider",
+      "line": 7
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/app/components/Icon",
+      "line": 8
+    },
+    {
+      "from": "app/login/page.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 9
+    },
+    {
+      "from": "app/page.tsx",
+      "to": "next/navigation",
+      "line": 1
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "next/link",
+      "line": 2
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "../components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "../components/Icon",
+      "line": 2
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 3
+    },
+    {
+      "from": "app/performance/page.tsx",
+      "to": "@/lib/performance-client",
+      "line": 4
+    },
+    {
+      "from": "app/preview/page.tsx",
+      "to": "next/navigation",
+      "line": 1
+    },
+    {
+      "from": "app/readiness/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/readiness/page.tsx",
+      "to": "next/link",
+      "line": 2
+    },
+    {
+      "from": "app/readiness/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/readiness/page.tsx",
+      "to": "../components/SimulationTester",
+      "line": 2
+    },
+    {
+      "from": "app/readiness/page.tsx",
+      "to": "../components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/releases/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/releases/page.tsx",
+      "to": "../components/AuthProvider",
+      "line": 2
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimePwa",
+      "line": 2
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/lib/pwa",
+      "line": 3
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "../components/useRuntimeExit",
+      "line": 4
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "../components/ViewNotice",
+      "line": 5
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/WorkflowActivity",
+      "line": 6
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimeNestedGuards",
+      "line": 7
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimeHeaderHost",
+      "line": 8
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/AppHeader",
+      "line": 9
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/EditorDialog",
+      "line": 10
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/NavigationBar",
+      "line": 11
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/lib/runtime-page-stack",
+      "line": 12
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimePageTrail",
+      "line": 13
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/lib/action-navigation",
+      "line": 15
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/AuthProvider",
+      "line": 16
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/lib/runtime-cache",
+      "line": 17
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "react",
+      "line": 18
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/lib/views",
+      "line": 19
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 20
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimeTransition",
+      "line": 21
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/MyProfile",
+      "line": 22
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/UserSettingsEditor",
+      "line": 23
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/RuntimeViewRenderer",
+      "line": 24
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/Icon",
+      "line": 25
+    },
+    {
+      "from": "app/run/page.tsx",
+      "to": "@/app/components/AppSettingsProvider",
+      "line": 26
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/AppHeaderEditor",
+      "line": 2
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/NavigationBarEditor",
+      "line": 3
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/lib/media-settings",
+      "line": 4
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/AppIcon",
+      "line": 6
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/lib/image-upload",
+      "line": 7
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/lib/views",
+      "line": 8
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 10
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "react",
+      "line": 11
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/lib/app-settings",
+      "line": 12
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/AppSettingsProvider",
+      "line": 13
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/AppLoading",
+      "line": 14
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "@/app/components/IconPicker",
+      "line": 15
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/Icon",
+      "line": 16
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/AppDisplayDefaultsEditor",
+      "line": 17
+    },
+    {
+      "from": "app/settings/page.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 18
+    },
+    {
+      "from": "app/slices/page.tsx",
+      "to": "../components/RuleManager",
+      "line": 1
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/TableTabs",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 4
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "next/navigation",
+      "line": 6
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "next/link",
+      "line": 7
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/ExpressionAssistant",
+      "line": 8
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/ColumnEditor",
+      "line": 9
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/DuplicateInspector",
+      "line": 10
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/ColumnConversionDialog",
+      "line": 11
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/ConfirmDialog",
+      "line": 12
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/EditorDialog",
+      "line": 13
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/Icon",
+      "line": 14
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/ColumnCell",
+      "line": 15
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/app/components/AppShell",
+      "line": 16
+    },
+    {
+      "from": "app/t/[table]/edit/page.tsx",
+      "to": "@/lib/columns",
+      "line": 17
+    },
+    {
+      "from": "app/t/[table]/page.tsx",
+      "to": "next/navigation",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/page.tsx",
+      "to": "@/app/components/RuntimeTable",
+      "line": 3
+    },
+    {
+      "from": "app/t/[table]/raw/page.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/raw/page.tsx",
+      "to": "next/navigation",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/raw/page.tsx",
+      "to": "@/app/components/TableTabs",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/raw/page.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 2
+    },
+    {
+      "from": "app/t/[table]/raw/page.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 2
+    },
+    {
+      "from": "app/users/BuilderAccessEditor.tsx",
+      "to": "react",
+      "line": 2
+    },
+    {
+      "from": "app/users/BuilderAccessEditor.tsx",
+      "to": "../components/SearchSelect",
+      "line": 3
+    },
+    {
+      "from": "app/users/BuilderAccessEditor.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 4
+    },
+    {
+      "from": "app/users/page.tsx",
+      "to": "next/navigation",
+      "line": 1
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/ProfileAvatarField",
+      "line": 2
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "./BuilderAccessEditor",
+      "line": 3
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "next/navigation",
+      "line": 4
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "react",
+      "line": 5
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/AuthProvider",
+      "line": 6
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/UserSettingsEditor",
+      "line": 7
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/EditorDialog",
+      "line": 8
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 9
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/SearchSelect",
+      "line": 10
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/Icon",
+      "line": 11
+    },
+    {
+      "from": "app/users/UsersManager.tsx",
+      "to": "../components/AppLoading",
+      "line": 12
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/EditorDialog",
+      "line": 2
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/CustomPageDisplayEditor",
+      "line": 3
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/CustomPageDesigner",
+      "line": 4
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/custom-page",
+      "line": 5
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/GroupByEditor",
+      "line": 6
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/view-groups",
+      "line": 7
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/view-names",
+      "line": 8
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/SearchSelect",
+      "line": 9
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/AppLoading",
+      "line": 10
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "react",
+      "line": 11
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "next/link",
+      "line": 12
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/columns",
+      "line": 13
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/views",
+      "line": 14
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/IconPicker",
+      "line": 15
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/ViewConditionEditor",
+      "line": 16
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/ConfirmDialog",
+      "line": 17
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/RelatedDisplayEditor",
+      "line": 18
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/lists",
+      "line": 19
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/ViewDisplayEditor",
+      "line": 20
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/DesignerPreview",
+      "line": 21
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/app/components/Icon",
+      "line": 22
+    },
+    {
+      "from": "app/views/page.tsx",
+      "to": "@/lib/automation",
+      "line": 23
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/SimulationTester",
+      "line": 2
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "react",
+      "line": 3
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/Icon",
+      "line": 4
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/PdfDesigner",
+      "line": 5
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/SearchSelect",
+      "line": 6
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/FormulaEditor",
+      "line": 7
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/ConfirmDialog",
+      "line": 8
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "../components/AppLoading",
+      "line": 9
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "@/lib/expression",
+      "line": 10
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "@/lib/workflow-config",
+      "line": 11
+    },
+    {
+      "from": "app/workflows/page.tsx",
+      "to": "@/lib/columns",
+      "line": 12
+    },
+    {
+      "from": "lib/account-fields.ts",
+      "to": "./auth",
+      "line": 1
+    },
+    {
+      "from": "lib/account-fields.ts",
+      "to": "better-sqlite3",
+      "line": 2
+    },
+    {
+      "from": "lib/action-config.ts",
+      "to": "./icons",
+      "line": 1
+    },
+    {
+      "from": "lib/action-navigation.ts",
+      "to": "./pwa",
+      "line": 1
+    },
+    {
+      "from": "lib/action-navigation.ts",
+      "to": "./uuid",
+      "line": 2
+    },
+    {
+      "from": "lib/action-trace.ts",
+      "to": "node:async_hooks",
+      "line": 1
+    },
+    {
+      "from": "lib/api.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/api.ts",
+      "to": "next/server",
+      "line": 2
+    },
+    {
+      "from": "lib/app-settings.ts",
+      "to": "./header-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/app-settings.ts",
+      "to": "./navigation",
+      "line": 2
+    },
+    {
+      "from": "lib/app-settings.ts",
+      "to": "./media-settings",
+      "line": 3
+    },
+    {
+      "from": "lib/app-settings.ts",
+      "to": "./view-display",
+      "line": 4
+    },
+    {
+      "from": "lib/app-settings.ts",
+      "to": "./icons",
+      "line": 5
+    },
+    {
+      "from": "lib/app-usage.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/app-usage.ts",
+      "to": "./auth",
+      "line": 2
+    },
+    {
+      "from": "lib/app-usage.ts",
+      "to": "./audit-log",
+      "line": 3
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "node:crypto",
+      "line": 2
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./schema",
+      "line": 3
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./applications",
+      "line": 5
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./application-context",
+      "line": 6
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./application-lifecycle",
+      "line": 7
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./restore-applications",
+      "line": 8
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./media-inventory",
+      "line": 9
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./app-usage",
+      "line": 10
+    },
+    {
+      "from": "lib/application-backups.ts",
+      "to": "./auth",
+      "line": 11
+    },
+    {
+      "from": "lib/application-clone-config.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/application-context.ts",
+      "to": "node:async_hooks",
+      "line": 1
+    },
+    {
+      "from": "lib/application-context.ts",
+      "to": "./access",
+      "line": 2
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./applications",
+      "line": 3
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./application-context",
+      "line": 4
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./auth",
+      "line": 5
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./builder-security",
+      "line": 6
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./schema",
+      "line": 7
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./realtime-schema",
+      "line": 8
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./audit-schema",
+      "line": 9
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./application-clone-config",
+      "line": 10
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./expression",
+      "line": 11
+    },
+    {
+      "from": "lib/application-lifecycle.ts",
+      "to": "./columns",
+      "line": 12
+    },
+    {
+      "from": "lib/application-membership.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/application-role-grants.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/application-role-grants.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/application-role-grants.ts",
+      "to": "./application-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./builder-security",
+      "line": 1
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "node:crypto",
+      "line": 2
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./permissions",
+      "line": 4
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./auth",
+      "line": 5
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./application-context",
+      "line": 6
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./action-config",
+      "line": 7
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./row-access",
+      "line": 8
+    },
+    {
+      "from": "lib/application-roles.ts",
+      "to": "./access",
+      "line": 9
+    },
+    {
+      "from": "lib/application-schema.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/application-schema.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./app-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./icons",
+      "line": 2
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./builder-security",
+      "line": 3
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./application-membership",
+      "line": 4
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "node:crypto",
+      "line": 5
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./db",
+      "line": 6
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./auth",
+      "line": 7
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./application-schema",
+      "line": 8
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./schema",
+      "line": 9
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./audit-schema",
+      "line": 10
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./application-context",
+      "line": 11
+    },
+    {
+      "from": "lib/applications.ts",
+      "to": "./access",
+      "line": 12
+    },
+    {
+      "from": "lib/audit-context.ts",
+      "to": "node:async_hooks",
+      "line": 1
+    },
+    {
+      "from": "lib/audit-context.ts",
+      "to": "node:crypto",
+      "line": 2
+    },
+    {
+      "from": "lib/audit-log.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/audit-log.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/audit-log.ts",
+      "to": "./auth",
+      "line": 3
+    },
+    {
+      "from": "lib/audit-log.ts",
+      "to": "./audit-display",
+      "line": 4
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "./application-schema",
+      "line": 1
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "better-sqlite3",
+      "line": 3
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "node:crypto",
+      "line": 4
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "./audit-context",
+      "line": 5
+    },
+    {
+      "from": "lib/audit-schema.ts",
+      "to": "./audit-display",
+      "line": 6
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./app-usage",
+      "line": 1
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./application-context",
+      "line": 3
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./applications",
+      "line": 4
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./releases",
+      "line": 5
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./draft-request",
+      "line": 6
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./audit-context",
+      "line": 7
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "next/server",
+      "line": 8
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./db",
+      "line": 9
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./auth",
+      "line": 10
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./permissions",
+      "line": 11
+    },
+    {
+      "from": "lib/auth-api.ts",
+      "to": "./system-metrics",
+      "line": 12
+    },
+    {
+      "from": "lib/auth-response.ts",
+      "to": "next/server",
+      "line": 1
+    },
+    {
+      "from": "lib/auth-response.ts",
+      "to": "./auth",
+      "line": 2
+    },
+    {
+      "from": "lib/auth-schema.ts",
+      "to": "better-sqlite3",
+      "line": 19
+    },
+    {
+      "from": "lib/auth.ts",
+      "to": "./app-usage",
+      "line": 1
+    },
+    {
+      "from": "lib/auth.ts",
+      "to": "./account-fields",
+      "line": 2
+    },
+    {
+      "from": "lib/auth.ts",
+      "to": "node:crypto",
+      "line": 3
+    },
+    {
+      "from": "lib/auth.ts",
+      "to": "better-sqlite3",
+      "line": 4
+    },
+    {
+      "from": "lib/auth.ts",
+      "to": "./db",
+      "line": 5
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./action-trace",
+      "line": 1
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./workflows",
+      "line": 2
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./delete-record",
+      "line": 3
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./data-write",
+      "line": 4
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./action-config",
+      "line": 5
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./row-access",
+      "line": 6
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./permissions",
+      "line": 7
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./db",
+      "line": 8
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./columns",
+      "line": 9
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./expression",
+      "line": 10
+    },
+    {
+      "from": "lib/automation.ts",
+      "to": "./expression-context",
+      "line": 11
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./application-context",
+      "line": 1
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./releases",
+      "line": 2
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./auth",
+      "line": 3
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./restore-applications",
+      "line": 4
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "node:crypto",
+      "line": 5
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "node:fs",
+      "line": 6
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "node:path",
+      "line": 7
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "next/server",
+      "line": 8
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./db",
+      "line": 9
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./permissions",
+      "line": 10
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./backups",
+      "line": 11
+    },
+    {
+      "from": "lib/backup-stages.ts",
+      "to": "./api",
+      "line": 12
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./custom-page-references",
+      "line": 1
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./views",
+      "line": 2
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./application-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./application-context",
+      "line": 5
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./builder-security",
+      "line": 6
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./restore-applications",
+      "line": 7
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./realtime-schema",
+      "line": 8
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./workflow-validation",
+      "line": 9
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./audit-schema",
+      "line": 10
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./audit-context",
+      "line": 11
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./part-of-config",
+      "line": 12
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./special-view-config",
+      "line": 13
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./action-config",
+      "line": 14
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./auth-schema",
+      "line": 15
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "better-sqlite3",
+      "line": 16
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "node:fs",
+      "line": 17
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "node:path",
+      "line": 18
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "node:crypto",
+      "line": 19
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./schema",
+      "line": 20
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./columns",
+      "line": 21
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./app-settings",
+      "line": 22
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./view-display",
+      "line": 23
+    },
+    {
+      "from": "lib/backups.ts",
+      "to": "./list-reference-migration",
+      "line": 24
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./access",
+      "line": 1
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./permissions",
+      "line": 3
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./columns",
+      "line": 5
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./barcode",
+      "line": 6
+    },
+    {
+      "from": "lib/barcode-reference.ts",
+      "to": "./auth",
+      "line": 7
+    },
+    {
+      "from": "lib/builder-security.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/builder-security.ts",
+      "to": "node:crypto",
+      "line": 2
+    },
+    {
+      "from": "lib/builder-security.ts",
+      "to": "./application-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/builder-security.ts",
+      "to": "./application-context",
+      "line": 4
+    },
+    {
+      "from": "lib/builder-security.ts",
+      "to": "./auth",
+      "line": 5
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./custom-page-references",
+      "line": 1
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./realtime-schema",
+      "line": 2
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./workflow-validation",
+      "line": 3
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./audit-schema",
+      "line": 4
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./audit-context",
+      "line": 5
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./part-of-config",
+      "line": 6
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./action-config",
+      "line": 7
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "better-sqlite3",
+      "line": 8
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "node:crypto",
+      "line": 9
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./columns",
+      "line": 10
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./unique",
+      "line": 11
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./datetime",
+      "line": 12
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./schema",
+      "line": 13
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./expression-context",
+      "line": 14
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./expression",
+      "line": 15
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./view-display",
+      "line": 16
+    },
+    {
+      "from": "lib/column-conversion.ts",
+      "to": "./view-visibility",
+      "line": 17
+    },
+    {
+      "from": "lib/columns.ts",
+      "to": "./scalar-fields",
+      "line": 1
+    },
+    {
+      "from": "lib/columns.ts",
+      "to": "./expression",
+      "line": 2
+    },
+    {
+      "from": "lib/columns.ts",
+      "to": "./location",
+      "line": 3
+    },
+    {
+      "from": "lib/columns.ts",
+      "to": "./duration",
+      "line": 4
+    },
+    {
+      "from": "lib/columns.ts",
+      "to": "./datetime",
+      "line": 5
+    },
+    {
+      "from": "lib/custom-binding-scope.ts",
+      "to": "./access",
+      "line": 1
+    },
+    {
+      "from": "lib/custom-page-references.ts",
+      "to": "./custom-page",
+      "line": 1
+    },
+    {
+      "from": "lib/custom-page-references.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/custom-page-references.ts",
+      "to": "./expression",
+      "line": 3
+    },
+    {
+      "from": "lib/data-decoration.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/data-decoration.ts",
+      "to": "./icons",
+      "line": 2
+    },
+    {
+      "from": "lib/data-decoration.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/data-filters.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./action-trace",
+      "line": 1
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./row-version",
+      "line": 2
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./workflows",
+      "line": 3
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./part-of-records",
+      "line": 4
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./auth",
+      "line": 5
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./db",
+      "line": 6
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./columns",
+      "line": 7
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./permissions",
+      "line": 8
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./row-access",
+      "line": 9
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./expression-context",
+      "line": 10
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./unique",
+      "line": 11
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./files",
+      "line": 12
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./images",
+      "line": 13
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./lists",
+      "line": 14
+    },
+    {
+      "from": "lib/data-write.ts",
+      "to": "./enumlist-reference-updates",
+      "line": 15
+    },
+    {
+      "from": "lib/database-backup.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/database-backup.ts",
+      "to": "./backups",
+      "line": 2
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "./application-context",
+      "line": 1
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "node:async_hooks",
+      "line": 2
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "./audit-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "better-sqlite3",
+      "line": 4
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "node:path",
+      "line": 5
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "./columns",
+      "line": 6
+    },
+    {
+      "from": "lib/db.ts",
+      "to": "./schema",
+      "line": 7
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./action-trace",
+      "line": 1
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./workflows",
+      "line": 2
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./permissions",
+      "line": 4
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./row-access",
+      "line": 5
+    },
+    {
+      "from": "lib/delete-record.ts",
+      "to": "./lists",
+      "line": 6
+    },
+    {
+      "from": "lib/draft-expression.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/draft-expression.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/draft-request.ts",
+      "to": "./auth",
+      "line": 1
+    },
+    {
+      "from": "lib/draft-request.ts",
+      "to": "./auth",
+      "line": 1
+    },
+    {
+      "from": "lib/draft-request.ts",
+      "to": "./access",
+      "line": 1
+    },
+    {
+      "from": "lib/draft-request.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/draft-request.ts",
+      "to": "./releases",
+      "line": 1
+    },
+    {
+      "from": "lib/duration.ts",
+      "to": "./datetime",
+      "line": 1
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "./application-context",
+      "line": 1
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "./permissions",
+      "line": 2
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "./row-access",
+      "line": 3
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "better-sqlite3",
+      "line": 4
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "./columns",
+      "line": 5
+    },
+    {
+      "from": "lib/enumlist-reference-updates.ts",
+      "to": "./expression",
+      "line": 6
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./user-fields",
+      "line": 1
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./expression",
+      "line": 2
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./reference-labels",
+      "line": 3
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "exceljs",
+      "line": 4
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./db",
+      "line": 5
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./columns",
+      "line": 6
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./permissions",
+      "line": 7
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./row-access",
+      "line": 8
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./expression-context",
+      "line": 9
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./data-write",
+      "line": 10
+    },
+    {
+      "from": "lib/excel.ts",
+      "to": "./api",
+      "line": 11
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./row-access",
+      "line": 1
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./user-settings",
+      "line": 2
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./permissions",
+      "line": 3
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "better-sqlite3",
+      "line": 5
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./schema",
+      "line": 6
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./columns",
+      "line": 7
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/expression-context.ts",
+      "to": "./expression",
+      "line": 9
+    },
+    {
+      "from": "lib/expression.ts",
+      "to": "./uuid",
+      "line": 1
+    },
+    {
+      "from": "lib/expression.ts",
+      "to": "./datetime",
+      "line": 2
+    },
+    {
+      "from": "lib/expression.ts",
+      "to": "./location",
+      "line": 3
+    },
+    {
+      "from": "lib/expression.ts",
+      "to": "./duration",
+      "line": 4
+    },
+    {
+      "from": "lib/expression.ts",
+      "to": "./expression-text",
+      "line": 5
+    },
+    {
+      "from": "lib/file-storage.ts",
+      "to": "node:fs",
+      "line": 1
+    },
+    {
+      "from": "lib/file-storage.ts",
+      "to": "node:path",
+      "line": 2
+    },
+    {
+      "from": "lib/file-storage.ts",
+      "to": "./media-settings",
+      "line": 3
+    },
+    {
+      "from": "lib/files.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/files.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/files.ts",
+      "to": "./permissions",
+      "line": 1
+    },
+    {
+      "from": "lib/form-save.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/form-save.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/form-save.ts",
+      "to": "./data-write",
+      "line": 3
+    },
+    {
+      "from": "lib/form-save.ts",
+      "to": "./automation",
+      "line": 4
+    },
+    {
+      "from": "lib/form-save.ts",
+      "to": "./expression-context",
+      "line": 5
+    },
+    {
+      "from": "lib/formula-completion.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/formula-completion.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/formula-dependencies.ts",
+      "to": "./part-of-config",
+      "line": 1
+    },
+    {
+      "from": "lib/formula-dependencies.ts",
+      "to": "./action-config",
+      "line": 2
+    },
+    {
+      "from": "lib/formula-dependencies.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/formula-dependencies.ts",
+      "to": "./columns",
+      "line": 4
+    },
+    {
+      "from": "lib/formula-dependencies.ts",
+      "to": "./expression",
+      "line": 5
+    },
+    {
+      "from": "lib/header-settings.ts",
+      "to": "./media-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/image-files.ts",
+      "to": "node:fs",
+      "line": 1
+    },
+    {
+      "from": "lib/image-files.ts",
+      "to": "node:path",
+      "line": 1
+    },
+    {
+      "from": "lib/image-files.ts",
+      "to": "./media-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/image-upload.ts",
+      "to": "./app-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/images.ts",
+      "to": "./permissions",
+      "line": 1
+    },
+    {
+      "from": "lib/images.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/images.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/inline-views.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/inline-views.ts",
+      "to": "./view-display",
+      "line": 2
+    },
+    {
+      "from": "lib/inline-views.ts",
+      "to": "./views",
+      "line": 3
+    },
+    {
+      "from": "lib/inline-views.ts",
+      "to": "./lists",
+      "line": 4
+    },
+    {
+      "from": "lib/landing-page.ts",
+      "to": "./auth",
+      "line": 1
+    },
+    {
+      "from": "lib/list-reference-migration.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/list-reference-migration.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/list-reference-migration.ts",
+      "to": "./expression",
+      "line": 3
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./view-groups",
+      "line": 1
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./row-version",
+      "line": 2
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./action-config",
+      "line": 3
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./permissions",
+      "line": 5
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./db",
+      "line": 6
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./columns",
+      "line": 7
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./reference-labels",
+      "line": 8
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./expression-context",
+      "line": 9
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./expression",
+      "line": 10
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./columns",
+      "line": 11
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./view-display",
+      "line": 12
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./views",
+      "line": 13
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./views",
+      "line": 14
+    },
+    {
+      "from": "lib/lists.ts",
+      "to": "./view-visibility",
+      "line": 15
+    },
+    {
+      "from": "lib/map-view-scope.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/map-view-scope.ts",
+      "to": "./automation",
+      "line": 1
+    },
+    {
+      "from": "lib/map-view-scope.ts",
+      "to": "./special-view-data",
+      "line": 1
+    },
+    {
+      "from": "lib/map-view-scope.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/map-view-scope.ts",
+      "to": "./view-display",
+      "line": 1
+    },
+    {
+      "from": "lib/media-inventory.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/media-inventory.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./barcode",
+      "line": 1
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./file-storage",
+      "line": 2
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./part-of-config",
+      "line": 3
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./media-settings",
+      "line": 4
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./columns",
+      "line": 5
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./unique",
+      "line": 6
+    },
+    {
+      "from": "lib/metadata.ts",
+      "to": "./db",
+      "line": 7
+    },
+    {
+      "from": "lib/part-of-config.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./row-version",
+      "line": 1
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./form-save",
+      "line": 2
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./auth",
+      "line": 3
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./data-write",
+      "line": 5
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./delete-record",
+      "line": 6
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./permissions",
+      "line": 7
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./expression",
+      "line": 9
+    },
+    {
+      "from": "lib/part-of-records.ts",
+      "to": "./expression-context",
+      "line": 10
+    },
+    {
+      "from": "lib/pdf-design-html.ts",
+      "to": "./pdf-design",
+      "line": 1
+    },
+    {
+      "from": "lib/pdf-design-html.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/pdf-design.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/pdf-design.ts",
+      "to": "./expression",
+      "line": 2
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./value-types",
+      "line": 1
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./user-fields",
+      "line": 2
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./datetime",
+      "line": 3
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./pdf-design-html",
+      "line": 4
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./pdf-design",
+      "line": 5
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./expression",
+      "line": 6
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "node:fs",
+      "line": 7
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "node:path",
+      "line": 8
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./db",
+      "line": 9
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./permissions",
+      "line": 10
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./row-access",
+      "line": 11
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./columns",
+      "line": 12
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./permissions",
+      "line": 13
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./expression",
+      "line": 14
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./expression-context",
+      "line": 15
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./workflows",
+      "line": 16
+    },
+    {
+      "from": "lib/pdf-report.ts",
+      "to": "./workflow-config",
+      "line": 17
+    },
+    {
+      "from": "lib/performance-client.ts",
+      "to": "./uuid",
+      "line": 1
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./permissions",
+      "line": 2
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./auth",
+      "line": 3
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./columns",
+      "line": 5
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./expression",
+      "line": 6
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./expression-context",
+      "line": 7
+    },
+    {
+      "from": "lib/performance-report.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./user-fields",
+      "line": 1
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./builder-security",
+      "line": 2
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./application-membership",
+      "line": 3
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./application-context",
+      "line": 4
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./action-config",
+      "line": 5
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./row-access",
+      "line": 6
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "node:async_hooks",
+      "line": 7
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "better-sqlite3",
+      "line": 8
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./db",
+      "line": 9
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./auth",
+      "line": 10
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./access",
+      "line": 11
+    },
+    {
+      "from": "lib/permissions.ts",
+      "to": "./columns",
+      "line": 43
+    },
+    {
+      "from": "lib/platform-overview.ts",
+      "to": "./builder-security",
+      "line": 1
+    },
+    {
+      "from": "lib/platform-overview.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/platform-overview.ts",
+      "to": "./applications",
+      "line": 3
+    },
+    {
+      "from": "lib/pwa-server.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/pwa-server.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/pwa-server.ts",
+      "to": "./settings-server",
+      "line": 3
+    },
+    {
+      "from": "lib/pwa-server.ts",
+      "to": "./app-settings",
+      "line": 4
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./custom-page-references",
+      "line": 1
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./permissions",
+      "line": 2
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./columns",
+      "line": 4
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./view-display",
+      "line": 5
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./special-view-config",
+      "line": 6
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./inline-views",
+      "line": 7
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./view-visibility",
+      "line": 8
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./workflow-config",
+      "line": 9
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./workflows",
+      "line": 10
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./automation",
+      "line": 11
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./action-config",
+      "line": 12
+    },
+    {
+      "from": "lib/readiness.ts",
+      "to": "./expression-context",
+      "line": 13
+    },
+    {
+      "from": "lib/realtime-schema.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./data-decoration",
+      "line": 1
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./expression-context",
+      "line": 5
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./permissions",
+      "line": 6
+    },
+    {
+      "from": "lib/reference-labels.ts",
+      "to": "./expression",
+      "line": 7
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./application-role-grants",
+      "line": 1
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "better-sqlite3",
+      "line": 4
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "node:crypto",
+      "line": 5
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "node:fs",
+      "line": 6
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "node:path",
+      "line": 7
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./db",
+      "line": 8
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./audit-schema",
+      "line": 9
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./schema",
+      "line": 10
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./readiness",
+      "line": 11
+    },
+    {
+      "from": "lib/releases.ts",
+      "to": "./auth",
+      "line": 12
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "node:crypto",
+      "line": 2
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./user-settings",
+      "line": 4
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./application-schema",
+      "line": 5
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./application-context",
+      "line": 6
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./schema",
+      "line": 7
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./row-access",
+      "line": 9
+    },
+    {
+      "from": "lib/restore-applications.ts",
+      "to": "./builder-security",
+      "line": 10
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./schema",
+      "line": 3
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./auth",
+      "line": 4
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./permissions",
+      "line": 5
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./user-settings",
+      "line": 6
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./expression",
+      "line": 7
+    },
+    {
+      "from": "lib/row-access.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/row-version.ts",
+      "to": "node:crypto",
+      "line": 1
+    },
+    {
+      "from": "lib/row-version.ts",
+      "to": "./auth",
+      "line": 2
+    },
+    {
+      "from": "lib/row-version.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/runtime-cache.ts",
+      "to": "./runtime-storage",
+      "line": 1
+    },
+    {
+      "from": "lib/runtime-page-stack.ts",
+      "to": "./views",
+      "line": 1
+    },
+    {
+      "from": "lib/schema-diagram.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./barcode",
+      "line": 1
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./application-context",
+      "line": 2
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./application-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./realtime-schema",
+      "line": 4
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./file-storage",
+      "line": 5
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./workflow-schema",
+      "line": 6
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./audit-schema",
+      "line": 7
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./part-of-config",
+      "line": 8
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./media-settings",
+      "line": 9
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./auth-schema",
+      "line": 10
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "better-sqlite3",
+      "line": 11
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "node:fs",
+      "line": 12
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "node:path",
+      "line": 13
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./unique",
+      "line": 14
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./columns",
+      "line": 15
+    },
+    {
+      "from": "lib/schema.ts",
+      "to": "./list-reference-migration",
+      "line": 16
+    },
+    {
+      "from": "lib/settings-server.ts",
+      "to": "./header-settings",
+      "line": 1
+    },
+    {
+      "from": "lib/settings-server.ts",
+      "to": "./navigation",
+      "line": 2
+    },
+    {
+      "from": "lib/settings-server.ts",
+      "to": "./db",
+      "line": 3
+    },
+    {
+      "from": "lib/settings-server.ts",
+      "to": "./app-settings",
+      "line": 4
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./permissions",
+      "line": 2
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./row-access",
+      "line": 3
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./automation",
+      "line": 4
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./workflows",
+      "line": 5
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./workflow-config",
+      "line": 6
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./expression",
+      "line": 7
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./expression-context",
+      "line": 8
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./columns",
+      "line": 9
+    },
+    {
+      "from": "lib/simulation.ts",
+      "to": "./action-trace",
+      "line": 10
+    },
+    {
+      "from": "lib/special-view-config.ts",
+      "to": "./expression",
+      "line": 1
+    },
+    {
+      "from": "lib/special-view-config.ts",
+      "to": "./custom-page",
+      "line": 2
+    },
+    {
+      "from": "lib/special-view-config.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/special-view-config.ts",
+      "to": "./view-display",
+      "line": 3
+    },
+    {
+      "from": "lib/special-view-data.ts",
+      "to": "./location",
+      "line": 1
+    },
+    {
+      "from": "lib/special-view-data.ts",
+      "to": "./view-display",
+      "line": 2
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "node:os",
+      "line": 2
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "node:fs",
+      "line": 3
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "./application-context",
+      "line": 5
+    },
+    {
+      "from": "lib/system-report.ts",
+      "to": "./system-metrics",
+      "line": 6
+    },
+    {
+      "from": "lib/unique.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/unique.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/user-fields.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/user-fields.ts",
+      "to": "./applications",
+      "line": 2
+    },
+    {
+      "from": "lib/user-fields.ts",
+      "to": "./application-context",
+      "line": 3
+    },
+    {
+      "from": "lib/user-fields.ts",
+      "to": "./auth",
+      "line": 4
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./account-fields",
+      "line": 1
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./builder-security",
+      "line": 2
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./action-config",
+      "line": 3
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "node:crypto",
+      "line": 5
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "better-sqlite3",
+      "line": 6
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./db",
+      "line": 7
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./auth",
+      "line": 8
+    },
+    {
+      "from": "lib/user-management.ts",
+      "to": "./access",
+      "line": 9
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./application-context",
+      "line": 1
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./application-membership",
+      "line": 2
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./part-of-config",
+      "line": 3
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./action-config",
+      "line": 4
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "better-sqlite3",
+      "line": 5
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./db",
+      "line": 6
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./auth",
+      "line": 7
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./columns",
+      "line": 8
+    },
+    {
+      "from": "lib/user-settings.ts",
+      "to": "./expression",
+      "line": 9
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./custom-page-references",
+      "line": 1
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./custom-page",
+      "line": 2
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./access",
+      "line": 3
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./view-names",
+      "line": 4
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./settings-server",
+      "line": 5
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./view-display",
+      "line": 6
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "./special-view-config",
+      "line": 7
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/api",
+      "line": 8
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/permissions",
+      "line": 9
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/auth-api",
+      "line": 10
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "next/server",
+      "line": 11
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/db",
+      "line": 12
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/columns",
+      "line": 13
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/views",
+      "line": 14
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/api",
+      "line": 15
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/view-display",
+      "line": 16
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/view-visibility",
+      "line": 17
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/expression-context",
+      "line": 18
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/automation",
+      "line": 19
+    },
+    {
+      "from": "lib/view-api.ts",
+      "to": "@/lib/inline-views",
+      "line": 20
+    },
+    {
+      "from": "lib/view-display.ts",
+      "to": "./view-filter-config",
+      "line": 1
+    },
+    {
+      "from": "lib/view-display.ts",
+      "to": "./custom-page",
+      "line": 2
+    },
+    {
+      "from": "lib/view-display.ts",
+      "to": "./data-decoration",
+      "line": 3
+    },
+    {
+      "from": "lib/view-display.ts",
+      "to": "./special-view-config",
+      "line": 4
+    },
+    {
+      "from": "lib/view-display.ts",
+      "to": "./columns",
+      "line": 5
+    },
+    {
+      "from": "lib/view-filter-config.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./db",
+      "line": 1
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./view-filter-config",
+      "line": 2
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./permissions",
+      "line": 3
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./row-access",
+      "line": 4
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./automation",
+      "line": 5
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./columns",
+      "line": 6
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./expression-context",
+      "line": 7
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./data-filters",
+      "line": 8
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./reference-labels",
+      "line": 9
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./user-fields",
+      "line": 10
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./datetime",
+      "line": 11
+    },
+    {
+      "from": "lib/view-filter-options.ts",
+      "to": "./value-types",
+      "line": 12
+    },
+    {
+      "from": "lib/view-groups.ts",
+      "to": "./views",
+      "line": 1
+    },
+    {
+      "from": "lib/view-names.ts",
+      "to": "./views",
+      "line": 1
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./row-version",
+      "line": 1
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./row-access",
+      "line": 2
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./expression-context",
+      "line": 2
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./lists",
+      "line": 2
+    },
+    {
+      "from": "lib/view-records.ts",
+      "to": "./reference-labels",
+      "line": 16
+    },
+    {
+      "from": "lib/view-visibility.ts",
+      "to": "./columns",
+      "line": 1
+    },
+    {
+      "from": "lib/view-visibility.ts",
+      "to": "./expression",
+      "line": 2
+    },
+    {
+      "from": "lib/views.ts",
+      "to": "./icons",
+      "line": 1
+    },
+    {
+      "from": "lib/views.ts",
+      "to": "./view-display",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-config.ts",
+      "to": "./pdf-design",
+      "line": 1
+    },
+    {
+      "from": "lib/workflow-config.ts",
+      "to": "./columns",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-config.ts",
+      "to": "./pdf-design",
+      "line": 7
+    },
+    {
+      "from": "lib/workflow-dependencies.ts",
+      "to": "./pdf-design",
+      "line": 1
+    },
+    {
+      "from": "lib/workflow-dependencies.ts",
+      "to": "./db",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-dependencies.ts",
+      "to": "./expression",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-dependencies.ts",
+      "to": "./workflow-config",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./application-context",
+      "line": 1
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./applications",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./application-schema",
+      "line": 3
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./file-storage",
+      "line": 5
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "node:crypto",
+      "line": 6
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./db",
+      "line": 7
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./permissions",
+      "line": 8
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./row-access",
+      "line": 9
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./audit-context",
+      "line": 10
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./auth",
+      "line": 11
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./automation",
+      "line": 12
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./data-write",
+      "line": 13
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./columns",
+      "line": 14
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./expression-context",
+      "line": 15
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./expression",
+      "line": 16
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./pdf-report",
+      "line": 17
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./files",
+      "line": 18
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./workflows",
+      "line": 19
+    },
+    {
+      "from": "lib/workflow-runner.ts",
+      "to": "./workflow-config",
+      "line": 20
+    },
+    {
+      "from": "lib/workflow-validation.ts",
+      "to": "better-sqlite3",
+      "line": 1
+    },
+    {
+      "from": "lib/workflow-validation.ts",
+      "to": "./schema",
+      "line": 2
+    },
+    {
+      "from": "lib/workflow-validation.ts",
+      "to": "./columns",
+      "line": 3
+    },
+    {
+      "from": "lib/workflow-validation.ts",
+      "to": "./workflow-config",
+      "line": 4
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./workflow-validation",
+      "line": 1
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "node:async_hooks",
+      "line": 2
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "node:crypto",
+      "line": 3
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./db",
+      "line": 4
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./permissions",
+      "line": 5
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./row-access",
+      "line": 6
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./columns",
+      "line": 7
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./expression-context",
+      "line": 8
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./expression",
+      "line": 9
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./automation",
+      "line": 10
+    },
+    {
+      "from": "lib/workflows.ts",
+      "to": "./workflow-config",
+      "line": 11
+    }
+  ],
+  "unreferencedStaticCandidates": [
+    "lib\\request-origin.ts",
+    "lib\\workflow-runner.ts"
+  ]
+}

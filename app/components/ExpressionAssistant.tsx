@@ -22,8 +22,8 @@ const EXAMPLES: { name: string; formula: string; fields?: FormulaField[] }[] = [
   { name: "ตัวเลขตั้งแต่ศูนย์ขึ้นไป", formula: "[_THIS] >= 0", fields: ["valid_if"] },
   { name: "แสดงเสมอ / เงื่อนไขเป็นจริง", formula: "TRUE" }, { name: "เงื่อนไขเป็นเท็จ", formula: "FALSE" },
 ];
-export default function ExpressionAssistant({ column, columns, field, onApply, onClose, contextLabel, tables = [], busy=false, saveError="", applyLabel="ใช้สูตรนี้" }: {
-  column: Column; columns: Column[]; field: FormulaField; onApply: (value: string) => void|Promise<void>; busy?:boolean;saveError?:string;applyLabel?:string; onClose: () => void; contextLabel?: string; tables?: { name: string; label: string; columns?: Column[] }[];
+export default function ExpressionAssistant({ column, columns, field, onApply, onClose, contextLabel, tables = [], busy=false, saveError="", applyLabel="ใช้สูตรนี้", resultType="column" }: {
+  column: Column; columns: Column[]; field: FormulaField; resultType?:"column"|"any"; onApply: (value: string) => void|Promise<void>; busy?:boolean;saveError?:string;applyLabel?:string; onClose: () => void; contextLabel?: string; tables?: { name: string; label: string; columns?: Column[] }[];
 }) {
   const [source, setSource] = useState(column[field] || ""), [tab, setTab] = useState("columns"), [samples, setSamples] = useState<Record<string, any>>({});
   const {user,expressionUser}=useAuth();
@@ -50,8 +50,8 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
       const options = { ...expressionUser, tables: data, userEmail: sampleEmail, refTables: refTablesOf(columns) };
       const { row } = calculateRow(columns, samples, true, new Date(), true, sampleEmail, options);
       const value = evaluateExpression(source, { ...row, _THIS: row[column.name] ?? null }, options);
-      if (["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enum","enumlist","list","ref"].includes(column.type) && Array.isArray(value))) asBoolean(value);
-      else if (!["show_if", "valid_if", "required_if"].includes(field)) normalizeValue(column, value);
+      if (resultType!=="any" && ["show_if", "valid_if", "required_if"].includes(field) && !(field === "valid_if" && ["enum","enumlist","list","ref"].includes(column.type) && Array.isArray(value))) asBoolean(value);
+      else if (resultType!=="any" && !["show_if", "valid_if", "required_if"].includes(field)) normalizeValue(column, value);
       setResult({ value: value === null ? "ค่าว่าง" : typeof value === "boolean" ? value ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(value) ? JSON.stringify(value) : String(value) });
     } catch (e) { setResult({ error: e instanceof Error ? e.message : "ทดสอบสูตรไม่ได้" }); }
   };

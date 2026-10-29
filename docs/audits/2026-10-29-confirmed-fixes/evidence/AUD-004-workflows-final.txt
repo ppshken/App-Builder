@@ -1,0 +1,2 @@
+Integration mode: workflows
+Workflows browser/API passed: PDF Thai/images/signature/children, file output, queued Action, create/update/schedule events, no-op/loop prevention, webhook JSON+response, origin allowlist, resume/idempotency, dependencies, owner/runtime permissions, desktop/mobile.

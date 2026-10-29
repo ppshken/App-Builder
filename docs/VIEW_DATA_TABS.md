@@ -9,3 +9,7 @@ The tabs reuse the authorized filter-options API, readable Ref/User labels and r
 The display field tabs_column participates in validation, reference tracking and column rename/removal. Virtual, array, media, long text and coordinate columns are excluded like dropdown filters. Embedded Dashboard panels retain their current navigation and toolbar behavior.
 
 Validation covers metadata lifecycle, both table/list runtime screens, combined filters/search, zero-result recovery, pagination reset, responsive layout and Builder save. Tests use isolated databases.
+
+Tab chips now show counts for their full authorized source (Slice and related scope included), independent of the current page, selected tab, search, and other UI filters. Counts are opt-in via option_counts=1 so dropdown option payloads remain compatible. The fast path aggregates in SQL; row-policy/Slice paths count only permitted rows and continue past the 500-option display limit. Empty values have their own count.
+
+View > รูปแบบหน้าจอ > ความโค้งมนแท็บ controls tabs_radius from 0 to 40 pixels (default 18), independently per table/list View. Labels truncate before the count badge so counts remain visible on mobile.

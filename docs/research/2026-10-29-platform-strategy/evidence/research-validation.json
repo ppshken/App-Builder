@@ -1,0 +1,86 @@
+{
+  "checked": "2026-10-29 Asia/Bangkok",
+  "method": "document structure/link/reference/DAG/capacity/sourcehash verification; not runtime tests",
+  "documents": [
+    {
+      "file": "CURRENT_SYSTEM_CAPABILITIES.md",
+      "bytes": 27352,
+      "lines": 173,
+      "sha256": "a554ca9a298254b7b53f831f42a7a85fc8475b2b48856b43345481339b80c28e"
+    },
+    {
+      "file": "COMPETITOR_RESEARCH.md",
+      "bytes": 22453,
+      "lines": 120,
+      "sha256": "a570115ece1b78f78208d389502a6a46e69c9fba83b99a7c1e092f7018ac1eb2"
+    },
+    {
+      "file": "FEATURE_GAP_ANALYSIS.md",
+      "bytes": 75016,
+      "lines": 594,
+      "sha256": "c670f248f0455c59dd029b16fe539582a6188cf784543baa228c8e41030a78db"
+    },
+    {
+      "file": "FEATURE_IDEAS_BACKLOG.md",
+      "bytes": 64596,
+      "lines": 934,
+      "sha256": "1a4bb3f10f23f2c2a2f0663e12c2d6b0487ee3aee112f978a4ffd8e9f5454d91"
+    },
+    {
+      "file": "AI_FEATURE_OPPORTUNITIES.md",
+      "bytes": 13643,
+      "lines": 79,
+      "sha256": "9de1c3816ad1f6394d86a6137cbdc60298cc8a8abc035e4792039fc63278e6d3"
+    },
+    {
+      "file": "PLUGIN_ARCHITECTURE_PROPOSAL.md",
+      "bytes": 14988,
+      "lines": 142,
+      "sha256": "afccaf5c0896fc72f2026c8193853c44b1ea3db4779c4c4957e596645c1e87c8"
+    },
+    {
+      "file": "FEATURE_ROADMAP.md",
+      "bytes": 14613,
+      "lines": 174,
+      "sha256": "88b0efc2d648e228206ff446ea8d3e9a7c4f0808f581cdadfaca22327c3a86cf"
+    },
+    {
+      "file": "TOP_10_RECOMMENDATIONS.md",
+      "bytes": 17769,
+      "lines": 84,
+      "sha256": "ee615f928b6760bd97a4f24bdfef4e072d891de191ce3dca4dfe4288787054f4"
+    }
+  ],
+  "capabilityCount": 47,
+  "featureCount": 36,
+  "featureGroups": 12,
+  "marketSources": 45,
+  "roadmapCapacity": [
+    {
+      "period": "0–30 Days",
+      "pd": 35
+    },
+    {
+      "period": "31–90 Days",
+      "pd": 70
+    },
+    {
+      "period": "3–6 Months",
+      "pd": 105
+    },
+    {
+      "period": "6–12 Months",
+      "pd": 210
+    }
+  ],
+  "sourceFilesCompared": 554,
+  "sourceChanges": [],
+  "errors": [],
+  "notTested": [
+    "Production or local runtime in this research pass",
+    "Competitor hands-on trials",
+    "Model/API quality and latency benchmarks",
+    "Real device UX/user interviews",
+    "Legal approval for commercial integration"
+  ]
+}

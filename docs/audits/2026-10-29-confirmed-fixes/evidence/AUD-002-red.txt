@@ -1,0 +1,22 @@
+TAP version 13
+# Subtest: AUD-002 repeated successful logins do not exhaust a shared failed-attempt budget
+not ok 1 - AUD-002 repeated successful logins do not exhaust a shared failed-attempt budget
+  location: '<workspace>\\tests\\login-quota-regression.test.cjs:4:1'
+  error: 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่'
+  code: 'ERR_TEST_FAILURE'
+    <workspace>\tests\login-quota-regression.test.cjs:4:162
+    async fixture (<workspace>\tests\login-quota-regression.test.cjs:3:319)
+# Subtest: AUD-002 failed attempts for unrelated identities do not lock a legitimate account
+not ok 2 - AUD-002 failed attempts for unrelated identities do not lock a legitimate account
+  location: '<workspace>\\tests\\login-quota-regression.test.cjs:5:1'
+  error: 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่'
+  code: 'ERR_TEST_FAILURE'
+    <workspace>\tests\login-quota-regression.test.cjs:5:277
+    async fixture (<workspace>\tests\login-quota-regression.test.cjs:3:319)
+# tests 2
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14615.8488

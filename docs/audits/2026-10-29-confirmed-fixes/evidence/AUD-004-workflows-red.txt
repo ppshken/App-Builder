@@ -1,0 +1,10 @@
+Integration mode: workflows
+node : ExpectError: expect(locator).toHaveAttribute(expected) failed
+    + CategoryInfo          : NotSpecified: (ExpectError: ex...xpected) failed:String) [], RemoteException
+Expected: "_blank"
+Error: element(s) not found
+    at main (<workspace>\tests\workflows-browser.cjs:38:272) {
+    expected: '_blank',
+      'Expected: "_blank"\n' +
+      'Error: element(s) not found\n' +
+    actual: undefined,

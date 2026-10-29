@@ -1,0 +1,1396 @@
+[
+  {
+    "id": "A01",
+    "name": "Versioned App Package & Migration Plan",
+    "group": "A",
+    "current": "C04/C15/C36 Partial",
+    "description": "portable AppSpec envelope พร้อม version และ migration review",
+    "useCase": "ส่งแอปตรวจรถไป staging โดยไม่พาข้อมูลจริงไป",
+    "userValue": "ลดการตั้งค่าซ้ำและเป็นฐานให้ templates/AI/extensions",
+    "architecture": "canonical app schema + stable IDs + reference visitor; adaptersจากmetadataเดิม",
+    "backend": "export/validate/plan dry-run; import applyผ่าน servicesเดิม ไม่รับSQLจากpackage",
+    "frontend": "diff/dependency warnings/destructive-change review",
+    "database": "เพิ่ม package/migration ledger; per-appmetadataยังใช้เดิม",
+    "dependencies": [],
+    "security": "ห้ามimportusers/secrets/rolegrantsโดยอัตโนมัติ; boundbytes/nodes; checksumไม่แทนtrust",
+    "complexity": 4,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "export/import config-only + schema drift detection; ยังไม่applydestructiveDDL",
+    "acceptance": "roundtrip2appsเท่ากัน; wrongversion/refปฏิเสธ; driftให้409; rollbackconfigไม่กระทบrows",
+    "library": "L01",
+    "market": "S08,S32,S33",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      5,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.8,
+    "score": 76.8
+  },
+  {
+    "id": "A02",
+    "name": "Business App Recipes / Template Installer",
+    "group": "A",
+    "current": "C06มีclone; reusabletemplates Missing",
+    "description": "แพ็กschema+views+actions+rolesแบบparameterized",
+    "useCase": "สร้างระบบใบลา/ตรวจรถ/assetจากสูตรสำเร็จ",
+    "userValue": "makerเริ่มจากงานจริงแทนหน้าว่าง",
+    "architecture": "AppSpec template + ID remap + dependency preflight",
+    "backend": "install dry-run; demo seed opt-inแยก; atomicapply",
+    "frontend": "เลือกtemplate/mapชื่อtable/previewสิทธิ์",
+    "database": "template catalog/install receipts; ไม่copyบัญชี",
+    "dependencies": [
+      "A01"
+    ],
+    "security": "templateuntrusted; freshrolesdefaultdeny; sharedtableต้องexplicit",
+    "complexity": 3,
+    "effort": [
+      12,
+      18
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "3first-partyrecipes; no publicmarketplace",
+    "acceptance": "install3recipesเป็นnewapp; collisionsremap; cancelไม่มีmutation; repeatedinstallไม่ทับแอป",
+    "library": "L00",
+    "market": "S14,S28",
+    "integrationType": "Optional",
+    "factors": [
+      5,
+      4,
+      5,
+      3,
+      4
+    ],
+    "confidence": 0.7,
+    "score": 60.2
+  },
+  {
+    "id": "A03",
+    "name": "Cross-app Dependency & Change Impact Explorer",
+    "group": "A",
+    "current": "C23/C18มีdiagram/refchecks/renameบางส่วน",
+    "description": "แสดงimpactต่อformula/view/workflow/permissions/customnodesข้ามแอป",
+    "useCase": "ก่อนเปลี่ยนคอลัมน์ที่ใช้ในหลายแอป",
+    "userValue": "ลดbreakageและเวลาไล่ซ่อม",
+    "architecture": "typed reference graph จากvisitors; reuseformula-dependencies/schema-diagram",
+    "backend": "read-only impact API; ตรวจcoverageของrenamevalidators",
+    "frontend": "impact tree + jump-to-editor + plannedchanges",
+    "database": "MVP computedgraph ไม่persist; indexcacheตามmetadatarevisionภายหลัง",
+    "dependencies": [],
+    "security": "ไม่เปิดชื่อschemaของแอปที่actorไม่มีสิทธิ์",
+    "complexity": 3,
+    "effort": [
+      8,
+      14
+    ],
+    "impact": 4,
+    "priority": "P1",
+    "mvp": "inspect/delete/rename planโดยยังไม่rewriteเพิ่ม",
+    "acceptance": "fixtureครอบคลุมRef/slice/action/PDF/custom/role; cycleไม่hang; unauthorizedappไม่leak",
+    "library": "L02",
+    "market": "S10,S33",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      4,
+      5,
+      5,
+      4
+    ],
+    "confidence": 0.8,
+    "score": 70.4
+  },
+  {
+    "id": "B01",
+    "name": "Permission-aware Query Planner & Delegation",
+    "group": "B",
+    "current": "C03/C18/C30มีSQLpagingแต่fallbackscan",
+    "description": "compilefilter/sort/aggregateและrowrulessubsetเป็นparameterizedSQL",
+    "useCase": "เปิดtable100krowsพร้อมrowruleโดยไม่โหลดทุกแถว",
+    "userValue": "ความเร็วและต้นทุนRAMที่คาดการณ์ได้",
+    "architecture": "typed QueryPlan AST + dialect/capabilities; reference evaluatorเป็นoracle",
+    "backend": "plan/explain/pushdown; unsupportedrule bounded fallbackพร้อมwarning",
+    "frontend": "delegationbadge/querycost warning ไม่บอกpartialผลว่าcomplete",
+    "database": "ไม่ย้ายDB; indexesเลือกต่างหากB02",
+    "dependencies": [
+      "F01"
+    ],
+    "security": "authorizationpredicateต้องเกิดก่อนpagination/count; ไม่ใช้rawLLMSQL",
+    "complexity": 5,
+    "effort": [
+      25,
+      40
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "eq/range/AND/order/countบนphysicalcolumns+simpleUSERIDrules",
+    "acceptance": "compareSQLกับreference200cases; rolecountsตรง; nooverfetch; 100kfixturememorybounded; p95เป้าหมาย500msต้องbenchmark",
+    "library": "L00",
+    "market": "S06,S20",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      5,
+      5,
+      5,
+      2
+    ],
+    "confidence": 0.75,
+    "score": 70.5
+  },
+  {
+    "id": "B02",
+    "name": "Index Advisor & Explain Console",
+    "group": "B",
+    "current": "C03/C40มีuniqueindexes/metrics",
+    "description": "คำแนะนำindexจากqueryshapeและEXPLAINโดยadminเลือกเอง",
+    "useCase": "filterวันที่/สถานะช้าในtableใหญ่",
+    "userValue": "เห็นสาเหตุและผลก่อนลงทุนย้ายDB",
+    "architecture": "allowlistedqueryplans + indexbenefit estimates",
+    "backend": "explain read-only; approvedindexDDLผ่านschema service",
+    "frontend": "recommended indexes/writecost/undo review",
+    "database": "_index_definitions+analysis samples ไม่เก็บrowvalues",
+    "dependencies": [
+      "B01"
+    ],
+    "security": "indexbuildล็อกwriteได้; schedule/budget/approve ไม่autoDDL",
+    "complexity": 3,
+    "effort": [
+      8,
+      14
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "SQLitephysicalcolumncompositeindexadvisor",
+    "acceptance": "detectfullscan; addedindexลดscannedrows; duplicateproposalไม่ซ้ำ; rollbackplan",
+    "library": "L00",
+    "market": "S06,S38",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      3,
+      4,
+      4,
+      4
+    ],
+    "confidence": 0.7,
+    "score": 53.2
+  },
+  {
+    "id": "B03",
+    "name": "Relationship / Constraint Designer",
+    "group": "B",
+    "current": "C23diagramมี; compositeconstraints Partial",
+    "description": "สร้างjunction+compositeunique/indexและrelationผ่านERinspector",
+    "useCase": "รถมีอะไหล่หลายชนิด/อะไหล่ใช้หลายรุ่น",
+    "userValue": "ข้อมูลไม่ซ้ำและความสัมพันธ์เข้าใจง่าย",
+    "architecture": "extenddiagram to migrationplans; explicitjoinentityแทนJSONarrayเมื่อจำเป็น",
+    "backend": "validateexistingduplicates/refcycles beforeapply",
+    "frontend": "cardinality/junction wizard/constraintpreview",
+    "database": "junction tables + metadata constraintsledger",
+    "dependencies": [
+      "A01",
+      "A03"
+    ],
+    "security": "ต้องตรวจสิทธิ์ทั้งสองฝั่งและอนุญาตsharedschemaจากowner",
+    "complexity": 4,
+    "effort": [
+      16,
+      26
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "many-to-manyviajunction + compositeunique",
+    "acceptance": "duplicateexistingdataทำให้planfail; createjunctionatomic; noaccidentalcasade; export/restoreคงconstraints",
+    "library": "L00",
+    "market": "S05,S38",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      3,
+      4,
+      5,
+      3
+    ],
+    "confidence": 0.65,
+    "score": 50.7
+  },
+  {
+    "id": "C01",
+    "name": "Reusable Visual Components",
+    "group": "C",
+    "current": "C15nodesมี; C16makerlibraries Missing",
+    "description": "saveส่วนหน้าจอเป็นcomponentมีprops/eventsและpinnedversion",
+    "useCase": "การ์ดข้อมูลรถใช้ร่วม5แอป",
+    "userValue": "แก้designหนึ่งแห่งและreviewupgradeแต่ละแอป",
+    "architecture": "ComponentDefinition + instanceProps + declaredslots; registryL01",
+    "backend": "resolveversion/dependencies; validatepropsและcycles",
+    "frontend": "saveascomponent/librarypicker/upgradepreview",
+    "database": "component_definitions/versions + instance refs",
+    "dependencies": [
+      "A01",
+      "L01"
+    ],
+    "security": "propsไม่รับJS; componentใช้สิทธิ์consumerapp ไม่inheritauthor",
+    "complexity": 4,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "3composites: recordcard/KPI/filterheader; explicitupgrade",
+    "acceptance": "2appsใช้version1ต่อได้หลังrelease2; propinvalidfail; no recursiveinstances; authorizedbindingsเท่านั้น",
+    "library": "L01,L04",
+    "market": "S10,S22,S32",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      4,
+      3
+    ],
+    "confidence": 0.75,
+    "score": 66
+  },
+  {
+    "id": "C02",
+    "name": "Responsive Tokens & Accessibility Inspector",
+    "group": "C",
+    "current": "C01/C14theme/responsiveมี",
+    "description": "token spacing/type/controlsize + responsive overridesและa11ychecks",
+    "useCase": "makerปรับmobileformไม่ให้overflowโดยไม่แก้CSS",
+    "userValue": "UXสม่ำเสมอและรองรับkeyboard",
+    "architecture": "token registry resolver + breakpoint constraints reuseCSSvars",
+    "backend": "validateoverridesและcontrast numeric checks",
+    "frontend": "spacingpresets/devicepreview/focus/labelwarnings",
+    "database": "versioneddisplaytokensในappsettings/customspec",
+    "dependencies": [
+      "A01"
+    ],
+    "security": "generatedstylesห้ามarbitraryCSS/URL; a11ywarningไม่แทนsecurity",
+    "complexity": 3,
+    "effort": [
+      10,
+      16
+    ],
+    "impact": 4,
+    "priority": "P1",
+    "mvp": "3breakpoints+spacingtokens+overflow/focuscheck",
+    "acceptance": "320/390/768/1440ไม่มีhorizontalbodyoverflowในfixtures; keyboardtabครบ; reducedmotion respected",
+    "library": "L00",
+    "market": "S23,S25",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      5,
+      4,
+      3,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 54.6
+  },
+  {
+    "id": "C03",
+    "name": "Kanban View",
+    "group": "C",
+    "current": "C12มี9views; Kanban Missing",
+    "description": "แสดงcardตามstatusและย้ายด้วยtransitionaction",
+    "useCase": "ติดตามงานซ่อม/คำขอซื้อ",
+    "userValue": "เห็นภาระงานและเปลี่ยนสถานะเร็ว",
+    "architecture": "registeredview + pagedcolumnqueries; moveเรียกactionเดิม",
+    "backend": "validateversion/status/permissions ไม่PUTunchecked",
+    "frontend": "keyboardanddrag cards; per-columncounts/loading",
+    "database": "viewconfig; optionaltransitionrulesไม่บังคับเปลี่ยนbusinessschema",
+    "dependencies": [
+      "L01",
+      "B01"
+    ],
+    "security": "dragไม่ข้ามสิทธิ์/valid_if; columns/countไม่leakrows",
+    "complexity": 3,
+    "effort": [
+      12,
+      20
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "หนึ่งgroupcolumn; ย้ายผ่านnamedAction; ไม่nestedboard",
+    "acceptance": "unauthorizedmove403; stale409; rollbackcardถ้าAPIerror; keyboardmoveได้",
+    "library": "L04,L03",
+    "market": "S42",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      3,
+      4,
+      2,
+      3
+    ],
+    "confidence": 0.6,
+    "score": 39.6
+  },
+  {
+    "id": "D01",
+    "name": "Multi-step / Wizard Forms",
+    "group": "D",
+    "current": "C20/C21dynamicformมี; steps Missing",
+    "description": "แบ่งฟอร์มเป็นstep/sectionมีvalidationและprogress",
+    "useCase": "ตรวจรถ10หมวดก่อนบันทึกครั้งเดียว",
+    "userValue": "ลดภาระสายตาและอัตรากรอกผิด",
+    "architecture": "stepmetadata referencesexistingcolumns; finalsavepathเดิม",
+    "backend": "stepvalidationdryrun; finalatomicvalidateทุกstep/children",
+    "frontend": "stepper/summaryerrors/focusinvalid/nextback",
+    "database": "formdisplay step definitions; ไม่สร้างtableต่อstep",
+    "dependencies": [
+      "A01"
+    ],
+    "security": "hiddenstepไม่ทำให้bypassrequired/permissions; finalservervalidationทุกช่อง",
+    "complexity": 3,
+    "effort": [
+      10,
+      16
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "3steps+review+singlesave",
+    "acceptance": "backเก็บค่าครบ; invalidstepไปต่อไม่ได้; finalAPIrejecttampering; relatedrowsatomic",
+    "library": "L00",
+    "market": "S25,S42",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      4,
+      3,
+      2,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 46.2
+  },
+  {
+    "id": "D02",
+    "name": "Recoverable Form Drafts & Conflict Review",
+    "group": "D",
+    "current": "C33cache/C35optimisticมี; draftform Missing",
+    "description": "กู้ฟอร์มค้างโดยไม่commitธุรกิจพร้อมbaseversion",
+    "useCase": "มือถือปิดแท็บระหว่างกรอกกลับมากู้ได้",
+    "userValue": "ลดข้อมูลที่พิมพ์สูญหาย",
+    "architecture": "encrypted? localdraftnotassumedsecure; user/app/scopetag + TTL; explicitrestore",
+    "backend": "drafttoken/versionverify onsubmit; noautopersistbusinessrow",
+    "frontend": "restore/discard/banner + fielddiffwhen409",
+    "database": "MVP localIndexedDBdraftstore; attachmentreferencesชั่วคราว",
+    "dependencies": [
+      "F01"
+    ],
+    "security": "PIIlocalstorage opt-in/TTL/logoutwipe; shareddeviceไม่autodisplay; reauthbeforeupload",
+    "complexity": 4,
+    "effort": [
+      14,
+      22
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "text/scalarforms online-draftrecovery; offlinewritesยังไม่รวม",
+    "acceptance": "killtab/reopenกู้ได้; crossuser/appไม่อ่านdraft; expireddeleted; staleไม่silentoverwrite",
+    "library": "L05",
+    "market": "S01,S07",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      4,
+      4,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 58.8
+  },
+  {
+    "id": "D03",
+    "name": "Staged Import Mapping & Validation",
+    "group": "D",
+    "current": "C29มีheadername/labelmatching, dry-runpreview, issues และtransaction5000rowsแล้ว",
+    "description": "เพิ่มexplicitcustommappingและdurablestagedjobs เหนือpreviewเดิม",
+    "useCase": "นำเข้าลูกค้า50kแถวจากExcelต่างชื่อ",
+    "userValue": "ลดpartialfailureและช่วยnontechnicalusers",
+    "architecture": "reuseimportExcel validators/preview; addmappingprofile+stagedbatchjob/results",
+    "backend": "stagedparse/validate/commitwithidempotency/status; preserveexistingpreviewandatomicmode",
+    "frontend": "explicitmapcolumns/errorCSV/progress/reconcile; previewเดิมยังใช้ได้",
+    "database": "import_jobs/stagederrors TTL; nofullnameinlogs",
+    "dependencies": [
+      "A01",
+      "E03"
+    ],
+    "security": "size/zipbomblimits; fieldpolicy; serverchecksทุกrow; partialvsatomicchoiceclear",
+    "complexity": 4,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "Excelเดิม + mapping20columns + 10krows perjob",
+    "acceptance": "invalidrowsไม่เขียน; rerunsamekeyไม่duplicate; cancel/TTLcleanup; countsreconcile",
+    "library": "L00",
+    "market": "S14,S20",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      3,
+      4,
+      4,
+      3
+    ],
+    "confidence": 0.65,
+    "score": 48.1
+  },
+  {
+    "id": "E01",
+    "name": "Bounded Workflow Branches & Iteration",
+    "group": "E",
+    "current": "C26linearstepsมี",
+    "description": "if/switch/foreachlimitedพร้อมtypeddataflow",
+    "useCase": "แยกอนุมัติค่าใช้จ่ายตามวงเงิน",
+    "userValue": "ลดต้องเขียนActionซ้ำหลายชุด",
+    "architecture": "versionedworkflowIR + executionbudget; keepv1linearadapter",
+    "backend": "branch/loopvalidation + persistedstepinstances",
+    "frontend": "graphcanvas+inputs/outputs+simulationtrace",
+    "database": "job_step_instances+IRversion; workflowconfigmigrate",
+    "dependencies": [
+      "A01",
+      "L01",
+      "E03"
+    ],
+    "security": "loopmaxitems/time/recursion; recheckactorก่อนsideeffect",
+    "complexity": 5,
+    "effort": [
+      25,
+      40
+    ],
+    "impact": 5,
+    "priority": "P2",
+    "mvp": "if/else+foreach<=100items sequential; noarbitrarycode",
+    "acceptance": "branchcoveragefixtureครบ; budgetหยุดไม่hang; resumeไม่repeatcommittedsteps; oldworkflowผลเดิม",
+    "library": "L02",
+    "market": "S13,S34,S39",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      4,
+      2
+    ],
+    "confidence": 0.65,
+    "score": 55.9
+  },
+  {
+    "id": "E02",
+    "name": "Human Approval Inbox / Durable Wait",
+    "group": "E",
+    "current": "C26ไม่มีwaitstep",
+    "description": "พักjobรอผู้อนุมัติ/วันครบกำหนดแล้วresume",
+    "useCase": "ขอซื้อ/OTต้องผู้จัดการอนุมัติ",
+    "userValue": "ทำbusinessprocessครบตั้งแต่requestถึงaudit",
+    "architecture": "durablewaitstate+approvalcommand; transitionsversioned",
+    "backend": "approve/reject/expire/reassign guarded; resumeonce",
+    "frontend": "inbox/detaildecision/comments+statushistory",
+    "database": "approval_tasks/decisions/waittokens TTL",
+    "dependencies": [
+      "A01",
+      "E03",
+      "F01"
+    ],
+    "security": "actor/membership/selfapprovalpolicy; tokenผูกtask/versionไม่publicbearer",
+    "complexity": 5,
+    "effort": [
+      25,
+      40
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "singleapprover/approve-reject/timeout; noemailactionlinkแรก",
+    "acceptance": "doubleclickonefinaldecision; revokeก่อนapprove403; expired409; restartยังรอ; auditactorครบ",
+    "library": "L00",
+    "market": "S36,S39",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      2
+    ],
+    "confidence": 0.75,
+    "score": 67.5
+  },
+  {
+    "id": "E03",
+    "name": "Workflow Delivery Ledger & Recovery Policies",
+    "group": "E",
+    "current": "C27มีtransactionaljobenqueue, checkpoint, Idempotency-Keyและmanualretryแล้ว",
+    "description": "ต่อยอดdeliveryreceipts/structuredunknownoutcome/controlledretry ไม่สร้างqueueซ้ำ",
+    "useCase": "webhookสร้างใบงานสำเร็จแต่processตายก่อนcheckpoint",
+    "userValue": "ลดการทำรายการซ้ำและrecoveryที่ไม่แน่นอน",
+    "architecture": "reuse _automation_jobs เป็นoutboxadapter; adddeliveryreceipt/attemptstate+leases; preserveexistingstableeffectkey",
+    "backend": "classifyunknownoutcome/reconcile; boundedapprovedbackoff/jitter; perdeliveryattemptaudit",
+    "frontend": "deliverytimeline/retrysafe/needsreconcile",
+    "database": "delivery_attempts/receipts; generic event_outboxเพิ่มเฉพาะfuturebusที่ต้องการ",
+    "dependencies": [],
+    "security": "outboundallowlist/SSRF/DNS/secretredaction; noautorettryunsafeeffect",
+    "complexity": 5,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "onewebhookproviderdeliveryreceipt+unknownoutcomeUI; keyและtransactionaljobsใช้ของเดิม",
+    "acceptance": "crashinjectionbefore/afterremoteeffect; receiversees1logicaleffect; retriesbounded; unknownreceiverrequiresmanualreconcile",
+    "library": "L00",
+    "market": "S35,S36",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.8,
+    "score": 73.6
+  },
+  {
+    "id": "F01",
+    "name": "Effective Permission Simulator",
+    "group": "F",
+    "current": "C07–09/C41มีguards+actionsimulation; permissionexplain Missing",
+    "description": "เลือกapp/user/operationแล้วดูtable/row/action/exportdecisionและเหตุผล",
+    "useCase": "ผู้ดูแลตั้งroleแล้วสงสัยว่าทำไมuserเห็นปุ่ม/ข้อมูลไม่เท่ากัน",
+    "userValue": "ลดsupportและป้องกันสิทธิ์ผิด",
+    "architecture": "policydecisiontrace fromsameguards ไม่duplicatepolicyengine",
+    "backend": "read-onlysimulate underactorcontext; sanitizedreason tree",
+    "frontend": "role/user/appcompare + no-mutationtestcases",
+    "database": "MVP no schema change; savedcasesoptionalK01",
+    "dependencies": [],
+    "security": "Owner/authorizedappadminเท่านั้น; cannotimpersonatewrite; no rawdeniedrow values",
+    "complexity": 3,
+    "effort": [
+      10,
+      16
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "table/action/export/rowchecks; fieldmaskpolicyเป็นระยะถัดไป",
+    "acceptance": "matchedruntimeallow/deny50cases; simulationไม่เขียน; crossapphiddenresourcesไม่เผย; exportdecisionตรง",
+    "library": "L00",
+    "market": "S02,S12,S43",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      5,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.8,
+    "score": 76.8
+  },
+  {
+    "id": "F02",
+    "name": "OIDC Federation & Step-up MFA",
+    "group": "F",
+    "current": "C10localidentityมี; C11SSO/MFA Missing",
+    "description": "เชื่อมIdPและบังคับstepupสำหรับpublish/exportadmin",
+    "useCase": "องค์กรใช้Microsoft/Googleaccountและถอดสิทธิ์จากจุดเดียว",
+    "userValue": "ลดpasswordsupportและเพิ่มgovernance",
+    "architecture": "OIDCauthorizationcodePKCE + serveridentitylink; reuseexistingperapproles",
+    "backend": "callbackstate/nonce/issuer/audience/JWKS validation; nosilentemailmerge",
+    "frontend": "SSObutton/linkaccount/stepupprompt/recoverypolicy",
+    "database": "identity_links/providerconfigs/sessionauthlevel",
+    "dependencies": [
+      "F01",
+      "G02"
+    ],
+    "security": "loginCSRF/tokenreplay/accounttakeover; emergencyownerbreakglassmustreview",
+    "complexity": 5,
+    "effort": [
+      25,
+      40
+    ],
+    "impact": 5,
+    "priority": "P2",
+    "mvp": "oneOIDCprovider; externalIdPMFA; ยังไม่ทำSAML/localTOTPแรก",
+    "acceptance": "wrongissuer/nonce/replayreject; sameemailไม่autoown; IdPrevocationpolicytested; sessionrotation",
+    "library": "L07",
+    "market": "S12,S43",
+    "integrationType": "External Integration",
+    "factors": [
+      4,
+      3,
+      4,
+      5,
+      2
+    ],
+    "confidence": 0.65,
+    "score": 49.4
+  },
+  {
+    "id": "F03",
+    "name": "Scoped Service Accounts & Stable API v1",
+    "group": "F",
+    "current": "C30internalcookieAPIมี; C11tokens Missing",
+    "description": "machinecredentialsมีapp/table/operation/expiry/quotas",
+    "useCase": "ERPอ่านinventoryโดยไม่ใช้ownerpassword",
+    "userValue": "เปิดintegrationsอย่างควบคุมและrotateได้",
+    "architecture": "serviceprincipal mappedexistingguards; OpenAPI fromtypedcontracts",
+    "backend": "tokenhash/rotation/revoke; APIv1limit/projection/versions",
+    "frontend": "tokencreator/scopepreview/usage/revocation",
+    "database": "service_principals/tokens/scopes/usagecaps",
+    "dependencies": [
+      "A01",
+      "F01",
+      "G02"
+    ],
+    "security": "neverownerbydefault; blockadminAPI; audittokenfingerprintไม่logtoken",
+    "complexity": 4,
+    "effort": [
+      20,
+      32
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "read-onlytableGETv1+singleappscopes",
+    "acceptance": "noaccesstoappB403; revoked401; rawtokenแสดงครั้งเดียว; cursorandpolicycountsconsistent",
+    "library": "L01",
+    "market": "S05,S20,S38",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      3,
+      5,
+      5,
+      2
+    ],
+    "confidence": 0.65,
+    "score": 52
+  },
+  {
+    "id": "G01",
+    "name": "REST Data Source & Query Builder",
+    "group": "G",
+    "current": "C30outboundwebhookมี; datasourceadapter Missing",
+    "description": "ผูกexternalRESTอ่านข้อมูลเป็นqueryresourceที่reuseในView",
+    "useCase": "dashboardดึงstockจากERPโดยไม่copytableทุกคืน",
+    "userValue": "ต่อระบบจริงได้โดยmakerไม่เขียนfetch",
+    "architecture": "DataSourceAdapter capabilitycontract; normalizeQueryResult; explicitremotevslocaldataset",
+    "backend": "allowlistedHTTPSproxy/authvault/pagination/schema/timeout/cache; peruserresourceguard",
+    "frontend": "connect/test/querymapper + viewbindinginspector",
+    "database": "datasources/resourcegrants/queries/result_schema",
+    "dependencies": [
+      "A01",
+      "G02",
+      "F01"
+    ],
+    "security": "SSRF/DNSrebind/redirect/privateIP; no browsersecret; paginationupperbounds; credentialdelegationexplicit",
+    "complexity": 5,
+    "effort": [
+      22,
+      34
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "read-onlyRESTJSONGET+cursor/page; noexternalwrite/FKinitial",
+    "acceptance": "3mockAPIsรวมtimeout/schemaerror; nosecretbundle; appAresourceจากB403; paginationcompleteorlabelpartial",
+    "library": "L01",
+    "market": "S05,S14,S20",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      2
+    ],
+    "confidence": 0.75,
+    "score": 67.5
+  },
+  {
+    "id": "G02",
+    "name": "App-scoped Connection Secrets",
+    "group": "G",
+    "current": "C27envtokenมี; reusablevault Missing",
+    "description": "จัดการconnectioncredentialsผ่านsecretrefs/rotateโดยไม่อยู่configexport",
+    "useCase": "แต่ละแอปใช้ERPtokenคนละชุด",
+    "userValue": "ลดรั่วไหลและตั้งค่าตอนย้ายenvironmentได้",
+    "architecture": "secretbroker envelopeAES-GCM withexternalmasterkeyref; serveronly",
+    "backend": "write-onlysecrets/testconnection/rotate/audit; migrateenvrefsoptional",
+    "frontend": "maskedcredentialforms/lastrotated/testresult",
+    "database": "secret_refs/encrypted_versions/accessgrants; masterkeynotDBbackup",
+    "dependencies": [
+      "F01"
+    ],
+    "security": "app+actor+purposecheck; redactlogs; keyloss/restore/rotationplaybook; neverAIcontext",
+    "complexity": 4,
+    "effort": [
+      14,
+      22
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "oneHTTPbearercredentialtype+rotation; envfallbackยังทำงาน",
+    "acceptance": "export/diff/logsไม่มีsecret; unauthorizeddecryptdeny; rotateoldrevoked; restorewithoutkeyexplicitblocked",
+    "library": "L00",
+    "market": "S05,S12,S17",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.8,
+    "score": 73.6
+  },
+  {
+    "id": "G03",
+    "name": "Signed Inbound Webhooks",
+    "group": "G",
+    "current": "C30outboundมี; inboundtrigger Missing",
+    "description": "endpointรับeventพร้อมsignature/replayguardแล้วenqueue",
+    "useCase": "ERPแจ้งสถานะซ่อมกลับBuilder",
+    "userValue": "ลดpollingและsyncข้อมูลตรงเวลา",
+    "architecture": "ingressverify→idempotenteventrecord→workflowenqueue",
+    "backend": "HMACtimestamp/eventID/bodybudget/ratecap; ACKdurableaftercommit",
+    "frontend": "endpointconfig/mockeventtester/deliveryhistory",
+    "database": "webhook_endpoints/received_events retention",
+    "dependencies": [
+      "E03",
+      "G02",
+      "F01"
+    ],
+    "security": "replay/contenttype/oversize; nosessionbypass toadmin; signaturerawbodyexact",
+    "complexity": 4,
+    "effort": [
+      14,
+      22
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "HMACJSONproviderเดียว+manualpayloadmapping",
+    "acceptance": "bad/replayed/expiredsignaturesreject; duplicateeventenqueueonce; failedjobไม่ทำACKหลอกก่อนdurable",
+    "library": "L00",
+    "market": "S16,S35",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      3,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 57.4
+  },
+  {
+    "id": "H01",
+    "name": "AI Formula Assistant (Thai-first)",
+    "group": "H",
+    "current": "C18/C19deterministictoolsมี; C44LLM Missing",
+    "description": "ภาษาธรรมชาติ→สูตรพร้อมเหตุผล/testexamplesและvalidatorเดิม",
+    "useCase": "ระยะเวลาตรวจหรือvalid_ifซับซ้อนโดยไม่จำsyntax",
+    "userValue": "ลดเวลาศึกษาและerrorของmaker",
+    "architecture": "provideradapter→FormulaProposalJSON→parse/type/refcheck→dryrun",
+    "backend": "boundedrequest/modelbudget; authorizedschemaonly; recordproposal",
+    "frontend": "suggest/compare/test/insertbuttonในExpressionAssistant",
+    "database": "ai_policy/proposals/usagemeter; sourcepromptmetadataonly",
+    "dependencies": [
+      "A01",
+      "G02",
+      "F01"
+    ],
+    "security": "schema/docspromptinjection; neverevalJS/SQL; noautopublish; no rowsbydefault",
+    "complexity": 3,
+    "effort": [
+      12,
+      20
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "formula text-only; oneprovider; schema+syntheticexamples",
+    "acceptance": "50Thaicases>=80%semanticpass; invalidref100%blocked; proposalnoDBwrite; budgetsstop; userต้องinsert",
+    "library": "L01",
+    "market": "S03,S17,S34",
+    "integrationType": "Optional",
+    "factors": [
+      5,
+      4,
+      5,
+      4,
+      3
+    ],
+    "confidence": 0.6,
+    "score": 52.8
+  },
+  {
+    "id": "H02",
+    "name": "AI Schema Planner",
+    "group": "H",
+    "current": "C23schemaeditorมี; schemaAI Missing",
+    "description": "โจทย์ธุรกิจ→tables/relations/constraintsแบบreviewableplan",
+    "useCase": "สร้างระบบยืมคืนassetจากbriefภาษาไทย",
+    "userValue": "ลดเริ่มจากblankและชี้เรื่องFK/index",
+    "architecture": "AppSpecpatch notSQL; name/relationship/constraintvalidators; impactplan",
+    "backend": "providerstrategy+schema-scopedcontext+syntheticseedpreview",
+    "frontend": "ERpreview/rename/mapexistingtables/approveplan",
+    "database": "proposalstore; no businessDDLuntilapproval",
+    "dependencies": [
+      "A01",
+      "A03",
+      "H01"
+    ],
+    "security": "hallucinatedPIIcolumns/privileges; destructivechangesdefaultdeny; noauthschemageneration",
+    "complexity": 4,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 5,
+    "priority": "P2",
+    "mvp": "newtables<=5; refs<=10; nodrop/alterexisting",
+    "acceptance": "20briefsvalidplan>=90%; noSQLexecutableoutput; ambiguousrequirementถาม; applyatomicisolated",
+    "library": "L01,L02",
+    "market": "S03,S17,S30",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      4,
+      5,
+      4,
+      3
+    ],
+    "confidence": 0.55,
+    "score": 45.1
+  },
+  {
+    "id": "H03",
+    "name": "AI Incremental App / UI / Workflow Drafts",
+    "group": "H",
+    "current": "C15/C26มีeditors; AIgeneration Missing",
+    "description": "ให้AIประกอบregisteredcomponentsและstepIRในdraft",
+    "useCase": "เพิ่มหน้าติดตามซ่อมพร้อมworkflowแจ้งเตือนจากbrief",
+    "userValue": "เพิ่มproductivityโดยยังreviewทุกdiff",
+    "architecture": "plan→typedpatch→validate→renderpreview/simulation→humanpublish",
+    "backend": "reuseAppSpec/Releases; toolallowlist; boundedrepairloop2",
+    "frontend": "conversationplan/diff/screenshot/undo/approval",
+    "database": "ai_runs/proposedpatches/baselinemetadatahash",
+    "dependencies": [
+      "H02",
+      "C01",
+      "E01",
+      "J01"
+    ],
+    "security": "untrustedtoolresponses; noarbitrarycode/network/secretread; patchnotgrantpermissions",
+    "complexity": 5,
+    "effort": [
+      30,
+      50
+    ],
+    "impact": 5,
+    "priority": "P2",
+    "mvp": "newpage<=20nodes +existingdata; workflowv1linearfirst",
+    "acceptance": "10goldenappsbuildvalid; stale409; unsafeplugin/actionreject; no productionpublish; rollbackdraft",
+    "library": "L01",
+    "market": "S09,S11,S25,S29,S34,S42",
+    "integrationType": "Optional",
+    "factors": [
+      5,
+      4,
+      5,
+      4,
+      1
+    ],
+    "confidence": 0.5,
+    "score": 42
+  },
+  {
+    "id": "I01",
+    "name": "Virtualized Runtime Tables / Lists",
+    "group": "I",
+    "current": "C12paging/cacheมี; virtualization Missing",
+    "description": "renderเฉพาะvisiblewindowพร้อมstickyrow/groupheaders",
+    "useCase": "กริดคอลัมน์มากบนmobile/tablet",
+    "userValue": "ลดDOM/jankโดยไม่เพิ่มdownloadall",
+    "architecture": "virtualrenderadapter to existingpagedquery; stableIDs/heights",
+    "backend": "APIเดิม; addcolumnprojectionถ้าจำเป็น",
+    "frontend": "virtualrows/columns withfocus/scrollrestore/errorfallback",
+    "database": "ไม่ต้องschemaใหม่",
+    "dependencies": [],
+    "security": "a11y/focusและhiddenrowleak; virtualไม่ทำให้SQLเร็วขึ้น",
+    "complexity": 4,
+    "effort": [
+      12,
+      20
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "table100rows/clientwindow; variableheightlistตามหลัง",
+    "acceptance": "DOMrows<=viewportbudget; backscrollไม่jump; keyboardreadได้; memory/framebenchmarkเทียบbaseline",
+    "library": "L03",
+    "market": "S19,S25",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      4,
+      4,
+      2,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 49
+  },
+  {
+    "id": "I02",
+    "name": "Realtime Fanout / Delta Invalidation",
+    "group": "I",
+    "current": "C32SSEper-tableมี",
+    "description": "รวมpoll/fanoutในserverและส่งrevision/deltaแบบbounded",
+    "useCase": "ผู้ใช้100คนเปิดtableเดียวกัน",
+    "userValue": "ลดqueryต่อconnectionและrefreshไม่จำเป็น",
+    "architecture": "sharedrevisionpoller perprocess+subscriberACL; deltaoptional",
+    "backend": "connection/backpressure/sessionrecheck; crossprocesspubsubหลังneed",
+    "frontend": "coalescedupdates/dirtyformprotection/resyncindicator",
+    "database": "optionalchange_logbounded; baseversion/tombstones",
+    "dependencies": [
+      "E03"
+    ],
+    "security": "SSEpermissionrevocation/slowclients/sidechannel; no unauthrowbroadcast",
+    "complexity": 5,
+    "effort": [
+      20,
+      32
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "singleprocessfanout sameSSEcontract; 100clientslab",
+    "acceptance": "DBpollcountไม่linearclients; revokecloses; slowclientmemorybounded; reconnectfullsnapshotcorrect",
+    "library": "L00",
+    "market": "S35,S38",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      3,
+      4,
+      4,
+      2
+    ],
+    "confidence": 0.6,
+    "score": 43.2
+  },
+  {
+    "id": "I03",
+    "name": "Offline Write Queue & Conflict Center",
+    "group": "I",
+    "current": "C33readcache/C34PWAมี; offlineCRUD Missing",
+    "description": "บันทึกofflineแล้วsyncพร้อมretry/dedupe/conflictresolution",
+    "useCase": "ตรวจรถในจุดอับสัญญาณรวมรูป",
+    "userValue": "งานภาคสนามต่อเนื่องและไม่สูญข้อมูล",
+    "architecture": "perapp/useroutboxclient + idmapping + serveridempotency + versionpolicy",
+    "backend": "syncAPI/delta/retention/grantrecheck; multipartuploadstaging",
+    "frontend": "pending/conflictitems/resolve/manualsync; storagequota warning",
+    "database": "clientIndexedDBwrites/blobs; serverdedupe/sync_tokens",
+    "dependencies": [
+      "A01",
+      "D02",
+      "E03",
+      "F01",
+      "I02"
+    ],
+    "security": "offlinepermissionexpiry/encryptionnotpromise; revokeddatawipe; shareddevice; blobsquota",
+    "complexity": 5,
+    "effort": [
+      40,
+      65
+    ],
+    "impact": 5,
+    "priority": "P3",
+    "mvp": "create/update1table; nomedia/deletesfirstpilot; onlinebootstraprequired",
+    "acceptance": "kill/retryneverduplicate; conflictingedit409review; no crossappcache; revokeuploaddeny; explicitpartialfailure",
+    "library": "L05",
+    "market": "S01,S07,S27",
+    "integrationType": "Optional",
+    "factors": [
+      5,
+      3,
+      4,
+      5,
+      1
+    ],
+    "confidence": 0.5,
+    "score": 40
+  },
+  {
+    "id": "J01",
+    "name": "Environment Promotion & Review Workflow",
+    "group": "J",
+    "current": "C36draft/hashrollbackมี; C37envGit Missing",
+    "description": "dev/stage/prod配置และreviewedreleasepackage",
+    "useCase": "ทดสอบสูตร/connectorในstageก่อนโปรโมต",
+    "userValue": "ลดผิดพลาดจากแก้liveและรองรับทีม",
+    "architecture": "AppSpecartifact+envconnectionbindings+baselinehash+approverroles",
+    "backend": "exportvalidatepromote; gateReadiness/K01; manualGitexportMVP",
+    "frontend": "releasecompare/approvereject/rollback/envselector",
+    "database": "environments/releases/reviewdecisions/resourcebindings",
+    "dependencies": [
+      "A01",
+      "A03",
+      "G02"
+    ],
+    "security": "separatepromotionpermission; no copyingprodsecrets/data; schematicrollbacknotbusinessdatarollback",
+    "complexity": 5,
+    "effort": [
+      25,
+      40
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "2isolatedinstances; config-onlypackagepromotion+explicitreview",
+    "acceptance": "stale/dependency/schemaMismatchblocks; devsecretไม่เข้าprod; reviewhashbound; rollbackconfigtested",
+    "library": "L00",
+    "market": "S08,S10,S21,S33",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      2
+    ],
+    "confidence": 0.75,
+    "score": 67.5
+  },
+  {
+    "id": "J02",
+    "name": "Organization Workspaces / Tenant Quotas",
+    "group": "J",
+    "current": "C05multiappมี; orgboundary Partial",
+    "description": "workspaceusers/apps/resources/budgetsและisolationpolicy",
+    "useCase": "Builderขายให้หลายบริษัทโดยไม่ปนกัน",
+    "userValue": "เปิดB2BSaaSหลังมีdemandและSLA",
+    "architecture": "explicittenantscopeandresourceownership; enforceeveryentrypoint; physicalisolationoption",
+    "backend": "tenantguards/migrations/storagejobsisolation/quotas",
+    "frontend": "workspaceadmin/billing-independentquota/settings",
+    "database": "workspace_id/tenantresources+ownershipmigration acrosscatalog",
+    "dependencies": [
+      "A01",
+      "F01",
+      "J01"
+    ],
+    "security": "tenantescape/sharedtablemigration; no trustingUIselector; isolationmatrix beforelaunch",
+    "complexity": 5,
+    "effort": [
+      50,
+      80
+    ],
+    "impact": 5,
+    "priority": "P3",
+    "mvp": "oneorganizationperserverpilotก่อนsharedtenancy",
+    "acceptance": "cross-tenantAPI/media/PDF/worker/backup/cachematrixdeny; tenantquotaandrestoreisolated",
+    "library": "L00",
+    "market": "S12,S38,S43",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      2,
+      5,
+      5,
+      1
+    ],
+    "confidence": 0.4,
+    "score": 29.6
+  },
+  {
+    "id": "J03",
+    "name": "Durable Observability / SLO & Alerts",
+    "group": "J",
+    "current": "C39/C40logs/metricsมี",
+    "description": "traceIDs+persistedaggregates+budget+notificationthresholds",
+    "useCase": "รู้ว่าappช้าจากSQL/formula/PDFหรือwebhookและแจ้งadmin",
+    "userValue": "ลดMTTRและพิสูจน์ก่อน–หลัง",
+    "architecture": "instrumentservicesviaOTelbridge; metricexport; alertsoutbox",
+    "backend": "boundedspans/redaction/sampling/retention; groupbyapp/table",
+    "frontend": "p50/p95/errorbudget/beforeafter/alertconfig",
+    "database": "rollupstoreTTL optionalexternalcollector; no rawvalues",
+    "dependencies": [
+      "E03"
+    ],
+    "security": "PII/secretredactionและaccess; alertstormdedupe; no expensive fullSQLpayloads",
+    "complexity": 4,
+    "effort": [
+      14,
+      24
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "request/formula/workflow spans + oneemailwebhookalert channel",
+    "acceptance": "failedjobtracetoapp/actor; restartretainsrollups; PIIcanaryabsent; thresholdalertdedupe/recovery",
+    "library": "L06",
+    "market": "S02,S12,S42",
+    "integrationType": "Core + External Integration",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.75,
+    "score": 69
+  },
+  {
+    "id": "K01",
+    "name": "No-code Test Studio & Publish Gates",
+    "group": "K",
+    "current": "C41simulation/C42developertestsมี",
+    "description": "makerกำหนดgivenrows/actor/action/expectedresultsแบบfixtures",
+    "useCase": "เปลี่ยนสูตรแล้วมั่นใจstatus/duration/rolesยังถูก",
+    "userValue": "ลดregressionโดยไม่ต้องเขียนPlaywright",
+    "architecture": "tests-as-AppSpec + isolatedSQLite runner + existingguards/evaluator",
+    "backend": "seed/simulate/assert/rollback; asyncbrowseradapterlater",
+    "frontend": "Given/When/Then UI+failureexplanation+diff",
+    "database": "test_definitions/fixtures/results artifacts redacted",
+    "dependencies": [
+      "A01",
+      "F01"
+    ],
+    "security": "neverexecuteprodmutations; fixturePIIscrub; actorsnoelevation; externalwebhookmock",
+    "complexity": 4,
+    "effort": [
+      18,
+      28
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "formvalidation/action/rowaccess tests; publishoptionalwarningfirst",
+    "acceptance": "20fixturetestsdetectseededregressions; 0prodDBaccess; deterministictime; failingcaseblockswhenenabled",
+    "library": "L00",
+    "market": "S28,S30,S34",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      5,
+      3
+    ],
+    "confidence": 0.7,
+    "score": 64.4
+  },
+  {
+    "id": "K02",
+    "name": "Binding / Workflow Trace Debugger",
+    "group": "K",
+    "current": "C19/C40/C41trace/previewมี",
+    "description": "singletraceการโหลดbinding→formula→action→workflow→HTTP",
+    "useCase": "makerถามว่าคอลัมน์นี้ทำไมได้ค่า42วินาที",
+    "userValue": "ลดการไล่logและปรับconfigผิดจุด",
+    "architecture": "read-onlytraceview reuseaction-trace/simulation; structurederrorpath",
+    "backend": "correlationids/sourcepointers+scopedtracefetch",
+    "frontend": "inspectnode/input/output/timing/permissiondenial",
+    "database": "boundedtraceartifact metadata; retentionperapp",
+    "dependencies": [
+      "J03"
+    ],
+    "security": "maskdataandsecrets; no otheractortracebydefault; writesdisabledindebugmode",
+    "complexity": 3,
+    "effort": [
+      10,
+      18
+    ],
+    "impact": 4,
+    "priority": "P2",
+    "mvp": "onesavetrace+formulasteps+webhookstatuswithoutpayloadsecret",
+    "acceptance": "traceexplainsordering; readonlymode0mutations; forbiddenfieldsredacted; expiredartifact404",
+    "library": "L00",
+    "market": "S30,S34,S39",
+    "integrationType": "Core",
+    "factors": [
+      4,
+      4,
+      4,
+      4,
+      3
+    ],
+    "confidence": 0.75,
+    "score": 58.5
+  },
+  {
+    "id": "K03",
+    "name": "Living App Documentation Generator",
+    "group": "K",
+    "current": "C18guide/C23diagramมี; appdocexport Missing",
+    "description": "สร้างdata dictionary/screens/actions/roles/dependenciesจากmetadata",
+    "useCase": "handoverระบบให้แผนกใหม่",
+    "userValue": "ลดbusfactorและทำreviewง่าย",
+    "architecture": "deterministicAppSpec→Markdown/HTML; optionalAIexplanationsแยก",
+    "backend": "read-onlyexport scopedmetadata; stableanchors/revisions",
+    "frontend": "exportsections/preview/changecompares",
+    "database": "MVP noDBchange; generationmanifest artifact",
+    "dependencies": [
+      "A03"
+    ],
+    "security": "no userlist/secret/examplePII; respectappaccess; AIopt-in only",
+    "complexity": 2,
+    "effort": [
+      4,
+      7
+    ],
+    "impact": 4,
+    "priority": "P1",
+    "mvp": "Markdowndict+relationdiagram+workflowtable",
+    "acceptance": "fixturefields/viewsครบ; changedcolumnupdaterevision; nosecretcanaries; exportwithoutAIworks",
+    "library": "L00",
+    "market": "S10,S34",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      4,
+      4,
+      3,
+      5
+    ],
+    "confidence": 0.8,
+    "score": 62.4
+  },
+  {
+    "id": "L01",
+    "name": "Internal Component / Action Registry",
+    "group": "L",
+    "current": "C12/C15/C25hardcodedregistriesมี",
+    "description": "รวมdescriptor/validator/editor/runtime/capabilityในregistrationเดียว",
+    "useCase": "เพิ่มKanban/fieldtypeโดยไม่แก้switchหลายแห่ง",
+    "userValue": "ลดmaintenanceและเป็นฐานprivateextensions",
+    "architecture": "versionedtypedregistry builtintypeswrapped; notdynamiccodeinstaller",
+    "backend": "sharedregistrationvalidationanddependencygraph; backwardcompatadapter",
+    "frontend": "palette/propertyeditorfromdescriptor; lazyloadedbuiltinrenderer",
+    "database": "registryversionspinnedในAppSpec; noinstalltableMVP",
+    "dependencies": [
+      "A01"
+    ],
+    "security": "registryisnotisolation; onlyreviewedbuiltinmodules; failclosedunknownkind",
+    "complexity": 4,
+    "effort": [
+      16,
+      26
+    ],
+    "impact": 5,
+    "priority": "P1",
+    "mvp": "migrate3representativecomponents+3workflowactions; legacyadaptersครบ",
+    "acceptance": "oldAppSpecsrenderidentical; unknowncapreject; newbuiltin1registration+tests; server/clientcontractsame",
+    "library": "L01",
+    "market": "S15,S16,S40,S44",
+    "integrationType": "Core",
+    "factors": [
+      5,
+      4,
+      5,
+      4,
+      3
+    ],
+    "confidence": 0.8,
+    "score": 70.4
+  },
+  {
+    "id": "L02",
+    "name": "Trusted Private Plugin SDK",
+    "group": "L",
+    "current": "C43pluginlifecycle Missing",
+    "description": "SDKmanifest/installapprove/pin/disable/uninstallสำหรับทีมพัฒนา",
+    "useCase": "ทีมองค์กรเพิ่มconnectorเฉพาะ",
+    "userValue": "ขยายโดยไม่forkcoreต่อfeature",
+    "architecture": "manifest+capabilitygrants+integrity+hostbroker; declarativefirst",
+    "backend": "installstaging/contracttests/lifecycle/dependentsbeforeuninstall",
+    "frontend": "adminreviewpermissiondiff/rollback/health",
+    "database": "installed_extensions/versions/grants/lockmanifest",
+    "dependencies": [
+      "L01",
+      "A03",
+      "G02",
+      "J01"
+    ],
+    "security": "signedsource≠safe; nountrustedNodeinprocess; network/DBdeny; auditpluginpurpose",
+    "complexity": 5,
+    "effort": [
+      30,
+      50
+    ],
+    "impact": 4,
+    "priority": "P3",
+    "mvp": "firstpartyreviewedbundles+declarativecomponents/connectors; noarbitrarynpminstall",
+    "acceptance": "tamperedbundleblocked; disablekeepsdata+fallback; revokednetworkpermissiondeny; uninstalldependentblocked",
+    "library": "L01",
+    "market": "S15,S32,S40,S44",
+    "integrationType": "Plugin Infrastructure",
+    "factors": [
+      4,
+      2,
+      5,
+      5,
+      1
+    ],
+    "confidence": 0.5,
+    "score": 37
+  },
+  {
+    "id": "L03",
+    "name": "Private Package Catalog & Upgrade Planner",
+    "group": "L",
+    "current": "C06clone/C38backupมี; marketplace Missing",
+    "description": "internalcatalogtemplates/components/connectorsพร้อมcompatibilityและreceipts",
+    "useCase": "หลายทีมใช้มาตรฐานตรวจรถรุ่นเดียวกัน",
+    "userValue": "reuseและgovernanceโดยไม่เปิดpublicmarketplace",
+    "architecture": "artifactcatalog+semverconstraints+lockresolver+licenseinventory",
+    "backend": "publishcatalogversion/dependencypreflight/rollback",
+    "frontend": "browse/licensebadge/versiondiff/upgradepreview",
+    "database": "catalog_artifacts/dependencies/install_receipts",
+    "dependencies": [
+      "A02",
+      "C01",
+      "L02"
+    ],
+    "security": "supplychain/licenseownership/untrustedassets; noautomaticprivilegeupgrade",
+    "complexity": 4,
+    "effort": [
+      18,
+      30
+    ],
+    "impact": 4,
+    "priority": "P3",
+    "mvp": "privatecatalog<=20artifacts; manualapprovedupdates",
+    "acceptance": "transitivedepconflictsreject; pinไม่เปลี่ยนเอง; rollbackpriorversion; eachartifactlicense/provenanceครบ",
+    "library": "L00",
+    "market": "S10,S32,S44",
+    "integrationType": "Optional",
+    "factors": [
+      4,
+      2,
+      5,
+      4,
+      2
+    ],
+    "confidence": 0.55,
+    "score": 39.6
+  }
+]

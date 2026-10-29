@@ -1,0 +1,2 @@
+Integration mode: exceloptions
+    at <workspace>\tests\excel-export-options-browser.cjs:3:1717 {

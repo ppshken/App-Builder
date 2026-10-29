@@ -1,0 +1,2 @@
+Integration mode: readiness
+Readiness passed: read-only Action/workflow simulation, health diagnostics, isolated draft data, publish/rollback, stale review/concurrent changes, permissions and builder UI.

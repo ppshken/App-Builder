@@ -1,0 +1,23 @@
+TAP version 13
+# Subtest: AUD-001 scoped developer cannot read a known attachment outside app datasets
+ok 35 - AUD-001 scoped developer cannot read a known attachment outside app datasets
+# Subtest: AUD-001 explicitly shared readable table permits its attachment and revoked sharing denies it
+ok 36 - AUD-001 explicitly shared readable table permits its attachment and revoked sharing denies it
+# Subtest: AUD-001 pending upload exception requires uploader and current app provenance
+ok 37 - AUD-001 pending upload exception requires uploader and current app provenance
+# Subtest: AUD-001 ordinary reader file access still enforces row rules; central owner access remains
+ok 38 - AUD-001 ordinary reader file access still enforces row rules; central owner access remains
+# Subtest: AUD-006 unknown integration modes fail before launching a substitute suite
+ok 151 - AUD-006 unknown integration modes fail before launching a substitute suite
+# AUD-007 SQL statements for 20 User cells / 100 users: 507
+# Subtest: AUD-007 PDF resolves repeated User cells within a request-sized SQL budget
+ok 192 - AUD-007 PDF resolves repeated User cells within a request-sized SQL budget
+# Subtest: AUD-007 User label snapshots stay report-local and preserve app membership and revocation
+ok 193 - AUD-007 User label snapshots stay report-local and preserve app membership and revocation
+# tests 330
+# pass 330
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10691.4103

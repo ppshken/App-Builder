@@ -1,3 +1,4 @@
+import {assertAutoNumberColumn,type AutoNumberConfig} from './auto-number';
 import {normalizeTime,normalizePhone,normalizeEmail,normalizeUrl} from './scalar-fields';
 import { asBoolean, evaluateExpression, isBlank, references, tableReferences, referencePaths, listSource, ExpressionContext, ExpressionOptions, Value } from "./expression";
 import { normalizeCoordinates } from "./location";
@@ -10,6 +11,7 @@ export const UNIQUE_TYPES = ["user","price","percent","rating","time","phone","e
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
+  auto_number?:AutoNumberConfig|null;
   name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
   scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
@@ -29,6 +31,7 @@ export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<st
   const errors: Record<string, string> = {}, names = new Set(["id", ...cols.map(c => c.name)]);
   const graphs: Record<string, string[]> = Object.create(null);
   for (const c of cols) {
+    try{assertAutoNumberColumn(c);}catch(e){errors[`${c.name}.auto_number`]=(e as Error).message;}
     if (c.is_virtual && !c.virtual_expr?.trim()) errors[`${c.name}.virtual_expr`] = "กรุณากรอกสูตรสำหรับช่องคำนวณ";
     if (c.is_virtual && c.default_expr?.trim()) errors[`${c.name}.default_expr`] = "ช่องคำนวณใช้ค่าเริ่มต้นไม่ได้ กรุณาลบสูตรค่าเริ่มต้น";
     if (!c.is_virtual && c.virtual_expr?.trim()) errors[`${c.name}.virtual_expr`] = "กรุณาเลือกช่องคำนวณก่อนใส่สูตรคำนวณ";
@@ -213,16 +216,16 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
       }
       catch (e) { if (field === "valid_if" && c.type === "ref") choices[c.name] = []; errors[c.name] = `${FORMULA_LABELS[field]}: ${(e as Error).message}`; return fallback; }
     };
-    editable[c.name] = !c.is_virtual && c.is_editable !== 0 && c.is_editable !== false;
+    editable[c.name] = !c.auto_number && !c.is_virtual && c.is_editable !== 0 && c.is_editable !== false;
     if (editable[c.name] && c.editable_if?.trim()) {
       try { editable[c.name] = asBoolean(evaluateExpression(c.editable_if, row, { ...context, now, userEmail })) && (!before || asBoolean(evaluateExpression(c.editable_if, before, { ...context, now, userEmail }))); }
       catch(e) { editable[c.name] = false; errors[c.name] = FORMULA_LABELS.editable_if + ": " + (e as Error).message; }
     }
     visible[c.name] = condition("show_if", true);
-    required[c.name] = !c.is_virtual && (!!c.is_key || !!c.required || condition("required_if", false));
+    required[c.name] = !(c.auto_number && !row.id && isBlank(row[c.name])) && !c.is_virtual && (!!c.is_key || !!c.required || condition("required_if", false));
     if (!c.is_virtual && required[c.name] && isBlank(row[c.name])) validation[c.name] = `กรุณากรอก "${c.label}"${visible[c.name] ? "" : " (ช่องนี้ถูกซ่อน ให้ปรับเงื่อนไขแสดงช่องหรือค่าที่เกี่ยวข้อง)"}`;
-    if (c.is_key && typeof row[c.name] === "string" && !(row[c.name] as string).trim()) validation[c.name] = `Key "${c.label}" ต้องไม่ว่าง`;
-    if (!condition("valid_if", true) && !validation[c.name]) validation[c.name] = `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
+    if (!(c.auto_number && !row.id && isBlank(row[c.name])) && c.is_key && typeof row[c.name] === "string" && !(row[c.name] as string).trim()) validation[c.name] = `Key "${c.label}" ต้องไม่ว่าง`;
+    if (!(c.auto_number && !row.id && isBlank(row[c.name])) && !condition("valid_if", true) && !validation[c.name]) validation[c.name] = `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
     // A boolean Valid_If still uses the fixed options; a list Valid_If supplies its own options.
     if (["enum","enumlist"].includes(c.type) && !Object.hasOwn(choices, c.name) && (c.type!=="enum"||!!c.options?.trim()||!!c.ref_table)) {
       const data = c.ref_table ? (context.getTable ? context.getTable(c.ref_table) : context.tables?.[c.ref_table]) : undefined;

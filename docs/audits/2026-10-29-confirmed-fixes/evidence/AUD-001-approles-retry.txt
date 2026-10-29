@@ -1,0 +1,1 @@
+Per-app roles passed: same account/different grants, row rules, role formulas, Action/Excel, no Builder escalation, SSE permission revision, owner UI, desktop/mobile and revoked default app

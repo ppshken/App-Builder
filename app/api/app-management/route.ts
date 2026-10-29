@@ -1,0 +1,11 @@
+import {NextResponse} from 'next/server';
+import {withAuth} from '@/lib/auth-api';
+import {currentAccess,currentUser} from '@/lib/permissions';
+import {platformDatabase} from '@/lib/db';
+import {AuthError} from '@/lib/auth';
+import {bad,errorMessage,errorStatus,readBody} from '@/lib/api';
+import {mediaInventory,deleteUnusedMedia} from '@/lib/media-inventory';
+import {readAppUsage,recordAppUsage} from '@/lib/app-usage';
+export const dynamic='force-dynamic';
+export const GET=withAuth(async(req:Request)=>{try{if(!currentAccess().owner)throw new AuthError('เฉพาะเจ้าของ Builder',403);const p=new URL(req.url).searchParams,db=platformDatabase();if(p.get('section')==='usage')return NextResponse.json(readAppUsage(db,p));const q=(p.get('q')||'').toLowerCase(),kind=p.get('kind'),used=p.get('used');const rows=mediaInventory(db,p.get('app')||'').filter(r=>(!kind||r.kind===kind)&&(!used||(used==='yes')===!!r.references.length)&&(!q||(r.name+' '+r.mime+' '+r.id).toLowerCase().includes(q)));const page=Math.min(Math.max(1,Math.floor(Number(p.get('page'))||1)),Math.max(1,Math.ceil(rows.length/30)));return NextResponse.json({rows:rows.slice((page-1)*30,page*30),page,pages:Math.max(1,Math.ceil(rows.length/30)),total:rows.length,bytes:rows.reduce((n,r)=>n+r.size,0)});}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const DELETE=withAuth(async(req:Request)=>{try{if(!currentAccess().owner)throw new AuthError('เฉพาะเจ้าของ Builder',403);const b=await readBody(req);if(b.confirmation!=='ลบ')throw Error('กรุณายืนยันการลบ');const db=platformDatabase(),result=deleteUnusedMedia(db,String(b.kind),String(b.id));recordAppUsage(db,currentUser()!,null,'delete_file',String(b.kind)+':'+String(b.id));return NextResponse.json(result);}catch(e){return bad(errorMessage(e),errorStatus(e));}});

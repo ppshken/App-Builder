@@ -1,3 +1,4 @@
+import {AUTO_NUMBER_SCHEMA,assertAutoNumberColumn,normalizeAutoNumber} from './auto-number';
 import {assertScanColumn} from './barcode';
 import {withApplicationTemporaryTable} from './application-context';
 import {APPLICATION_SCHEMA,createApplicationConfig,applicationIds} from './application-schema';
@@ -17,8 +18,9 @@ import { migrateListReferences } from "./list-reference-migration";
 
 export function readColumns(db: Database.Database, table: string): Column[] {
   assertIdentifier(table);
-  const cols = db.prepare("SELECT * FROM _columns WHERE table_name=? ORDER BY pos,id").all(table) as (Column & {reset_columns_json?:string|null})[];
+  const cols = db.prepare("SELECT * FROM _columns WHERE table_name=? ORDER BY pos,id").all(table) as (Column & {reset_columns_json?:string|null;auto_number_json?:string|null})[];
   for(const c of cols){try{c.reset_columns=JSON.parse(c.reset_columns_json||'[]');}catch{throw Error('รายการคอลัมน์ที่เฝ้าดูไม่ถูกต้อง');}delete c.reset_columns_json;}
+  for(const c of cols){try{c.auto_number=JSON.parse(c.auto_number_json||'null');}catch{throw Error('การตั้งค่าเลขรันไม่ถูกต้อง');}delete c.auto_number_json;c.auto_number=normalizeAutoNumber(c.auto_number,c);assertAutoNumberColumn(c);}
   assertResetConfig(cols);
   for (const c of cols) {
     if(c.input_mode!=null&&!["button","dropdown"].includes(c.input_mode))throw Error("Input mode ไม่ถูกต้อง");if(c.button_limit!=null&&(!Number.isInteger(c.button_limit)||c.button_limit<1||c.button_limit>5))throw Error("จำนวนปุ่มต้องเป็น 1–5 รายการ");
@@ -105,10 +107,11 @@ export function initializeDatabase(db: Database.Database, path: string) {
       options TEXT,ref_table TEXT,required INTEGER DEFAULT 0,pos INTEGER DEFAULT 0,
       UNIQUE(table_name,name));
   `);
+  const needAutoNumbers=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_auto_numbers' AND type='table'").get();
   const needExcelPermission=!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export");
   const needRealtime=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==="realtime_enabled");
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
-  const missing = ["scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
+  const missing = ["auto_number_json", "scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
   const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
   const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
@@ -147,7 +150,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
@@ -156,6 +159,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       db.prepare("VACUUM INTO ?").run(join(folder, `data.before-${needIdentity&&!needRoles&&!needAuth?"user-accounts":needExcelPermission && !needAuth && !needRoles && !missing.length && !missingSettingsOptions.length && !needWorkflows && !needRealtime ? "excel-export-permissions" : missing.includes("file_path") && !needSettings ? "file-paths" : needWorkflows && !needSettings ? "automation" : needFiles && !needImages ? "attachments" : missing.includes("reset_on_edit") ? "reset-on-edit" : needAudit && !needSettings ? "audit-log" : needRowRules && !needRoles && !needAuth ? "row-permissions-actions" : needUserSettings && !needRoles && !needAuth ? "user-settings" : needRoles && !needAuth && !missing.length && !missingSettingsOptions.length ? "permissions" : needAuth && !missing.length && !needViews && !needFeatures && !needSettings && !missingSettingsOptions.length ? "authentication" : needListReferences && !missing.length && !needSettings && missingSettingsOptions.every(([name])=>name==="list_reference_version") ? "list-reference-ids" : missing.includes("is_part_of") ? "part-of" : missing.includes("max_length") ? "text-length" : missing.includes("gps_auto") ? "locations" : missing.includes("virtual_expr") ? "expressions" : missing.includes("is_editable") ? "editable-columns" : missing.includes("is_unique") ? "unique-columns" : missing.includes("list_limit") ? "related-lists" : needFeatures ? "slices-actions" : needViews || missing.length ? "views" : needSettings ? "app-settings" : needImages ? "images" : missingViewOptions.length ? "view-options" : needVisibility ? "view-visibility" : needDisplay ? "view-display" : needInline ? "inline-views" : missingSettingsOptions.some(([name])=>name==="display_defaults_json") ? "display-defaults" : "app-appearance"}-${stamp}.db`));
     }
     foreignKeyTransaction(db, () => {
+      db.exec(AUTO_NUMBER_SCHEMA);
       if(needApplicationOwners)db.exec("ALTER TABLE _tables ADD COLUMN owner_app_id TEXT NOT NULL DEFAULT 'default'");
       if(needRealtime)db.exec("ALTER TABLE _tables ADD COLUMN realtime_enabled INTEGER NOT NULL DEFAULT 0");
       if(needWorkflows)db.exec(WORKFLOW_SCHEMA);

@@ -1,3 +1,4 @@
+import {currentApplication} from '@/lib/application-context';
 import {readAppSettings} from "@/lib/settings-server";
 import {copyImageFile} from "@/lib/image-files";
 import {columnsOf,tableExists,databasePath} from "@/lib/db";
@@ -31,7 +32,7 @@ async function handlePOST(req: Request) {
     if(!icon&&!signature&&settings.image_format!=='original'&&mime!==(settings.image_format==='jpeg'?'image/jpeg':'image/webp'))throw Error('รูปไม่ตรงรูปแบบที่กำหนด กรุณาอัปโหลดผ่านฟอร์มเพื่อแปลงไฟล์');
     const dimensions=imageDimensions(bytes,mime);if(icon&&(!dimensions||dimensions.width!==dimensions.height||dimensions.width!==512))throw Error('ไอคอนที่อัปโหลดต้องเป็นรูปสี่เหลี่ยมจัตุรัส 512 × 512 พิกเซล');if(!icon&&!signature&&settings.image_max_edge>0&&(!dimensions||Math.max(dimensions.width,dimensions.height)>settings.image_max_edge))throw Error('รูปภาพต้องมีด้านยาวไม่เกิน '+settings.image_max_edge+' พิกเซล กรุณาเลือกผ่านฟอร์มเพื่อปรับขนาด');if(dimensions&&dimensions.width*dimensions.height>40000000)throw Error('รูปภาพมีจำนวนพิกเซลมากเกินไป');if(!requestUser(req))throw new AuthError('Session หมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง',401);
     const id = randomUUID();let copy:ReturnType<typeof copyImageFile>|undefined;try{if(!icon&&!signature&&settings.image_storage==='database_copy')copy=copyImageFile(databasePath,folder,id,mime,bytes);
-    db.transaction(()=>{db.prepare("INSERT INTO _images(id,mime,data,storage_path) VALUES(?,?,?,?)").run(id,mime,bytes,copy?.relative||"");const user=currentUser();if(user)db.prepare("INSERT INTO _image_uploads VALUES(?,?)").run(id,user.id);})();
+    db.transaction(()=>{db.prepare("INSERT INTO _images(id,mime,data,storage_path) VALUES(?,?,?,?)").run(id,mime,bytes,copy?.relative||"");const user=currentUser();if(user)db.prepare("INSERT INTO _image_uploads VALUES(?,?)").run(id,user.id);db.prepare('INSERT INTO _media_catalog(kind,id,app_id,user_id,created_at) VALUES(?,?,?,?,?)').run('image',id,currentApplication()?.id||'default',currentUser()!.id,Date.now());})();
     }catch(error){copy?.discard();throw error;}
     return NextResponse.json({ path:copy?.relative||"",url: `/api/images/${id}` });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }

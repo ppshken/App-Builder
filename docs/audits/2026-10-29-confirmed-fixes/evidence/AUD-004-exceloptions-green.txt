@@ -1,0 +1,2 @@
+Integration mode: exceloptions
+Excel options passed: independent export permission, ID/name/both, safe Ref/EnumList labels, row policies, header collisions and download UI.

@@ -1,0 +1,211 @@
+{
+  "total": 25,
+  "statuses": {
+    "PASS": 14,
+    "FAIL": 8,
+    "PARTIAL": 2,
+    "NOT TESTED": 1
+  },
+  "modules": [
+    [
+      "M01",
+      "Framework / dependencies",
+      "FAIL",
+      "package.json; next.config.mjs; middleware.ts",
+      "Type/build + registry audit",
+      "AUD-003"
+    ],
+    [
+      "M02",
+      "Authentication / accounts / profile",
+      "FAIL",
+      "lib/auth.ts; auth-schema.ts; app/api/auth",
+      "Unit + runtime login probe",
+      "AUD-002; physical device profile UX not tested"
+    ],
+    [
+      "M03",
+      "Authorization / app-table-row boundaries",
+      "FAIL",
+      "lib/auth-api.ts; permissions.ts; row-access.ts",
+      "approles + HTTP negative probe",
+      "AUD-001"
+    ],
+    [
+      "M04",
+      "Schema / migration / conversion",
+      "PASS",
+      "lib/schema.ts; column-conversion.ts; unique.ts",
+      "Unit + API suite",
+      "Scoped pass; no copy of live schema/data used"
+    ],
+    [
+      "M05",
+      "CRUD / Ref / cascade / child forms",
+      "PASS",
+      "data-write.ts; delete-record.ts; part-of-records.ts; form-save.ts",
+      "Unit + API + concurrentedit",
+      "Positive/negative/rollback cases in existing suites"
+    ],
+    [
+      "M06",
+      "Expressions / data types / validation",
+      "PASS",
+      "expression.ts; columns.ts; duration.ts; scalar-fields.ts; barcode.ts",
+      "Unit + valuetypes",
+      "Camera scanning and all real-world formulas not tested"
+    ],
+    [
+      "M07",
+      "View builder / tabs / groups / filters",
+      "FAIL",
+      "view-api.ts; view-display.ts; ViewDataTabs.tsx",
+      "quickfilters + selected-more browser probe",
+      "AUD-005"
+    ],
+    [
+      "M08",
+      "Runtime navigation / form/detail/inline",
+      "PASS",
+      "RuntimeTransition.tsx; RuntimeTable.tsx; runtime-page-stack.ts",
+      "navcontract + mapdesign + concurrentedit",
+      "Simulated mobile; not physical iPhone"
+    ],
+    [
+      "M09",
+      "Dashboard / Map / Calendar / Chart",
+      "PASS",
+      "RuntimeViewRenderer.tsx; SpecialRuntimeView.tsx; special-view-data.ts",
+      "mapdesign + quickfilters",
+      "Map tiles mocked; all chart distributions not exhaustively covered"
+    ],
+    [
+      "M10",
+      "Custom page designer/runtime",
+      "PASS",
+      "custom-page.ts; custom-page-references.ts; CustomRuntimeView.tsx",
+      "Unit + custompagev2",
+      "Selected v2 components and access controls"
+    ],
+    [
+      "M11",
+      "Actions / ordered values / business writes",
+      "PASS",
+      "automation.ts; action-config.ts; form-save.ts",
+      "Unit + API + approles",
+      "Full user-specific Action catalog not available"
+    ],
+    [
+      "M12",
+      "Automation / schedules / webhook",
+      "PARTIAL",
+      "workflows.ts; workflow-runner.ts; workflow-config.ts",
+      "Unit + workflows E2E until final failure",
+      "Entire workflows suite failed; real external provider and crash window not tested"
+    ],
+    [
+      "M13",
+      "PDF generation / designer",
+      "FAIL",
+      "pdf-report.ts; pdf-design-html.ts; workflow-runner.ts",
+      "Unit + PDF steps executed before workflows final failure + SQL probe",
+      "AUD-007; complete PDF E2E suite not passed"
+    ],
+    [
+      "M14",
+      "Images / attachments / file inventory",
+      "FAIL",
+      "permissions.ts; files.ts; images.ts; media-inventory.ts",
+      "Unit + appoperations + HTTP file probe",
+      "AUD-001; DR-001/DR-002"
+    ],
+    [
+      "M15",
+      "Excel import/export and permissions",
+      "PARTIAL",
+      "excel.ts; app/api/excel; Excel UI",
+      "API + approles + valuetypes + partial exceloptions",
+      "exceloptions fails before final permission-revoke UI checks"
+    ],
+    [
+      "M16",
+      "Applications / clone / delete / role membership",
+      "PASS",
+      "applications.ts; application-lifecycle.ts; application-roles.ts",
+      "Unit + approles + applifecycle",
+      "Separate and shared data modes tested in fixtures"
+    ],
+    [
+      "M17",
+      "Backup / restore / account remapping",
+      "PASS",
+      "backups.ts; backup-stages.ts; application-backups.ts; restore-applications.ts",
+      "Unit + restoreapps + appoperations",
+      "Small fixtures; 512 MB restore and disk-full not tested"
+    ],
+    [
+      "M18",
+      "Audit / user usage history",
+      "PASS",
+      "audit-schema.ts; audit-log.ts; app-usage.ts; AppOperationsManager.tsx",
+      "Unit + appoperations",
+      "No historical live identities read; retention-scale boundary not tested"
+    ],
+    [
+      "M19",
+      "Realtime / authorization refresh",
+      "PASS",
+      "realtime-schema.ts; app/api/realtime; Runtime realtime client",
+      "Unit + realtime + approles",
+      "Multiple-process deployment not tested"
+    ],
+    [
+      "M20",
+      "Cache / IndexedDB / PWA",
+      "PASS",
+      "runtime-cache.ts; runtime-storage.ts; pwa-worker.ts; pwa-server.ts",
+      "Unit + pwa + navcontract",
+      "Native iOS PWA lifecycle, quota exhaustion not tested"
+    ],
+    [
+      "M21",
+      "Diagnostics / system report / readiness",
+      "PASS",
+      "system-report.ts; performance-report.ts; readiness.ts",
+      "Unit + systemreport + readinessperf",
+      "Metrics scope is one process; no production monitoring validation"
+    ],
+    [
+      "M22",
+      "Docker / Linux / Caddy / cold backup",
+      "NOT TESTED",
+      "Dockerfile; compose.yaml; deploy/*",
+      "Static review only",
+      "No Docker command, volume, production DNS/HTTPS or credentials accessed"
+    ],
+    [
+      "M23",
+      "Test infrastructure / regression gates",
+      "FAIL",
+      "scripts/test.cjs; scripts/integration.cjs; tests",
+      "Actual selected suites + invalid mode execution",
+      "AUD-004 / AUD-006; no coverage instrumentation installed"
+    ],
+    [
+      "M24",
+      "Performance / scalability",
+      "FAIL",
+      "user-fields.ts; media-inventory.ts; expression-context.ts",
+      "10,000-row E2E + SQL-count/timing probes",
+      "AUD-007; no 1M-row or multi-user stress test"
+    ],
+    [
+      "M25",
+      "Draft / release / rollback isolation",
+      "PASS",
+      "releases.ts; draft-request.ts; simulation.ts",
+      "Existing unit request/database isolation and release checks + static tracing",
+      "No production publishing or live rollback performed"
+    ]
+  ]
+}

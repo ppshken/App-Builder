@@ -1,0 +1,2 @@
+Integration mode: valuetypes
+Value types passed: API validation, User membership lookup, numeric formula, mobile/desktop form saves, names and formatted values, Excel.

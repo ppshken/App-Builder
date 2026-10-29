@@ -15,12 +15,13 @@
   --formula-input: #eff6ff;
   --formula-ink: #1e40af;
   --shadow: 0 12px 48px #172d5014;
+  --builder-sidebar-width: 300px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #000000;
-    --panel: #000000;
+    --bg: #121212;
+    --panel: #181818;
     --ink: #e5ebf6;
     --mute: #9aa8bf;
     --line: #303030;
@@ -28,8 +29,8 @@
     --accent-soft: #243553;
     --danger: #ff9393;
     --danger-soft: #39262d;
-    --sidebar: #000000;
-    --input: #202020;
+    --sidebar: #181818;
+    --input: #242424;
   --builder-input: var(--input);
   --formula-input: var(--input);
   --formula-ink: #93c5fd;
@@ -1642,7 +1643,7 @@ tbody tr:hover {
   grid-row: 2;
   grid-column: 2;
   overflow: auto;
-  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  background: var(--panel);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -2723,7 +2724,7 @@ tbody tr:hover {
 }
 .rule-workspace {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }
@@ -3013,7 +3014,7 @@ tbody tr:hover {
 }
 @media (max-width: 900px) {
   .rule-workspace {
-    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
     gap: 14px;
   }
   .rule-editor {
@@ -3132,15 +3133,15 @@ tbody tr:hover {
 }
 :root[data-mode="dark"] {
   color-scheme: dark;
-  --bg: #000000;
-  --panel: #000000;
+  --bg: #121212;
+  --panel: #181818;
   --ink: #e5ebf6;
   --mute: #9aa8bf;
   --line: #303030;
   --danger: #ff9393;
   --danger-soft: #39262d;
-  --sidebar: #000000;
-  --input: #202020;
+  --sidebar: #181818;
+  --input: #242424;
   --builder-input: var(--input);
   --formula-input: var(--input);
   --formula-ink: #93c5fd;
@@ -3267,14 +3268,14 @@ tbody tr:hover {
 .data-workspace {
   height: 100%;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   min-width: 0;
 }
 .data-navigator {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line);
-  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  background: var(--panel);
   min-height: 0;
   overflow: auto;
 }
@@ -3508,7 +3509,7 @@ tbody tr:hover {
 }
 .view-designer {
   height: 100%;
-  grid-template-columns: 240px minmax(320px, 1fr) 370px;
+  grid-template-columns: var(--builder-sidebar-width) minmax(320px, 1fr) 370px;
   grid-template-rows: 54px minmax(0, 1fr);
 }
 .view-designer .designer-header {
@@ -3704,9 +3705,9 @@ tbody tr:hover {
   font-size: calc(10px * var(--font-scale, 1));
 }
 .sample-dark .settings-sample-phone {
-  background: #000000;
+  background: #181818;
   color: #e5ebf6;
-  --bg: #000000;
+  --bg: #121212;
   --mute: #9aa8bf;
   --line: #303030;
 }
@@ -3751,7 +3752,7 @@ tbody tr:hover {
 }
 @media (min-width: 1101px) and (max-width: 1500px) {
   .view-designer {
-    grid-template-columns: 210px minmax(320px, 1fr) 330px;
+    grid-template-columns: var(--builder-sidebar-width) minmax(320px, 1fr) 330px;
   }
   .view-designer .designer-setting {
     grid-template-columns: 120px minmax(0, 1fr);
@@ -3777,7 +3778,7 @@ tbody tr:hover {
     padding: 25px;
   }
   .data-workspace {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   }
   .data-editor {
     padding: 22px 18px 40px;
@@ -6803,7 +6804,7 @@ html[data-mode="dark"] .success-banner {
   flex: 1;
   min-height: 0;
   gap: 0;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   border: 0;
   border-radius: 0;
   overflow: hidden;
@@ -6813,7 +6814,7 @@ html[data-mode="dark"] .success-banner {
   border: 0;
   border-right: 1px solid var(--line);
   border-radius: 0;
-  background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel));
+  background: var(--panel);
   padding: 0;
   min-height: 0;
   overflow: auto;
@@ -7023,12 +7024,12 @@ html[data-mode="dark"] .success-banner {
 }
 @media (min-width: 1101px) and (max-width: 1500px) {
   .action-workspace {
-    grid-template-columns: 210px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   }
 }
 @media (max-width: 1100px) {
   .action-workspace {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   }
 }
 @media (max-width: 760px) {
@@ -7939,7 +7940,7 @@ details.decoration-rule:not([open]) > *:not(summary) {
 
 .decorations-workspace {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
@@ -7980,10 +7981,19 @@ details.decoration-rule:not([open]) > *:not(summary) {
 }
 .decoration-heading {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 22px;
+}
+.decoration-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
 }
 .decoration-heading h1 {
   font-size: 22px;
@@ -8036,7 +8046,7 @@ details.decoration-rule:not([open]) > *:not(summary) {
 }
 
 .decorations-workspace {
-  grid-template-columns: 220px minmax(300px, 1fr) 390px;
+  grid-template-columns: var(--builder-sidebar-width) minmax(300px, 1fr) 390px;
   overflow: hidden;
 }
 .decoration-mobile-tabs {
@@ -8050,7 +8060,7 @@ details.decoration-rule:not([open]) > *:not(summary) {
 }
 @media (max-width: 1100px) {
   .decorations-workspace {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
     grid-template-rows: 44px minmax(0, 1fr);
   }
   .decoration-table-nav {
@@ -8460,7 +8470,7 @@ button.clear-data-button:hover {
 }
 .formula-library-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -9488,7 +9498,7 @@ button.clear-data-button:hover {
 }
 .workflow-workspace {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -10709,7 +10719,7 @@ button.clear-data-button:hover {
 }
 
 .action-workspace.has-action-preview {
-  grid-template-columns: 210px minmax(0, 1fr) 380px;
+  grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr) 380px;
 }
 .action-preview-column {
   min-width: 0;
@@ -10749,7 +10759,7 @@ button.clear-data-button:hover {
 }
 @media (max-width: 1200px) and (min-width: 761px) {
   .action-workspace.has-action-preview {
-    grid-template-columns: 180px minmax(0, 1fr) 310px;
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr) 310px;
   }
   .has-action-preview .rule-fields > .field {
     display: block;
@@ -11469,13 +11479,13 @@ button.clear-data-button:hover {
 }
 @media (min-width: 1201px) {
   .view-designer:has(.preview-device-tablet) {
-    grid-template-columns: 200px minmax(260px, 1fr) min(50vw, 960px);
+    grid-template-columns: var(--builder-sidebar-width) minmax(260px, 1fr) min(50vw, 960px, calc(100% - var(--builder-sidebar-width) - 260px));
   }
   .decorations-workspace:has(.preview-device-tablet) {
-    grid-template-columns: 200px minmax(240px, 1fr) min(50vw, 960px);
+    grid-template-columns: var(--builder-sidebar-width) minmax(240px, 1fr) min(50vw, 960px, calc(100% - var(--builder-sidebar-width) - 240px));
   }
   .action-workspace.has-action-preview:has(.preview-device-tablet) {
-    grid-template-columns: 190px minmax(240px, 1fr) min(50vw, 960px);
+    grid-template-columns: var(--builder-sidebar-width) minmax(240px, 1fr) min(50vw, 960px, calc(100% - var(--builder-sidebar-width) - 240px));
   }
 }
 .designer-preview-frame.tablet {
@@ -11607,7 +11617,7 @@ button.clear-data-button:hover {
 /* Give Automation names and enabled status their own readable lines. */
 @media (min-width: 1101px) {
   .workflow-workspace:has(.workflow-table-group) {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: var(--builder-sidebar-width) minmax(0, 1fr);
   }
 }
 .workflow-list .workflow-table-group .nav-item {
@@ -12061,7 +12071,7 @@ button.clear-data-button:hover {
 }
 
 :root[data-mode="dark"] .auth-page {
-  background: #000000;
+  background: var(--bg);
 }
 
 /* Runtime header and its settings preview share the same layout. */
@@ -13516,3 +13526,30 @@ textarea::placeholder {
 
 .runtime-app:not(.runtime-desktop) .calendar-grid.mode-month {min-width:0;}
 .runtime-app:not(.runtime-desktop) .calendar-grid.mode-month .calendar-day {min-height:clamp(44px,calc((100svh - var(--runtime-nav-height,60px) - var(--runtime-header-height,52px) - 190px)/6),74px);}
+
+.view-data-tabs > .view-data-tab{display:inline-flex;align-items:center;gap:6px;border-radius:var(--tabs-radius,18px)}.view-data-tabs > .view-data-tabs-more{border-radius:var(--tabs-radius,18px)}.view-data-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.view-data-tab-count{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:18px;padding:1px 5px;border-radius:4px;background:var(--bg);color:var(--muted);font-size:10px;line-height:1.4;font-weight:600}.view-data-tab[aria-pressed="true"] .view-data-tab-count{background:color-mix(in srgb,var(--accent) 12%,var(--panel));color:var(--accent)}/* Shared width for Builder navigation lists; stacked mobile layouts keep their existing tracks. */@media (max-width: 1100px) {
+  :root { --builder-sidebar-width: 220px; }
+}
+
+/* One search surface covers the icon and input in Builder navigation lists. */
+:is(.data-navigator, .designer-view-list, .action-workspace .rule-list) .designer-view-search {
+  background: var(--builder-input);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+:is(.data-navigator, .designer-view-list, .action-workspace .rule-list) .designer-view-search input {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+}
+:is(.data-navigator, .designer-view-list, .action-workspace .rule-list) .designer-view-search > svg {
+  flex-shrink: 0;
+}
+:is(.data-navigator, .designer-view-list, .action-workspace .rule-list) .designer-view-search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

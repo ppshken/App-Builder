@@ -1,0 +1,25 @@
+TAP version 13
+# AUD-007 SQL statements for 20 User cells / 100 users: 11930
+# Subtest: AUD-007 PDF resolves repeated User cells within a request-sized SQL budget
+not ok 1 - AUD-007 PDF resolves repeated User cells within a request-sized SQL budget
+  location: '<workspace>\\tests\\pdf-user-lookup.test.cjs:4:1'
+  error: 'User lookup must scale with the user catalog plus cells, not rescan it for every cell'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+    <workspace>\tests\pdf-user-lookup.test.cjs:4:303
+    <workspace>\tests\pdf-user-lookup.test.cjs:3:1169
+    <workspace>\tests\pdf-user-lookup.test.cjs:3:1052
+    fixture (<workspace>\tests\pdf-user-lookup.test.cjs:3:140)
+    TestContext.<anonymous> (<workspace>\tests\pdf-user-lookup.test.cjs:4:87)
+# Subtest: AUD-007 User label snapshots stay report-local and preserve app membership and revocation
+ok 2 - AUD-007 User label snapshots stay report-local and preserve app membership and revocation
+# tests 2
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 649.4235

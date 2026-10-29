@@ -1,0 +1,8 @@
+Integration mode: readiness
+node : AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+    + CategoryInfo          : NotSpecified: (AssertionError ... a falsy value::String) [], RemoteException
+    at main (<workspace>\tests\readiness-browser.cjs:18:594)
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '=='

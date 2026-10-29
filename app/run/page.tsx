@@ -27,6 +27,7 @@ import { useAppSettings } from "@/app/components/AppSettingsProvider";
 export default function RunApp() {
   const { settings } = useAppSettings();
   const {user,access,expressionUser,application}=useAuth();
+  useEffect(()=>{if(!user||window.parent!==window)return;const abort=new AbortController();const timer=setTimeout(()=>{fetch('/api/app-activity',{method:'POST',headers:{'x-nocode-route-app':application,'x-nocode-app':application},signal:abort.signal}).catch(()=>{});},300);return()=>{clearTimeout(timer);abort.abort();};},[user?.id,application]);
   const permissionSignature=JSON.stringify(access),permissionState=useRef({signature:permissionSignature,epoch:0});
   if(permissionState.current.signature!==permissionSignature)permissionState.current={signature:permissionSignature,epoch:permissionState.current.epoch+1};
   const permissionEpoch=permissionState.current.epoch;

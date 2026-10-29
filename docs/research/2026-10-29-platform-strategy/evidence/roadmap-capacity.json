@@ -1,0 +1,166 @@
+[
+  {
+    "period": "0–30 Days",
+    "capacity": 35,
+    "tasks": [
+      [
+        "F01",
+        12,
+        "MVP complete"
+      ],
+      [
+        "A03",
+        9,
+        "MVP complete"
+      ],
+      [
+        "K03",
+        5,
+        "MVP complete after A03"
+      ],
+      [
+        "A01",
+        6,
+        "Spec/mapping spike only; NOT complete"
+      ],
+      [
+        "UX_RESEARCH",
+        3,
+        "5makers+5endusers task study / baseline"
+      ]
+    ]
+  },
+  {
+    "period": "31–90 Days",
+    "capacity": 70,
+    "tasks": [
+      [
+        "A01",
+        18,
+        "Finish MVP; total24pd including earlier6"
+      ],
+      [
+        "E03",
+        22,
+        "MVP complete"
+      ],
+      [
+        "G02",
+        18,
+        "MVP complete after F01"
+      ],
+      [
+        "L01",
+        8,
+        "Registry spike only; NOT complete"
+      ],
+      [
+        "A02",
+        4,
+        "Recipe spike only; NOT complete"
+      ]
+    ]
+  },
+  {
+    "period": "3–6 Months",
+    "capacity": 105,
+    "tasks": [
+      [
+        "B01",
+        32,
+        "MVP complete"
+      ],
+      [
+        "L01",
+        12,
+        "Finish MVP; total20pd"
+      ],
+      [
+        "C01",
+        22,
+        "MVP complete after L01"
+      ],
+      [
+        "G01",
+        26,
+        "MVP complete after G02/A01/F01"
+      ],
+      [
+        "A02",
+        11,
+        "Finish MVP; total15pd"
+      ],
+      [
+        "VERIFY_BUFFER",
+        2,
+        "Performance/security baseline comparison"
+      ]
+    ]
+  },
+  {
+    "period": "6–12 Months",
+    "capacity": 210,
+    "tasks": [
+      [
+        "E02",
+        32,
+        "MVP complete"
+      ],
+      [
+        "K01",
+        22,
+        "MVP complete"
+      ],
+      [
+        "J01",
+        32,
+        "MVP complete"
+      ],
+      [
+        "H01",
+        16,
+        "Closed pilot MVP complete; no auto publish"
+      ],
+      [
+        "D02",
+        18,
+        "MVP complete"
+      ],
+      [
+        "J03",
+        18,
+        "MVP complete before K02"
+      ],
+      [
+        "C02",
+        12,
+        "MVP complete"
+      ],
+      [
+        "D01",
+        12,
+        "MVP complete"
+      ],
+      [
+        "B02",
+        10,
+        "MVP complete after B01"
+      ],
+      [
+        "G03",
+        18,
+        "MVP complete"
+      ],
+      [
+        "K02",
+        14,
+        "MVP complete after J03"
+      ],
+      [
+        "E01",
+        6,
+        "Branch-IR spike only; NOT full workflow MVP"
+      ]
+    ]
+  }
+]

@@ -1,0 +1,2477 @@
+[
+  {
+    "name": "_actions",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "condition_expr",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "values_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "confirmation",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "config_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "appearance_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__actions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_app_settings",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "icon",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "color",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "mode",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_allow_gallery",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "header_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "navigation_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "icon_image",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "home_view",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_max_edge",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_quality",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_format",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_max_mb",
+        "type": "REAL",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_storage",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_folder",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "display_defaults_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "font",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "font_weight",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "font_size",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "loading_style",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "loading_text",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "custom_color",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "list_reference_version",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": []
+  },
+  {
+    "name": "_app_usage",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "actor_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "event",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "target",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "status",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "occurred_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "_app_usage_actor_time",
+        "unique": false
+      },
+      {
+        "name": "_app_usage_app_time",
+        "unique": false
+      }
+    ]
+  },
+  {
+    "name": "_app_versions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "owner",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "config_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "before_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__app_versions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_builders",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 2
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_applications",
+        "from": "app_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_builders_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_datasets",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "can_read",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_create",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_update",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_delete",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_export",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_applications",
+        "from": "app_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_datasets_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_local_roles",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_applications",
+        "from": "app_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_local_roles_2",
+        "unique": true
+      },
+      {
+        "name": "sqlite_autoindex__application_local_roles_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_members",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "can_use",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_application_local_roles",
+        "from": "app_id",
+        "to": "app_id",
+        "on_update": "NO ACTION",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      },
+      {
+        "id": 0,
+        "seq": 1,
+        "table": "_application_local_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "RESTRICT",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 2,
+        "seq": 0,
+        "table": "_applications",
+        "from": "app_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "_application_members_user",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__application_members_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_role_actions",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "action_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 3
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_application_local_roles",
+        "from": "app_id",
+        "to": "app_id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 0,
+        "seq": 1,
+        "table": "_application_local_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_role_actions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_role_rows",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 3
+      },
+      {
+        "name": "operation",
+        "type": "TEXT",
+        "required": true,
+        "pk": 4
+      },
+      {
+        "name": "expression",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_application_local_roles",
+        "from": "app_id",
+        "to": "app_id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 0,
+        "seq": 1,
+        "table": "_application_local_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_role_rows_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_role_tables",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 3
+      },
+      {
+        "name": "can_read",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_create",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_update",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_delete",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_export",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_application_local_roles",
+        "from": "app_id",
+        "to": "app_id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 0,
+        "seq": 1,
+        "table": "_application_local_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_role_tables_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_application_roles",
+    "columns": [
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "can_use",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "builder",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_applications",
+        "from": "app_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__application_roles_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_applications",
+    "columns": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__applications_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_audit_log",
+    "columns": [
+      {
+        "name": "event_id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "request_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "occurred_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_email",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_role",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "category",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "entity_type",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "entity_key",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "entity_label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "operation",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "source",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "changes_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "_audit_request",
+        "unique": false
+      },
+      {
+        "name": "_audit_actor_time",
+        "unique": false
+      },
+      {
+        "name": "_audit_category_time",
+        "unique": false
+      },
+      {
+        "name": "_audit_time",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__audit_log_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_auth_attempts",
+    "columns": [
+      {
+        "name": "scope",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "count",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "expires_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__auth_attempts_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_automation_jobs",
+    "columns": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "automation_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "row_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "actor_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "event",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "status",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "updated_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "next_step",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "attempts",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "config_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "row_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "outputs_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "error",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "_automation_actor_activity",
+        "unique": false
+      },
+      {
+        "name": "_automation_history",
+        "unique": false
+      },
+      {
+        "name": "_automation_queue",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__automation_jobs_2",
+        "unique": true
+      },
+      {
+        "name": "sqlite_autoindex__automation_jobs_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_automations",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "enabled",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "event",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "config_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "owner_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "next_run_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "_automation_events",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__automations_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_builder_security",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "separated",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": []
+  },
+  {
+    "name": "_columns",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "type",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "options",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "ref_table",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "required",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "pos",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "scan_enabled",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "related_required",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "ref_delete_cascade",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "ref_allow_add",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "input_mode",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "button_limit",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "is_virtual",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "virtual_expr",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "default_expr",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "show_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "valid_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "required_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "editable_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "is_key",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "is_label",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "list_limit",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "is_editable",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "is_unique",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "image_path",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "file_path",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "gps_auto",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "max_length",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "is_part_of",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "part_show_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "part_add_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "part_valid_if",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "reset_on_edit",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "reset_columns_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__columns_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_file_uploads",
+    "columns": [
+      {
+        "name": "file_id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__file_uploads_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_files",
+    "columns": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "mime",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "data",
+        "type": "BLOB",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__files_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_image_uploads",
+    "columns": [
+      {
+        "name": "image_id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__image_uploads_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_images",
+    "columns": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "mime",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "data",
+        "type": "BLOB",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "storage_path",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__images_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_media_catalog",
+    "columns": [
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__media_catalog_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_pdf_templates",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "config_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__pdf_templates_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_realtime_versions",
+    "columns": [
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__realtime_versions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_role_actions",
+    "columns": [
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "action_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_actions",
+        "from": "action_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__role_actions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_role_row_rules",
+    "columns": [
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "operation",
+        "type": "TEXT",
+        "required": true,
+        "pk": 3
+      },
+      {
+        "name": "expression",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__role_row_rules_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_role_tables",
+    "columns": [
+      {
+        "name": "role_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "can_read",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_create",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_update",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_delete",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "can_export",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_roles",
+        "from": "role_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__role_tables_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_roles",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "builder",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__roles_2",
+        "unique": true
+      },
+      {
+        "name": "sqlite_autoindex__roles_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_sessions",
+    "columns": [
+      {
+        "name": "token_hash",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "last_seen",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "expires_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "_sessions_user",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__sessions_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_slices",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "filter_expr",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "columns_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__slices_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_tables",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "owner_app_id",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "realtime_enabled",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "_tables_owner_app",
+        "unique": false
+      },
+      {
+        "name": "sqlite_autoindex__tables_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_user_profiles",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "avatar",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "name": "_user_setting_defs",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "type",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "options_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "default_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__user_setting_defs_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_user_setting_values",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 1
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 2
+      },
+      {
+        "name": "value_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_user_setting_defs",
+        "from": "name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_users",
+        "from": "user_id",
+        "to": "id",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__user_setting_values_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_users",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "email",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "password_hash",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "role",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "active",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "created_at",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "username",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "nickname",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "department",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_roles",
+        "from": "role",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "_users_email",
+        "unique": true
+      },
+      {
+        "name": "_users_username",
+        "unique": true
+      },
+      {
+        "name": "sqlite_autoindex__users_1",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "name": "_views",
+    "columns": [
+      {
+        "name": "name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 1
+      },
+      {
+        "name": "label",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "table_name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "position",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "pos",
+        "type": "INTEGER",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "columns_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "sort_column",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "sort_dir",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "icon",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "group_column",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "group_dir",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "menu_group",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "show_if",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "display_json",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "inline_ref",
+        "type": "TEXT",
+        "required": true,
+        "pk": 0
+      },
+      {
+        "name": "slice_name",
+        "type": "TEXT",
+        "required": false,
+        "pk": 0
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": 0,
+        "seq": 0,
+        "table": "_slices",
+        "from": "slice_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "NO ACTION",
+        "match": "NONE"
+      },
+      {
+        "id": 1,
+        "seq": 0,
+        "table": "_tables",
+        "from": "table_name",
+        "to": "name",
+        "on_update": "NO ACTION",
+        "on_delete": "CASCADE",
+        "match": "NONE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex__views_1",
+        "unique": true
+      }
+    ]
+  }
+]

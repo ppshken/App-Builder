@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-29",
+  "scope": "isolated local repair verification; no deployment",
+  "commands": [
+    {
+      "command": "NOCODE_DB_PATH=<isolated> node scripts/test.cjs",
+      "exit": 0,
+      "tests": 330,
+      "passed": 330,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node node_modules/typescript/bin/tsc --noEmit --incremental false",
+      "exit": 0,
+      "diagnostics": 0
+    },
+    {
+      "command": "git -c core.safecrlf=false diff --check",
+      "exit": 0
+    },
+    {
+      "command": "NOCODE_DB_PATH=<isolated-build> NOCODE_BUILD_DIR=.next-check next build",
+      "exit": 0
+    },
+    {
+      "command": "NOCODE_TEST_PRODUCTION=1 node scripts/integration.cjs attachmentboundary",
+      "exit": 0
+    },
+    {
+      "command": "NOCODE_TEST_PRODUCTION=1 node scripts/integration.cjs api",
+      "exit": 0,
+      "tests": 15,
+      "passed": 15,
+      "failed": 0
+    }
+  ],
+  "completedBrowserModes": [
+    "permissions",
+    "workflows",
+    "exceloptions",
+    "readiness",
+    "tabcounts",
+    "quickfilters",
+    "valuetypes",
+    "appoperations",
+    "approles (retry; initial redirect failure retained)"
+  ],
+  "paused": {
+    "AUD-002": "User explicitly paused; 2 failing regression cases not in default suite",
+    "AUD-003": "User explicitly paused; no dependency changes"
+  },
+  "notTested": [
+    "real iPhone/Safari/PWA device",
+    "Linux Docker staging",
+    "production traffic",
+    "framework upgrade compatibility"
+  ]
+}

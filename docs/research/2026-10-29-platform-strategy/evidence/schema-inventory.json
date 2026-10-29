@@ -1,0 +1,146 @@
+[
+  {
+    "table": "_applications",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_datasets",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_roles",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_local_roles",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_members",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_role_tables",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_role_actions",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_role_rows",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_builder_security",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_application_builders",
+    "file": "lib/application-schema.ts"
+  },
+  {
+    "table": "_app_usage",
+    "file": "lib/audit-schema.ts"
+  },
+  {
+    "table": "_media_catalog",
+    "file": "lib/audit-schema.ts"
+  },
+  {
+    "table": "_audit_log",
+    "file": "lib/audit-schema.ts"
+  },
+  {
+    "table": "_roles",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_role_tables",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_role_actions",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_users",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_sessions",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_file_uploads",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_image_uploads",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_user_setting_defs",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_user_setting_values",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_role_row_rules",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_user_profiles",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_auth_attempts",
+    "file": "lib/auth-schema.ts"
+  },
+  {
+    "table": "_realtime_versions",
+    "file": "lib/realtime-schema.ts"
+  },
+  {
+    "table": "_app_versions",
+    "file": "lib/releases.ts"
+  },
+  {
+    "table": "_tables",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_columns",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_slices",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_actions",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_files",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_app_versions",
+    "file": "lib/schema.ts"
+  },
+  {
+    "table": "_automations",
+    "file": "lib/workflow-schema.ts"
+  },
+  {
+    "table": "_pdf_templates",
+    "file": "lib/workflow-schema.ts"
+  },
+  {
+    "table": "_automation_jobs",
+    "file": "lib/workflow-schema.ts"
+  }
+]

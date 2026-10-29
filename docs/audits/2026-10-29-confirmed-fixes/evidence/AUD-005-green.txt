@@ -1,0 +1,2 @@
+Integration mode: tabcounts
+AUD-005 Passed: selected choices 51–500 and searched choices beyond 500, table/list, mobile/desktop, API counts and radius retained.
