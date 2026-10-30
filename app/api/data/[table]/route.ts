@@ -1,3 +1,4 @@
+import {refreshExternalTable} from '@/lib/external-sources';
 import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
 import {viewFilterOptions} from '@/lib/view-filter-options';
 import {sqlPageWindow} from '@/lib/sql-page-window';
@@ -26,6 +27,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
   const t = params.table;
   try {
     if (!tableExists(t)) return bad("ไม่พบตาราง", 404);
+    await refreshExternalTable(t,new URL(req.url).searchParams.get("refresh_source")==="1");
     const cols = columnsOf(t), now = new Date(), userEmail = previewEmail(req), u = new URL(req.url), context = expressionContext(now, userEmail);
     if(u.searchParams.has("options_for"))return NextResponse.json(viewFilterOptions(t,u.searchParams,userEmail));
     if (u.searchParams.get("defaults") === "1") {

@@ -10,7 +10,7 @@ export const databasePath = process.env.NOCODE_DB_PATH ? resolve(process.env.NOC
 const path = databasePath;
 export function databaseGeneration(){return (globalThis as any).__nocodeDbGeneration || 0;}
 export function markDatabaseRestored(){(globalThis as any).__nocodeDbGeneration = databaseGeneration()+1;}
-const schemaVersion = "multi-application-runtime-v8-auto-number";
+const schemaVersion = "multi-application-runtime-v10-bulk-actions";
 const g = globalThis as typeof globalThis & { __nocodeDb?: { path: string; db: Database.Database; version?: string } };
 const scopeGlobal=globalThis as typeof globalThis & {__nocodeDatabaseScope?:AsyncLocalStorage<Database.Database>};
 const databaseScope=scopeGlobal.__nocodeDatabaseScope??=new AsyncLocalStorage<Database.Database>();

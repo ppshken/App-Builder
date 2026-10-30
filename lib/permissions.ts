@@ -1,3 +1,4 @@
+import {externalTable} from './external-storage';
 import {assertUserFields} from './user-fields';
 import {securitySeparated,applicationBuilder} from './builder-security';
 import {applicationMember,memberCanUse} from './application-membership';
@@ -27,7 +28,7 @@ export function currentScopeKey(){return scope.getStore();}
 export function currentUser(){return scope.getStore()?.user;}
 export function currentAccess(){return scope.getStore()?.access || {owner:true,builder:true,tables:{},actions:[]};}
 export function canRead(table:string){return tableAccess(currentAccess(),table).read;}
-export function assertTablePermission(table:string,operation:"read"|"create"|"update"|"delete"){if(!tableAccess(currentAccess(),table)[operation])throw new AuthError("ไม่มีสิทธิ์"+({read:"ดู",create:"เพิ่ม",update:"แก้ไข",delete:"ลบ"}[operation])+"ข้อมูลของตารางนี้",403);}
+export function assertTablePermission(table:string,operation:"read"|"create"|"update"|"delete"){if(operation!=="read"&&externalTable(db,table))throw new AuthError("Live / Cached API เป็นข้อมูลอ่านอย่างเดียว",403);if(!tableAccess(currentAccess(),table)[operation])throw new AuthError("ไม่มีสิทธิ์"+({read:"ดู",create:"เพิ่ม",update:"แก้ไข",delete:"ลบ"}[operation])+"ข้อมูลของตารางนี้",403);}
 export function canExecuteAction(action:{name:string;table_name:string;kind:string}){const a=currentAccess();return tableAccess(a,action.table_name).read && tableAccess(a,action.table_name)[actionPermission(action.kind)] && (a.owner||a.builder||a.actions.includes(action.name));}
 export function assertImageAccess(id:string){
  if(currentAccess().owner&&!db.prepare("SELECT 1 FROM _images WHERE id=?").get(id))return;

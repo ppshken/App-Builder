@@ -1,0 +1,6 @@
+import {db} from './db';
+import {columnsOf} from './db';
+import {workflows,workflowMatches,enqueueWorkflow,workflowEnvironment} from './workflows';
+import {validateWorkflow} from './workflow-config';
+import type {ExternalSource} from './external-sources';
+export function emitSourceWorkflowEvent(source:ExternalSource,event:'sync_completed'|'sync_failed',jobId:string){const job=db.prepare('SELECT created,updated,failed FROM _external_jobs WHERE id=? AND source_id=?').get(jobId,source.id) as {created:number;updated:number;failed:number}|undefined;if(!job)return;const config=JSON.parse(source.config_json),selected=event==='sync_completed'?config.on_success:config.on_failure;const row={...Object.fromEntries(columnsOf(source.table_name).map(c=>[c.name,null])),id:0,__SYNC_CREATED:job.created,__SYNC_UPDATED:job.updated,__SYNC_FAILED:job.failed,__SYNC_SOURCE:source.name};for(const workflow of workflows().filter(w=>w.enabled&&w.table_name===source.table_name&&w.event===event&&(!selected||w.name===selected))){try{validateWorkflow(workflow,workflowEnvironment());if(workflowMatches(workflow,row))enqueueWorkflow(workflow,row,event);}catch{enqueueWorkflow(workflow,row,event,'Sync สำเร็จ/ล้มเหลวแล้ว แต่ตรวจ Automation ที่เชื่อมไว้ไม่ได้');}}}

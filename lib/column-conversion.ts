@@ -1,3 +1,4 @@
+import {assertInternalTable} from './external-storage';
 import {validateCustomData} from './custom-page-references';
 import {realtimeTriggerDefinitions} from "./realtime-schema";
 import {validateStoredWorkflows} from "./workflow-validation";
@@ -66,7 +67,7 @@ export function convertValue(source:Column,target:Column,raw:unknown,resolveRef?
 function prepare(database:Database.Database,table:string,request:ConversionRequest){
  assertIdentifier(table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(table))throw Error("ไม่พบตาราง");
  if(request.mode==="replace"&&(database.prepare("SELECT expression FROM _role_row_rules WHERE table_name=?").all(table) as {expression:string}[]).some(r=>references(r.expression).includes(request.column)))throw Error("คอลัมน์นี้ใช้ในกฎสิทธิ์ระดับแถว กรุณาแก้กฎก่อนแปลงชนิดข้อมูล หรือเลือกคัดลอกไปคอลัมน์ใหม่");
- const cols=readColumns(database,table),source=cols.find(c=>c.name===request.column);if(!source)throw Error("ไม่พบคอลัมน์ที่ต้องการแปลง");if(source.auto_number)throw Error("กรุณาปิดเลขรันอัตโนมัติก่อนเปลี่ยนชนิดหรือคัดลอกคอลัมน์");
+ assertInternalTable(database,table);const cols=readColumns(database,table),source=cols.find(c=>c.name===request.column);if(!source)throw Error("ไม่พบคอลัมน์ที่ต้องการแปลง");if(source.auto_number)throw Error("กรุณาปิดเลขรันอัตโนมัติก่อนเปลี่ยนชนิดหรือคัดลอกคอลัมน์");
  if(source.is_virtual)throw Error("ช่องคำนวณไม่เก็บข้อมูลจริง กรุณาแก้สูตรหรือสร้างคอลัมน์ข้อมูลใหม่");
  const objects=database.prepare("SELECT name,type,sql FROM sqlite_master WHERE tbl_name=? OR type='view'").all(`t_${table}`) as {name:string;type:string;sql:string|null}[];
  const knownIndexes=new Set([`_key_${table}`,...cols.filter(c=>c.type==="ref"&&!c.is_virtual).map(c=>`_ref_${table}_${c.name}`),...cols.filter(c=>c.is_unique&&!c.is_virtual).map(c=>`_unique_${table}_${c.name}`)]);

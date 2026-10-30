@@ -7,6 +7,7 @@ import {applicationTable} from './application-context';
 import {initializeDatabase,columnDefinition,readColumns} from './schema';
 import {assertIdentifier} from './columns';
 import {validateRowRule} from './row-access';
+import {externalTable,createExternalReadView} from './external-storage';
 import {securitySeparated,separateBuilderSecurity} from './builder-security';
 export const RESTORED_SECURITY=['_builder_security','_application_builders','_application_local_roles','_application_members','_application_role_tables','_application_role_actions','_application_role_rows'];
 export function restoreConfigTables(db:Database.Database){return configurationTables(db);}
@@ -32,7 +33,7 @@ export function accountMapping(source:Database.Database,target:Database.Database
 export function restoreAccountsSummary(source:Database.Database,target:Database.Database):RestoreAccountSummary{const mapping=accountMapping(source,target),missing=(source.prepare("SELECT id,COALESCE(NULLIF(email,''),username) AS email FROM _users ORDER BY email").all() as {id:number;email:string}[]).filter(u=>!mapping.has(u.id));return {matched:mapping.size,unmatched:missing.length,unmatchedEmails:missing.slice(0,20).map(u=>u.email),policy:'keep-current-by-email'};}
 // DDL comes exclusively from initializeDatabase and validated column definitions,
 // never from sqlite_master SQL in the uploaded or staged file.
-export function trustedRestoreObjects(stage:Database.Database){const template=new Database(':memory:');try{initializeDatabase(template,':memory:');for(const id of restoreApplications(stage)){if(id==='default')continue;template.prepare('INSERT INTO _applications(id,label,description,created_at) VALUES(?,?,?,0)').run(id,id,'');createApplicationConfig(template,id);}for(const t of stage.prepare('SELECT name FROM _tables').all() as {name:string}[]){const cols=readColumns(stage,t.name).filter(c=>!c.is_virtual);template.exec('CREATE TABLE "t_'+t.name+'"(id INTEGER PRIMARY KEY AUTOINCREMENT'+(cols.length?',':'')+cols.map(columnDefinition).join(',')+')');}return template.prepare('SELECT name,type,sql,tbl_name FROM sqlite_master').all() as {name:string;type:string;sql:string|null;tbl_name:string}[];}finally{template.close();}}
+export function trustedRestoreObjects(stage:Database.Database){const template=new Database(':memory:');try{initializeDatabase(template,':memory:');for(const id of restoreApplications(stage)){if(id==='default')continue;template.prepare('INSERT INTO _applications(id,label,description,created_at) VALUES(?,?,?,0)').run(id,id,'');createApplicationConfig(template,id);}for(const t of stage.prepare('SELECT name FROM _tables').all() as {name:string}[]){const cols=readColumns(stage,t.name).filter(c=>!c.is_virtual);if(externalTable(stage,t.name)){const row=stage.prepare('SELECT source_id FROM _tables WHERE name=?').get(t.name) as {source_id:string};createExternalReadView(template,t.name,cols,row.source_id);continue;}template.exec('CREATE TABLE "t_'+t.name+'"(id INTEGER PRIMARY KEY AUTOINCREMENT'+(cols.length?',':'')+cols.map(columnDefinition).join(',')+')');}return template.prepare('SELECT name,type,sql,tbl_name FROM sqlite_master').all() as {name:string;type:string;sql:string|null;tbl_name:string}[];}finally{template.close();}}
 // Normalize legacy account permissions before mapping them. Keep source account IDs
 // only in staging; they are never used as live account identifiers.
 export function normalizeRestoreSecurity(stage:Database.Database,force=false){if(!securitySeparated(stage)&&(force||stage.prepare('SELECT 1 FROM _users LIMIT 1').get()))separateBuilderSecurity(stage);}
@@ -47,6 +48,7 @@ export function remapRestoredAccounts(db:Database.Database,source:Database.Datab
   db.prepare('UPDATE '+table('_automations')+' SET enabled=0').run();db.prepare("UPDATE "+table('_automation_jobs')+" SET status='cancelled',error='กู้คืนฐานข้อมูล กรุณาตรวจการตั้งค่าและสั่งงานใหม่' WHERE status IN ('queued','running')").run();
   if(securitySeparated(db))db.prepare('DELETE FROM '+table('_role_actions')).run();else db.prepare('DELETE FROM '+table('_role_actions')+' WHERE role_name NOT IN (SELECT name FROM _roles)').run();
  }
+ const fallback=(db.prepare("SELECT id FROM _users WHERE role='owner' ORDER BY id LIMIT 1").get() as {id:number}|undefined)?.id;for(const [name,field] of [['_external_sources','owner_id'],['_external_jobs','actor_id']] as const){for(const row of db.prepare('SELECT rowid restore_rowid,'+field+' account FROM '+name).all() as {restore_rowid:number;account:number}[]){const account=mapping.get(row.account)||fallback;if(!account)throw Error('ไม่มีบัญชีสำหรับกู้คืน External Source');db.prepare('UPDATE '+name+' SET '+field+'=? WHERE rowid=?').run(account,row.restore_rowid);}}
  if(securitySeparated(db))db.prepare('DELETE FROM _application_roles').run();else db.prepare('DELETE FROM _application_roles WHERE role_name NOT IN (SELECT name FROM _roles)').run();
 }
 

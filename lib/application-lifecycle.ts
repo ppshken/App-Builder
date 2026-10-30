@@ -1,3 +1,5 @@
+import {externalTable,createExternalReadView} from './external-storage';
+import {copyExternalDefinitions,remapExternalSourceSteps,retainExternalSourcesOnAppDelete} from './external-portability';
 import type Database from 'better-sqlite3';
 import {platformDatabase} from './db';
 import {applications,applicationScopeFor,createApplication,assertManageApplication} from './applications';
@@ -24,14 +26,16 @@ export function cloneApplication(actor:AuthUser,sourceId:unknown,label:unknown,m
 export function copyApplicationDatabase(actor:AuthUser,sourceDb:Database.Database,sourceId:string,label:unknown,description:string,tables:string[],mode:unknown='new',includeData=true,rights:Record<string,any>={}){
  const db=platformDatabase();
  return db.transaction(()=>{
-  db.pragma('defer_foreign_keys=ON');const target=createApplication(label,description),mapping:Record<string,string>={};
+  db.pragma('defer_foreign_keys=ON');const target=createApplication(label,description),mapping:Record<string,string>={},sourceIds:Record<string,string>={};
   if(mode==='new')for(const [i,name] of tables.entries())mapping[name]='c_'+target.id.slice(2,10)+'_'+i+'_'+name.slice(0,24);
-  if(mode==='new'){
+  if(mode==='shared'&&tables.some(name=>externalTable(sourceDb,name)))throw new AuthError('Live API แบ่งปันข้ามแอปไม่ได้ กรุณา Clone ฐานข้อมูลชุดใหม่');
+ if(mode==='new'){
    for(const name of tables){const original=sourceDb.prepare('SELECT * FROM _tables WHERE name=?').get(name) as Row;insert(db,'_tables',{...original,name:mapping[name],owner_app_id:target.id});}
    for(const name of tables)for(const original of sourceDb.prepare('SELECT * FROM _columns WHERE table_name=? ORDER BY pos,id').all(name) as Row[]){if(original.ref_table&&!mapping[original.ref_table])throw new AuthError('ตารางอ้างอิง '+original.ref_table+' ยังไม่ได้เชื่อมกับแอพต้นฉบับ');const {id,...column}=original;insert(db,'_columns',transformApplicationRow({...column,table_name:mapping[name]},mapping,'_columns'));}
    if(includeData)for(const name of tables)for(const row of sourceDb.prepare('SELECT * FROM _auto_numbers WHERE table_name=?').all(name) as Row[])insert(db,'_auto_numbers',{...row,table_name:mapping[name]});
-   for(const name of tables){const cols=readColumns(db,mapping[name]).filter(c=>!c.is_virtual);db.exec('CREATE TABLE '+quote('t_'+mapping[name])+'(id INTEGER PRIMARY KEY AUTOINCREMENT'+(cols.length?',':'')+cols.map(columnDefinition).join(',')+')');}
-   for(const name of tables){if(includeData){const fields=['id',...readColumns(db,mapping[name]).filter(c=>!c.is_virtual).map(c=>c.name)].map(quote).join(',');if(sourceDb===db)db.exec('INSERT INTO '+quote('t_'+mapping[name])+'('+fields+') SELECT '+fields+' FROM '+quote('t_'+name));else{const write=db.prepare('INSERT INTO '+quote('t_'+mapping[name])+'('+fields+') VALUES('+fields.split(',').map(()=>'?').join(',')+')');for(const row of sourceDb.prepare('SELECT '+fields+' FROM '+quote('t_'+name)).iterate() as Iterable<Row>)write.run(...Object.values(row));}const seq=(sourceDb.prepare('SELECT seq FROM sqlite_sequence WHERE name=?').get('t_'+name) as {seq:number}|undefined)?.seq||0;const result=db.prepare('UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?').run(seq,'t_'+mapping[name]);if(!result.changes)db.prepare('INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)').run('t_'+mapping[name],seq);}syncKeyIndex(db,mapping[name]);installRealtimeTriggers(db,mapping[name]);}
+   Object.assign(sourceIds,copyExternalDefinitions(sourceDb,db,mapping,target.id,actor.id,includeData,sourceId));
+   for(const name of tables){const cols=readColumns(db,mapping[name]).filter(c=>!c.is_virtual);if(externalTable(db,mapping[name])){const source=db.prepare('SELECT source_id FROM _tables WHERE name=?').get(mapping[name]) as Row;createExternalReadView(db,mapping[name],cols,source.source_id);continue;}db.exec('CREATE TABLE '+quote('t_'+mapping[name])+'(id INTEGER PRIMARY KEY AUTOINCREMENT'+(cols.length?',':'')+cols.map(columnDefinition).join(',')+')');}
+   for(const name of tables){if(externalTable(db,mapping[name]))continue;if(includeData){const fields=['id',...readColumns(db,mapping[name]).filter(c=>!c.is_virtual).map(c=>c.name)].map(quote).join(',');if(sourceDb===db)db.exec('INSERT INTO '+quote('t_'+mapping[name])+'('+fields+') SELECT '+fields+' FROM '+quote('t_'+name));else{const write=db.prepare('INSERT INTO '+quote('t_'+mapping[name])+'('+fields+') VALUES('+fields.split(',').map(()=>'?').join(',')+')');for(const row of sourceDb.prepare('SELECT '+fields+' FROM '+quote('t_'+name)).iterate() as Iterable<Row>)write.run(...Object.values(row));}const seq=(sourceDb.prepare('SELECT seq FROM sqlite_sequence WHERE name=?').get('t_'+name) as {seq:number}|undefined)?.seq||0;const result=db.prepare('UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?').run(seq,'t_'+mapping[name]);if(!result.changes)db.prepare('INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)').run('t_'+mapping[name],seq);}syncKeyIndex(db,mapping[name]);installRealtimeTriggers(db,mapping[name]);}
    const schemas:Record<string,Column[]>=Object.fromEntries(Object.values(mapping).map(name=>[name,readColumns(db,name)]));for(const cols of Object.values(schemas))assertFormulas(cols,schemas);
   }else for(const name of tables){const grant=rights[name];insert(db,'_application_datasets',{app_id:target.id,table_name:name,can_read:1,can_create:Number(grant.create),can_update:Number(grant.update),can_delete:Number(grant.delete),can_export:Number(grant.export)});}
   const skip=new Set(['_automation_jobs','_app_versions','_user_setting_values']);
@@ -39,12 +43,14 @@ export function copyApplicationDatabase(actor:AuthUser,sourceDb:Database.Databas
   for(const logical of ['_application_local_roles','_application_role_tables','_application_role_actions','_application_role_rows'])for(const original of sourceDb.prepare('SELECT * FROM '+quote(logical)+' WHERE app_id=?').all(sourceId) as Row[]){const row=transformApplicationRow({...original,app_id:target.id},mapping,logical);if(logical==='_application_role_rows')row.expression=remapExpressionTables(original.expression,mapping);insert(db,logical,row);}
   if(securitySeparated(db))insert(db,'_application_builders',{app_id:target.id,user_id:actor.id});else if(actor.role!=='owner')insert(db,'_application_roles',{app_id:target.id,role_name:actor.role,can_use:1,builder:1});
   if((db.pragma('foreign_key_check') as unknown[]).length)throw new AuthError('ข้อมูลอ้างอิงของแอพโคลนไม่ถูกต้อง ยกเลิกการโคลนแล้ว');installAuditing(db);
+  for(const logical of ['_automations','_app_versions']){const configured=applicationTable(target.id,logical);for(const row of db.prepare('SELECT rowid copy_rowid,* FROM '+configured).all() as Row[]){for(const field of ['config_json','before_json'])if(typeof row[field]==='string')db.prepare('UPDATE '+configured+' SET '+field+'=? WHERE rowid=?').run(JSON.stringify(remapExternalSourceSteps(JSON.parse(row[field]),sourceIds)),row.copy_rowid);}}
   return {...applications(actor).find(a=>a.id===target.id)!,table_mapping:mapping};
  }).immediate();
 }
 export function deleteApplication(actor:AuthUser,id:unknown){
  const app=assertManageApplication(actor,id);if(app.id==='default')throw new AuthError('แอพเริ่มต้นของระบบไม่สามารถลบได้');const db=platformDatabase();
  return db.transaction(()=>{if(db.prepare('SELECT 1 FROM '+quote(applicationTable(app.id,'_automation_jobs'))+" WHERE status IN ('queued','running') LIMIT 1").get())throw new AuthError('ยังมี Automation รอทำงานหรือกำลังทำงาน กรุณารอหรือยกเลิกงานก่อนลบแอพ',409);
+  retainExternalSourcesOnAppDelete(db,app.id);
   db.prepare("UPDATE _tables SET owner_app_id='default' WHERE owner_app_id=?").run(app.id);
   db.prepare('DELETE FROM _application_members WHERE app_id=?').run(app.id);
   for(const name of ['_user_setting_values','_user_setting_defs','_role_actions','_automation_jobs','_automations','_pdf_templates','_app_versions','_views','_actions','_slices','_app_settings'])db.exec('DROP TABLE '+quote(applicationTable(app.id,name)));

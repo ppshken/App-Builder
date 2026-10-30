@@ -1,3 +1,4 @@
+import {assertInternalTable} from '@/lib/external-storage';
 import {customTargets} from '@/lib/custom-page';
 import {pruneApplicationActionGrants} from '@/lib/application-role-grants';
 import {workflowDependency} from "@/lib/workflow-dependencies";
@@ -23,6 +24,7 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
   const t = params.name;
   try {
     if (!tableExists(t)) return bad("ไม่พบตาราง", 404);
+    assertInternalTable(db,t);
     const b = await readBody(req), cols = columnsOf(t);
     const found = cols.find(c => c.name === b.name);
     switch (b.op) {

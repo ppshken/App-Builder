@@ -1,3 +1,5 @@
+import {validateDetailFields,type DetailFieldDisplay} from './detail-field-config';
+import {validateBulkConfig,type BulkActionConfig} from './bulk-action-config';
 import {canQuickFilter} from './view-filter-config';
 import {validateCustomPage,type CustomPageLayout} from './custom-page';
 import {validateDataStyles,decorationReferences,changeDecorationColumn,type DataStyle} from "./data-decoration";
@@ -7,6 +9,8 @@ export type FormFieldDisplay = { width?: "full" | "half"; section?: string; help
 export type RelatedDisplay = { view?: string; title?: string; visible?: boolean; limit?: 0|5|10|20 };
 export function detailItemOrder(available:string[],configured:string[]=[]){const allowed=new Set(available);return [...new Set([...configured,...available])].filter(key=>allowed.has(key));}
 export type ViewDisplay = {
+  detail_fields?:Record<string,DetailFieldDisplay>;
+  bulk_actions?:BulkActionConfig;
   tabs_column?:string;
   tabs_radius?:number;
   filter_columns?:string[];
@@ -34,12 +38,14 @@ export type ViewDisplay = {
   form_save_layout?:"normal"|"vertical"|"horizontal"|"top"|"floating"; form_saved_action?:string; form_reopen?:boolean; form_after_save?:"back"|"detail"; form_columns?: 1 | 2; form_labels?: "top" | "left"; form_fields?: Record<string, FormFieldDisplay>;
   related?: Record<string, RelatedDisplay>;
 };
-export const DISPLAY_DEFAULTS = {tabs_radius:18,tabs_column:"",filter_columns:[] as string[],custom_page:undefined as CustomPageLayout|undefined,group_by:[] as import("./view-groups").GroupLevel[],group_summary:"count",group_sum_column:"",table_show_edit:true,table_show_delete:true,table_show_actions:true,data_styles:{},table_row_padding:null,table_line_height:1.5,display_name:"",map_data_view:"",map_layout:"split",map_style:"standard",map_marker:"pin",map_marker_size:12,map_marker_color:"",map_radius:12,map_show_coordinates:true,map_show_summary:true,map_scroll_zoom:false,map_location:"",map_image:"",map_lat:"",map_lng:"",map_title:"",map_zoom:12,map_height:420,map_fit:true,chart_type:"bar",chart_category:"",chart_value:"",chart_aggregate:"count",chart_sort:"value_desc",chart_limit:20,chart_height:360,chart_color:"",chart_labels:true,calendar_start:"",calendar_end:"",calendar_title:"",calendar_color:"",calendar_mode:"month",calendar_week_start:1,calendar_show_time:true,dashboard_views:[],dashboard_layout:"stack",dashboard_columns:2,dashboard_gap:16,dashboard_height:420,dashboard_titles:true, inline_list_horizontal:false, list_style: "compact", list_grid_columns: 3, list_grid_mobile_columns: 2, list_padding: 8, list_min_height: 78, list_gap: 0, list_radius: 12, image_column: "__auto__", image_shape: "square", image_size: "medium", title_column: "__auto__", summary_columns: null, show_summary_labels: true, list_buttons: "edit", table_density: "comfortable", table_wrap: false, row_click: "detail", row_action: "", detail_layout: "vertical", detail_columns: 1, detail_style: "plain", detail_image_mode: "inline", detail_cover_column: "__auto__", detail_cover_height: 240, detail_image_fit: "cover", detail_image_radius: 0, detail_padding: 18, detail_row_spacing: 14, detail_line_height: 1.7, detail_separator: "solid", detail_show_labels: true, detail_hide_empty: false, form_save_layout:"normal", form_saved_action:"", form_reopen:false, form_after_save:"back", form_columns: 1, form_labels: "top", form_fields: {}, detail_order:[], form_order:[], related: {} } satisfies ViewDisplay;
+export const DISPLAY_DEFAULTS = {detail_fields:{} as Record<string,DetailFieldDisplay>,bulk_actions:undefined as BulkActionConfig|undefined,tabs_radius:18,tabs_column:"",filter_columns:[] as string[],custom_page:undefined as CustomPageLayout|undefined,group_by:[] as import("./view-groups").GroupLevel[],group_summary:"count",group_sum_column:"",table_show_edit:true,table_show_delete:true,table_show_actions:true,data_styles:{},table_row_padding:null,table_line_height:1.5,display_name:"",map_data_view:"",map_layout:"split",map_style:"standard",map_marker:"pin",map_marker_size:12,map_marker_color:"",map_radius:12,map_show_coordinates:true,map_show_summary:true,map_scroll_zoom:false,map_location:"",map_image:"",map_lat:"",map_lng:"",map_title:"",map_zoom:12,map_height:420,map_fit:true,chart_type:"bar",chart_category:"",chart_value:"",chart_aggregate:"count",chart_sort:"value_desc",chart_limit:20,chart_height:360,chart_color:"",chart_labels:true,calendar_start:"",calendar_end:"",calendar_title:"",calendar_color:"",calendar_mode:"month",calendar_week_start:1,calendar_show_time:true,dashboard_views:[],dashboard_layout:"stack",dashboard_columns:2,dashboard_gap:16,dashboard_height:420,dashboard_titles:true, inline_list_horizontal:false, list_style: "compact", list_grid_columns: 3, list_grid_mobile_columns: 2, list_padding: 8, list_min_height: 78, list_gap: 0, list_radius: 12, image_column: "__auto__", image_shape: "square", image_size: "medium", title_column: "__auto__", summary_columns: null, show_summary_labels: true, list_buttons: "edit", table_density: "comfortable", table_wrap: false, row_click: "detail", row_action: "", detail_layout: "vertical", detail_columns: 1, detail_style: "plain", detail_image_mode: "inline", detail_cover_column: "__auto__", detail_cover_height: 240, detail_image_fit: "cover", detail_image_radius: 0, detail_padding: 18, detail_row_spacing: 14, detail_line_height: 1.7, detail_separator: "solid", detail_show_labels: true, detail_hide_empty: false, form_save_layout:"normal", form_saved_action:"", form_reopen:false, form_after_save:"back", form_columns: 1, form_labels: "top", form_fields: {}, detail_order:[], form_order:[], related: {} } satisfies ViewDisplay;
 export function displaySettings(value?: ViewDisplay, defaults?: ViewDisplay) { return { ...DISPLAY_DEFAULTS, ...defaults, ...value } as Required<ViewDisplay>; }
 export function validateDisplay(value: unknown, cols: Column[]): ViewDisplay {
   if (!value || typeof value !== "object" || Array.isArray(value) || JSON.stringify(value).length > 100000) throw new Error("รูปแบบหน้าจอไม่ถูกต้อง กรุณาเลือกการตั้งค่าจากหน้า View");
   validateSpecialDisplay(value as ViewDisplay,cols);
+  if((value as ViewDisplay).detail_fields!==undefined)validateDetailFields((value as ViewDisplay).detail_fields,cols);
   if((value as ViewDisplay).custom_page!==undefined)validateCustomPage((value as ViewDisplay).custom_page);
+  if((value as ViewDisplay).bulk_actions!==undefined)validateBulkConfig((value as ViewDisplay).bulk_actions);
   const v = value as ViewDisplay, names = new Set(cols.map(c => c.name));
   if (Object.keys(v).some(k => !Object.hasOwn(DISPLAY_DEFAULTS, k))) throw new Error("ไม่รู้จักตัวเลือกรูปแบบหน้าจอ");
   if(v.tabs_radius!==undefined&&(!Number.isInteger(v.tabs_radius)||v.tabs_radius<0||v.tabs_radius>40))throw Error('ความโค้งมนแท็บต้องเป็นจำนวนเต็ม 0–40');
@@ -85,7 +91,7 @@ export function validateDisplay(value: unknown, cols: Column[]): ViewDisplay {
   }
   return v;
 }
-export function displayColumnNames(value: ViewDisplay = {}) { return [...new Set([...(value.group_by||[]).map(g=>g.column).filter(n=>n!=="id"),...SPECIAL_COLUMN_KEYS.map(k=>value[k]),value.group_sum_column,value.title_column, value.image_column, value.detail_cover_column, value.tabs_column, ...(value.filter_columns||[]), ...(value.summary_columns || []), ...Object.keys(value.form_fields || {}),...decorationReferences(value.data_styles)].filter(n => n && n !== "__auto__"))] as string[]; }
+export function displayColumnNames(value: ViewDisplay = {}) { return [...new Set([...(value.group_by||[]).map(g=>g.column).filter(n=>n!=="id"),...SPECIAL_COLUMN_KEYS.map(k=>value[k]),value.group_sum_column,value.title_column, value.image_column, value.detail_cover_column, value.tabs_column, ...(value.filter_columns||[]), ...(value.summary_columns || []), ...Object.keys(value.form_fields || {}),...Object.keys(value.detail_fields||{}).filter(n=>!n.startsWith('related:')),...decorationReferences(value.data_styles)].filter(n => n && n !== "__auto__"))] as string[]; }
 export function changeDisplayColumn(value: ViewDisplay, old: string, next?: string): ViewDisplay {
   const result = { ...value };
   if(result.group_by)result.group_by=result.group_by.flatMap(g=>g.column===old?next?[{...g,column:next}]:[]:[g]);
@@ -100,6 +106,7 @@ export function changeDisplayColumn(value: ViewDisplay, old: string, next?: stri
   if(result.tabs_column===old)result.tabs_column=next||"";
   if(result.filter_columns)result.filter_columns=result.filter_columns.flatMap(n=>n===old?next?[next]:[]:[n]);
   if (result.summary_columns) result.summary_columns = result.summary_columns.flatMap(n => n === old ? next ? [next] : [] : [n]);
+  if(result.detail_fields)result.detail_fields=Object.fromEntries(Object.entries(result.detail_fields).flatMap(([n,f])=>n===old?next?[[next,f]]:[]:[[n,f]]));
   if (result.form_fields) result.form_fields = Object.fromEntries(Object.entries(result.form_fields).flatMap(([n, settings]) => n === old ? next ? [[next, settings]] : [] : [[n, settings]]));
   return result;
 }

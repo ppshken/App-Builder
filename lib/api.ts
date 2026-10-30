@@ -20,4 +20,4 @@ export async function readBody(req: Request): Promise<Record<string, any>> {
   return b;
 }
 
-export function errorStatus(e:unknown){const status=(e as {status?:number})?.status;return status&&[401,403,404,409,413].includes(status)?status:400;}
+export function errorStatus(e:unknown){const status=(e as {status?:number})?.status;return status&&[401,403,404,409,413,429,502,503,504].includes(status)?status:400;}

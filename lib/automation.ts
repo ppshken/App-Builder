@@ -1,3 +1,4 @@
+import type {Column} from './columns';
 import {traceAction} from "./action-trace";
 import {enqueueManual} from "./workflows";
 import {deleteRecord} from "./delete-record";
@@ -11,16 +12,16 @@ import { asBoolean, evaluateExpression, references, tableReferences, ExpressionC
 import { expressionContext } from "./expression-context";
 export type Slice = { name: string; label: string; table_name: string; filter_expr: string; columns: string[] };
 export type RowAction = { name: string; label: string; table_name: string; kind: ActionKind;config?:ActionConfig;appearance?:ActionAppearance; condition_expr: string; values: Record<string, string>; confirmation: string };
-export function checkFormula(table: string, source: unknown) {
+export function checkFormula(table: string, source: unknown, extra:Column[] = []) {
   if (typeof source !== "string" || !source.trim()) throw new Error("กรุณากรอกสูตร เช่น TRUE หรือ [status] = \"เปิด\"");
-  const names = new Set(["id", ...columnsOf(table).map(c => c.name)]);
+  const names = new Set(["id", ...columnsOf(table).map(c => c.name),...extra.map(c=>c.name)]);
   for (const name of references(source)) if (!names.has(name)) throw new Error(`ไม่พบคอลัมน์ [${name}] กรุณาเลือกคอลัมน์จากตารางนี้`);
   for (const ref of tableReferences(source)) {
     if (!tableExists(ref.table)) throw new Error(`ไม่พบตาราง ${ref.table}`);
     if (ref.column !== "id" && !columnsOf(ref.table).some(c => c.name === ref.column)) throw new Error(`ไม่พบคอลัมน์ [${ref.column}] ในตาราง ${ref.table}`);
   }
   const schema = Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, columnsOf(t.name)]));
-  assertFormulas([...columnsOf(table), { name: "expression_check", label: "สูตร", type: "text", show_if: source }], schema);
+  assertFormulas([...columnsOf(table),...extra, { name: "expression_check", label: "สูตร", type: "text", show_if: source }], schema);
   return source.trim();
 }
 export function slices(): Slice[] { return (db.prepare("SELECT * FROM _slices ORDER BY label,name").all() as any[]).filter(s=>canRead(s.table_name)).map(({ columns_json, ...s }) => ({ ...s, columns: JSON.parse(columns_json) })); }

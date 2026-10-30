@@ -1,3 +1,5 @@
+import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
+import {EXTERNAL_SCHEMA,externalTable} from './external-storage';
 import {AUTO_NUMBER_SCHEMA,assertAutoNumberColumn,normalizeAutoNumber} from './auto-number';
 import {assertScanColumn} from './barcode';
 import {withApplicationTemporaryTable} from './application-context';
@@ -59,6 +61,7 @@ export function rebuildTable(db: Database.Database, table: string) {
   });
 }
 export function syncKeyIndex(db: Database.Database, table: string) {
+  if(externalTable(db,table))return;
   const cols = readColumns(db, table), key = cols.find(c => c.is_key);
   assertUniqueData(db,table,cols);
   const ownPattern=new RegExp("^_unique_"+table+"_[a-z][a-z0-9_]{0,40}$");
@@ -71,6 +74,7 @@ export function syncKeyIndex(db: Database.Database, table: string) {
 export function createDefaultViews(db: Database.Database, table: string, label: string) {
   installRealtimeTriggers(db,table);
   for (const [kind, position, suffix] of [["list", "primary", ""], ["detail", "ref", " · รายละเอียด"], ["form", "ref", " · ฟอร์ม"]]) {
+    if(kind==="form"&&externalTable(db,table))continue;
     let i = 1; while (db.prepare("SELECT 1 FROM _views WHERE name=?").get(`view_${i}`)) i++;
     db.prepare("INSERT INTO _views(name,label,table_name,kind,position,pos) VALUES(?,?,?,?,?,?)").run(`view_${i}`, label + suffix, table, kind, position, i);
   }
@@ -107,6 +111,8 @@ export function initializeDatabase(db: Database.Database, path: string) {
       options TEXT,ref_table TEXT,required INTEGER DEFAULT 0,pos INTEGER DEFAULT 0,
       UNIQUE(table_name,name));
   `);
+  const needExternal=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_external_sources'").get();
+  const needSourceKind=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==='source_kind');
   const needAutoNumbers=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_auto_numbers' AND type='table'").get();
   const needExcelPermission=!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export");
   const needRealtime=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==="realtime_enabled");
@@ -150,7 +156,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
@@ -160,6 +166,8 @@ export function initializeDatabase(db: Database.Database, path: string) {
     }
     foreignKeyTransaction(db, () => {
       db.exec(AUTO_NUMBER_SCHEMA);
+      if(needSourceKind){db.exec("ALTER TABLE _tables ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'INTERNAL_DATABASE'");db.exec("ALTER TABLE _tables ADD COLUMN source_id TEXT");}
+      db.exec(EXTERNAL_SCHEMA);
       if(needApplicationOwners)db.exec("ALTER TABLE _tables ADD COLUMN owner_app_id TEXT NOT NULL DEFAULT 'default'");
       if(needRealtime)db.exec("ALTER TABLE _tables ADD COLUMN realtime_enabled INTEGER NOT NULL DEFAULT 0");
       if(needWorkflows)db.exec(WORKFLOW_SCHEMA);
@@ -205,6 +213,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   }
   db.exec("CREATE TABLE IF NOT EXISTS _app_versions(id TEXT PRIMARY KEY,owner INTEGER NOT NULL,label TEXT NOT NULL,created_at INTEGER NOT NULL,config_json TEXT NOT NULL,before_json TEXT NOT NULL)");
   db.exec("CREATE INDEX IF NOT EXISTS _automation_actor_activity ON _automation_jobs(actor_id,updated_at)");
+  db.exec(BULK_ACTION_SCHEMA);
   db.exec(AUDIT_SCHEMA);
   db.exec(REALTIME_SCHEMA);
   for(const {name} of tables)installRealtimeTriggers(db,name);

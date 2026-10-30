@@ -64,7 +64,7 @@ function tokenize(source: string): Token[] {
       const end = source.indexOf("]", i + 1);
       if (end < 0) fail("ขาด ] ปิดชื่อคอลัมน์", i);
       const name = source.slice(i + 1, end).trim();
-      if (!/^(?:[a-z][a-z0-9_]{0,40}|_THIS|_THISROW)$/.test(name)) fail("ใช้ชื่อคอลัมน์ในระบบภายใน [ ] เช่น [qty]", i);
+      if (!/^(?:[a-z][a-z0-9_]{0,40}|_THIS|_THISROW|__SYNC_(?:CREATED|UPDATED|FAILED|SOURCE))$/.test(name)) fail("ใช้ชื่อคอลัมน์ในระบบภายใน [ ] เช่น [qty]", i);
       i = end + 1; tokens.push({ kind: "column", text: name, start, end: i });
     } else if (ch === '"' || ch === "'") {
       let value = "", closed = false; i++;

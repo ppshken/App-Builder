@@ -1,3 +1,4 @@
+import {externalTable} from './external-storage';
 import {validateCustomData} from './custom-page-references';
 import {customTargets,customActions,customNodes,customNodeTargetError} from './custom-page';
 import {tableAccess} from './access';
@@ -36,6 +37,7 @@ async function handlePUT(req: Request) { return write(req, true); }
 async function write(req: Request, existing: boolean, preview = false) {
   try {
     const b = await readBody(req); assertIdentifier(b.name);
+    if(b.kind==="form"&&externalTable(db,b.table_name))throw Error("Live / Cached API เป็นข้อมูลอ่านอย่างเดียว ไม่มีฟอร์มบันทึก");
     const previous = existing ? db.prepare("SELECT * FROM _views WHERE name=?").get(b.name) as Record<string, any> | undefined : undefined;
     if (existing && !previous) return bad("ไม่พบมุมมอง", 404);
     const currentName = previous || (preview ? db.prepare("SELECT name,label FROM _views WHERE name=?").get(b.name) as {name:string;label:string}|undefined : undefined);
@@ -68,6 +70,7 @@ async function write(req: Request, existing: boolean, preview = false) {
     if (!["asc", "desc"].includes(groupDir)) throw new Error("ทิศทางเรียงกลุ่มไม่ถูกต้อง");
     if(b.position==="inline" && cols.find(c=>c.name===group)?.is_virtual)throw new Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง เพื่อดึงข้อมูลทีละหน้า");
     const display = validateDisplay(b.display === undefined ? JSON.parse(previous?.display_json || "{}") : b.display, cols);
+    if(display.bulk_actions?.enabled){if(b.kind!=='table')throw Error('Bulk Actions require a Table View');for(const name of display.bulk_actions.allowed_action_ids)if(!db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=? AND kind='set'").get(name,b.table_name))throw Error('Bulk Actions must reference existing update Actions in this table');}
     if(display.group_by?.some(g=>g.column!=="id"&&!names.has(g.column)))throw Error("คอลัมน์จัดกลุ่มไม่อยู่ในตารางหรือ Slice นี้");
     if(b.position==="inline"&&display.group_by?.some(g=>cols.find(c=>c.name===g.column)?.is_virtual))throw Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง");
     if(existing){const parents=db.prepare("SELECT display_json FROM _views WHERE kind='custom' AND name<>?").all(b.name) as {display_json:string}[];for(const parent of parents)for(const node of customNodes(JSON.parse(parent.display_json).custom_page?.children||[]))if(node.view===b.name&&customNodeTargetError(node,b as any))throw Error("View นี้ถูกใช้ในหน้ากำหนดเอง กรุณานำองค์ประกอบอ้างอิงออกก่อนเปลี่ยนรูปแบบ");}
@@ -75,6 +78,7 @@ async function write(req: Request, existing: boolean, preview = false) {
     for(const action of customActions(display.custom_page))if(!db.prepare("SELECT 1 FROM _actions WHERE name=?").get(action))throw Error("ไม่พบ Action ขององค์ประกอบ");
     for(const node of customNodes(display.custom_page?.children||[]))if(node.type==='form'&&node.view){const target=db.prepare("SELECT table_name FROM _views WHERE name=?").get(node.view) as {table_name:string}|undefined;if(target)for(const name of Object.keys(node.defaults||{}))if(!columnsOf(target.table_name).some(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0))throw Error("ค่าตั้งต้นฟอร์มต้องเลือกคอลัมน์ที่แก้ไขได้");}
     if(display.custom_page)validateCustomData(display.custom_page,db.prepare("SELECT name,table_name FROM _views").all() as any[],db.prepare("SELECT name FROM _actions").all() as any[],Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).filter(t=>canRead(t.name)).map(t=>[t.name,columnsOf(t.name)])));
+    if(Object.keys(display.detail_fields||{}).length&&b.kind!=='detail')throw Error('รูปแบบรายคอลัมน์ใช้ได้เฉพาะหน้ารายละเอียด');
     validateRelatedDisplay(display,b.table_name,b.kind);
     validateSpecialView(b.kind,{...readAppSettings().display_defaults[b.kind as DisplayKind],...display},db.prepare("SELECT name,kind,position,table_name FROM _views").all() as any[],b.name,b.table_name);
     if(existing&&db.prepare("SELECT 1 FROM _views WHERE kind='map' AND json_extract(display_json,'$.map_data_view')=? AND (table_name<>? OR ? NOT IN ('list','table') OR ?='inline')").get(b.name,b.table_name,b.kind,b.position))throw Error('View นี้ถูกใช้แสดงข้อมูลในแผนที่ กรุณานำออกก่อนเปลี่ยนชนิดหรือตาราง');

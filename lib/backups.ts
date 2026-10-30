@@ -1,3 +1,5 @@
+import {createExternalReadView,externalTable} from './external-storage';
+import {pauseRestoredExternalSources} from './external-portability';
 import {validateCustomData} from './custom-page-references';
 import {VIEW_KINDS,VIEW_POSITIONS} from "./views";
 import {applicationIds,createApplicationConfig} from './application-schema';
@@ -23,7 +25,7 @@ import {DEFAULT_SETTINGS,validateSettings} from "./app-settings";
 import {validateDisplay} from "./view-display";
 import {migrateListReferences,assertStoredListReferences} from "./list-reference-migration";
 
-const META = ["_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
+const META = ["_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
 export type BackupInfo={name:string;size:number;created:string;reason:string};
@@ -40,7 +42,8 @@ function supportedTables(db:Database.Database) {
  const appConfigs=restoreConfigTables(db);if(appConfigs.some(name=>!all.some(o=>o.name===name&&o.type==='table')))throw Error("โครงสร้างการตั้งค่ารายแอปในไฟล์สำรองไม่ครบ");
  const realtimeTables=db.prepare("SELECT name FROM _tables").all() as {name:string}[];
  const trustedTriggers=new Map([...auditTriggerDefinitions(db),...realtimeTables.flatMap(t=>realtimeTriggerDefinitions(t.name))].map(t=>[t.name,t.sql]));
- if(all.some(o=>o.type==="view"||o.type==="trigger"&&o.sql?.trim()!==trustedTriggers.get(o.name)))throw Error("ไฟล์นี้มี SQL View หรือ Trigger ที่ระบบกู้คืนยังไม่รองรับ กรุณาใช้ไฟล์สำรองของ No-code Builder");
+ const trustedViews=new Map<string,string>();const metadataFields=db.pragma("table_info('_tables')") as {name:string}[];if(metadataFields.some(c=>c.name==='source_kind')){const template=new Database(':memory:');try{for(const row of db.prepare("SELECT name,source_id FROM _tables WHERE source_kind='EXTERNAL_REST_API'").all() as {name:string;source_id:string}[]){createExternalReadView(template,row.name,readColumns(db,row.name),row.source_id);const view=template.prepare("SELECT name,sql FROM sqlite_master WHERE name=? AND type='view'").get('t_'+row.name) as {name:string;sql:string};trustedViews.set(view.name,view.sql);if(!all.some(o=>o.name===view.name&&o.type==='view'))throw Error('โครงสร้าง External Source ไม่ครบ');}}finally{template.close();}}
+ if(all.some(o=>o.type==="view"&&o.sql!==trustedViews.get(o.name)||o.type==="trigger"&&o.sql?.trim()!==trustedTriggers.get(o.name)))throw Error("ไฟล์นี้มี SQL View หรือ Trigger ที่ระบบกู้คืนยังไม่รองรับ กรุณาใช้ไฟล์สำรองของ No-code Builder");
  if(!["_tables","_columns"].every(name=>all.some(o=>o.name===name&&o.type==="table")))throw Error("ไฟล์นี้ไม่ใช่ฐานข้อมูลของ No-code Builder");
  const tables=db.prepare("SELECT name,label FROM _tables ORDER BY name").all() as {name:string;label:string}[];
  if(tables.length>2000)throw Error("ไฟล์สำรองมีตารางมากเกินกว่าระบบกู้คืนรองรับ");
@@ -73,11 +76,12 @@ export function inspectBackup(sourceFile:string,stageFile:string,current?:Databa
    for(const row of source.prepare(`SELECT * FROM "${name}"`).iterate() as Iterable<Record<string,any>>)insert.run(...selected.map(n=>row[n]));
   };
   foreignKeyTransaction(destination,()=>{
-   for(const name of META)copyMeta(name);
+   for(const name of META)if(!['_bulk_action_state','_bulk_action_runs'].includes(name))copyMeta(name); // Never restore execution receipts into a new data timeline.
    for(const id of restoreApplications(destination))createApplicationConfig(destination,id);
    for(const name of restoreConfigTables(destination))copyMeta(name);
    for(const name of AUTH_TABLES.filter(n=>!['_sessions','_auth_attempts'].includes(n)))copyMeta(name);
    for(const t of tables){
+    if(externalTable(destination,t.name)){const descriptor=destination.prepare("SELECT source_id FROM _tables WHERE name=?").get(t.name) as {source_id:string};createExternalReadView(destination,t.name,schemas[t.name],descriptor.source_id);continue;}
     const cols=schemas[t.name].filter(c=>!c.is_virtual),fields=["id",...cols.map(c=>c.name)],physical=(source.pragma(`table_info('t_${t.name}')`) as {name:string;pk:number;type:string}[]);
     if(!physical.some(c=>c.name==="id"&&c.pk===1&&c.type.toUpperCase()==="INTEGER")||physical.length!==fields.length||physical.some(c=>!fields.includes(c.name)))throw Error(`โครงสร้างข้อมูลของ "${t.label}" ไม่ตรงกับคอลัมน์ในไฟล์สำรอง`);
     destination.prepare(`CREATE TABLE "t_${t.name}"(id INTEGER PRIMARY KEY AUTOINCREMENT${cols.length?",":""}${cols.map(columnDefinition).join(",")})`).run();
@@ -87,6 +91,7 @@ export function inspectBackup(sourceFile:string,stageFile:string,current?:Databa
     syncKeyIndex(destination,t.name);
    }
    if(has("sqlite_sequence"))for(const seq of source.prepare("SELECT name,seq FROM sqlite_sequence").all() as {name:string;seq:number}[]){if(seq.name==="_columns"||tables.some(t=>`t_${t.name}`===seq.name)){if(!Number.isSafeInteger(seq.seq)||seq.seq<0)throw Error("เลขลำดับข้อมูลในไฟล์สำรองไม่ถูกต้อง");const current=destination.prepare("SELECT seq FROM sqlite_sequence WHERE name=?").get(seq.name) as {seq:number}|undefined;if(current)destination.prepare("UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?").run(seq.seq,seq.name);else destination.prepare("INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)").run(seq.name,seq.seq);}}
+   pauseRestoredExternalSources(destination);
    migrateListReferences(destination);
    assertStoredListReferences(destination);
    if(!has("_views"))for(const t of tables)createDefaultViews(destination,t.name,t.label);
@@ -123,8 +128,10 @@ export function restoreBackup(db:Database.Database,path:string,stageFile:string)
   try{withoutAudit(()=>foreignKeyTransaction(db,()=>{
    removeAuditTriggers(db);
    const keepSeparated=securitySeparated(db)||!!db.prepare("SELECT 1 FROM _users LIMIT 1").get();
+   for(const obj of objects(db).filter(o=>o.type==='view'))db.prepare('DROP VIEW "'+obj.name+'"').run();
    for(const obj of objects(db).filter(o=>o.type==='table'&&o.name!=='sqlite_sequence'&&!preserved(o.name)))db.prepare('DROP TABLE "'+obj.name+'"').run();
    for(const obj of schema.filter(o=>o.type==='table'&&o.name!=='sqlite_sequence'&&!preserved(o.name))){if(!replaced.has(obj.name))throw Error('โครงสร้างไฟล์ที่เตรียมกู้คืนไม่ถูกต้อง');db.exec(obj.sql!);const cols=(stage.pragma('table_info("'+obj.name+'")') as {name:string}[]).map(c=>'"'+c.name+'"').join(',');db.prepare('INSERT INTO main."'+obj.name+'"('+cols+') SELECT '+cols+' FROM restore_snapshot."'+obj.name+'"').run();}
+   for(const obj of schema.filter(o=>o.type==='view'&&o.sql))db.exec(obj.sql!);
    if(keepSeparated)db.prepare('INSERT INTO _builder_security(id,separated) VALUES(1,1) ON CONFLICT(id) DO UPDATE SET separated=1').run();
    // Restore role definitions but map assignments and user preferences to current
    // accounts by email. Neither source passwords nor platform roles are installed.

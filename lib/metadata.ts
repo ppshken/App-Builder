@@ -39,6 +39,7 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
     if (c.type === "enumlist" && !c.options && !c.ref_table && !(typeof raw.valid_if === "string" && raw.valid_if.trim())) throw new Error(`คอลัมน์ "${c.label}" ต้องระบุตัวเลือก เลือกตารางอ้างอิง หรือใช้สูตรดึงตัวเลือกอย่างใดอย่างหนึ่ง · ไม่บังคับ Valid_If`);
     if (c.is_key && (c.is_virtual || !["text", "longtext", "number", "decimal", "enum"].includes(c.type))) throw new Error("Key ต้องเป็นช่องข้อมูลชนิดข้อความ ตัวเลข หรือเลือกหนึ่งรายการ และเป็นช่องคำนวณไม่ได้");
 
+    if(c.ref_table&&(db.prepare('SELECT source_kind FROM _tables WHERE name=?').get(c.ref_table) as {source_kind:string}|undefined)?.source_kind==='EXTERNAL_REST_API')throw Error('Ref/List/Enum ไป Live API ยังไม่รองรับ กรุณา Import หรือ Sync ก่อน');
     if (c.type === "ref" && !tableExists(c.ref_table!)) throw new Error(`คอลัมน์ "${c.label}" ต้องเลือกตารางอ้างอิงที่มีอยู่`);
     if (["list", "enum", "enumlist"].includes(c.type) && c.ref_table && !tableExists(c.ref_table)) throw new Error(`ไม่พบตารางอ้างอิงของ "${c.label}"`);
     for (const field of FORMULA_FIELDS) {

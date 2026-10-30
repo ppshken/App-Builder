@@ -1,3 +1,4 @@
+import {createBuilderTable} from '@/lib/table-builder';
 import {currentApplication} from '@/lib/application-context';
 import {errorStatus} from "@/lib/api";
 import {canRead} from "@/lib/permissions";
@@ -23,17 +24,9 @@ async function handlePOST(req: Request) {
     const { name, label, columns } = await readBody(req);
     assertIdentifier(name);
     if (tableExists(name)) return bad("มีตารางชื่อนี้แล้ว กรุณาใช้ชื่อในระบบอื่น");
-    const cols = normalizeColumns(columns,{[name]:[]});
-    const defs = ["id INTEGER PRIMARY KEY AUTOINCREMENT", ...cols.filter(c => !c.is_virtual).map(columnDefinition)];
-    backupBeforeSchema();
-    db.transaction(() => {
-      db.prepare("INSERT INTO _tables(name,label,owner_app_id) VALUES(?,?,?)").run(name, typeof label === "string" && label.trim() ? label.trim() : name,currentApplication()?.id||'default');
-      const application=currentApplication();if(application?.datasets)application.datasets[name]={read:true,create:true,update:true,delete:true,export:true};
-      cols.forEach(c => insertColumn(name, c));
-      db.prepare(`CREATE TABLE "t_${name}"(${defs.join(",")})`).run();
-      syncKeyIndex(db, name); createDefaultViews(db, name, typeof label === "string" && label.trim() ? label.trim() : name);
-    })();
-    return NextResponse.json({ ok: true });
+    createBuilderTable({name,label,columns});
+    return NextResponse.json({ok:true});
+
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 
