@@ -108,6 +108,23 @@ ssh -L 8080:127.0.0.1:8080 your-user@your-vps
 
 ## 4. เปิด HTTPS จริง
 
+### ถ้ามี Nginx และ Certbot บน host อยู่แล้ว
+
+ใช้ host Nginx ส่งตรงเข้า app ทาง loopback โดยใช้ `compose.yaml` + `compose.nginx.yaml` แทนชุด Caddy HTTPS พอร์ต 3001 บน host ต้องว่างก่อน และต้องใช้ `.env.docker`/COMPOSE_PROJECT_NAME เดิมเพื่อรักษา volume เดิม:
+
+```sh
+ss -ltnp '( sport = :3001 )'
+docker compose --env-file .env.docker -f compose.yaml -f compose.nginx.yaml config --quiet
+docker compose --env-file .env.docker -f compose.yaml -f compose.nginx.yaml up -d --no-build --pull never --wait app
+curl -fsS http://127.0.0.1:3001/api/health
+```
+
+การเพิ่ม port mapping recreate app ทำให้หยุดสั้น ๆ; ไม่ลบ app_data volume และไม่อัปเกรด image ในคำสั่งนี้ Caddy ถูกจัดไว้ใน profile ที่ไม่เปิดตามปกติ ห้ามเพิ่ม `compose.https.yaml` หรือเปิด bundled-caddy profile ในชุด Nginx นี้
+
+สำรอง Nginx config ไว้นอก sites-enabled แล้วแทนเฉพาะ `location /` ของ HTTPS server_name สำหรับแอปด้วย `deploy/nginx-location.conf.example` คง certificate directives/Certbot includes และ HTTP→HTTPS redirect เดิมไว้ รัน `nginx -t` ก่อน reload ทุกครั้ง แล้วตรวจ `https://YOUR_DOMAIN/api/health` โดยไม่ใช้ `-k` วิธีนี้ไม่ต้องหยุด Nginx หรือออก certificate ใหม่ อ้างอิง [Nginx proxy module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)
+
+### ถ้าเลือกให้ Caddy ของชุดนี้รับ HTTPS
+
 เมื่อ DNS และพอร์ตพร้อม:
 
 ```sh

@@ -1,0 +1,8 @@
+# Host Nginx terminates TLS. Use with compose.yaml, not compose.https.yaml.
+services:
+  app:
+    ports:
+      - "127.0.0.1:3001:3000"
+  proxy:
+    profiles:
+      - bundled-caddy
