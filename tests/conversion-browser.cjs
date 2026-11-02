@@ -7,6 +7,17 @@ const create=(name,columns)=>api('/api/tables','POST',{name,label:name,columns})
 const preview=(name,column,mode,target,extra={})=>api(`/api/tables/${name}/convert`,'POST',{column,mode,target,...extra});
 const apply=(name,token)=>api(`/api/tables/${name}/convert`,'PUT',{token,confirmation:'แปลง'});
 async function main(){const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({viewport:{width:1600,height:1000},locale:'th-TH'}),errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));try{
+ // Simulate a cached API dataset using the actual Builder view generator in the isolated DB.
+ await create('convert_remote_cache',[col('value')]);
+ const externalFixture=new Database(process.env.NOCODE_TEST_DB);try{
+  require('../.test-build/audit-schema').registerAuditFunctions(externalFixture);
+  externalFixture.exec('DROP TABLE t_convert_remote_cache');
+  externalFixture.prepare("UPDATE _tables SET source_kind='EXTERNAL_REST_API',source_id=? WHERE name='convert_remote_cache'").run('b'.repeat(32));
+  require('../.test-build/external-storage').createExternalReadView(externalFixture,'convert_remote_cache',[col('value')],'b'.repeat(32));
+ }finally{externalFixture.close();}
+ await create('convert_empty_with_api',[col('value')]);
+ const emptyWithApi=await preview('convert_empty_with_api','value','replace',{type:'enumlist',options:'A,B'});
+ assert.equal(emptyWithApi.report.allowed,true);assert.equal(emptyWithApi.report.total,0);await apply('convert_empty_with_api',emptyWithApi.token);
  await create('convert_items',[col('name','text',{label:'ชื่อสินค้า',is_label:true}),col('amount','text',{label:'ยอดเงิน',default_expr:'"2"'}),col('total','decimal',{label:'รวม',is_virtual:true,virtual_expr:'[amount]*2'})]);
  const first=await api('/api/data/convert_items','POST',{name:'สินค้าแรก',amount:'12.50'});await api('/api/data/convert_items','POST',{name:'สินค้าที่สอง',amount:'8'});const deleted=await api('/api/data/convert_items','POST',{name:'ลบ',amount:'3'});await api('/api/data/convert_items?id='+deleted.id,'DELETE');
  await create('convert_orders',[col('product','ref',{ref_table:'convert_items'}),col('note')]);await api('/api/data/convert_orders','POST',{product:first.id,note:'อ้างอิงเดิม'});
@@ -28,6 +39,11 @@ async function main(){const browser=await chromium.launch({channel:'msedge',head
  await create('convert_key',[col('value','text',{is_key:true})]);await api('/api/data/convert_key','POST',{value:'01'});await api('/api/data/convert_key','POST',{value:'1'});inspected=await preview('convert_key','value','replace',{type:'number'});assert.equal(inspected.report.allowed,false);assert.match(inspected.report.issues[0].message,/Key/);
 
  await create('convert_enum_ref',[col('value','enum',{options:'P1,P2'})]);await api('/api/data/convert_enum_ref','POST',{value:'P1'});inspected=await preview('convert_enum_ref','value','replace',{type:'ref',ref_table:'convert_products'},{ref_match:'key'});assert.equal(inspected.report.allowed,true,JSON.stringify(inspected));await api('/api/auth/session');const unrelated=(await api('/api/data/convert_bad'))[0];await api('/api/data/convert_bad?id='+unrelated.id,'PUT',{value:'background change'});await apply('convert_enum_ref',inspected.token);assert.equal((await api('/api/data/convert_enum_ref'))[0].value,product.id);
+ const privateApp=await api('/api/applications','POST',{label:'Private conversion fixture',description:''},201);
+ async function scopedApi(path,method='GET',body,status=200){const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json',cookie:process.env.NOCODE_TEST_COOKIE+'; nocode_app='+privateApp.id},body:body===undefined?undefined:JSON.stringify(body)}),j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;}
+ await scopedApi('/api/tables','POST',{name:'private_convert_rows',label:'Private rows',columns:[col('value')]});await scopedApi('/api/data/private_convert_rows','POST',{value:'A'});await scopedApi('/api/data/private_convert_rows','POST',{value:'B'});
+ await create('convert_scoped_empty',[col('value')]);let scoped=await preview('convert_scoped_empty','value','replace',{type:'enumlist',options:'A,B'});assert.deepEqual([scoped.report.allowed,scoped.report.total,scoped.report.converted,scoped.report.failed],[true,0,0,0]);await api('/api/tables/convert_scoped_empty/convert','DELETE',{token:scoped.token});await api('/api/data/private_convert_rows','GET',undefined,403);
+ scoped=await scopedApi('/api/tables/private_convert_rows/convert','POST',{column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}});assert.equal(scoped.report.allowed,true,JSON.stringify(scoped));assert.equal(scoped.report.converted,2);await scopedApi('/api/tables/private_convert_rows/convert','PUT',{token:scoped.token,confirmation:'แปลง'});const convertedRows=await scopedApi('/api/data/private_convert_rows');assert.deepEqual(convertedRows.map(r=>r.value),[['B'],['A']]);await api('/api/data/private_convert_rows','GET',undefined,403);
  assert.deepEqual(errors,[]);console.log('Conversion browser/API passed: preview without mutation, explicit confirmation, backup, formulas/Ref/IDs preserved, stale preview blocked, copy+Ref-Key+Inline, EnumList, duplicate keys, invalid data, mobile/dark.');
  }catch(e){fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/conversion-failure.png'});throw e;}finally{await browser.close();}}
 main().catch(e=>{console.error(e);process.exitCode=1;});

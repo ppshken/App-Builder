@@ -2,7 +2,7 @@
   "name": "nocode-builder",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev --turbopack",
     "build": "next build --webpack",
     "start": "next start",
     "test": "node scripts/test.cjs",
@@ -52,5 +52,8 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true
   }
 }

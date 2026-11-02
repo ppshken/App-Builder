@@ -9,6 +9,21 @@ function table(db,name,columns,rows=[]){db.prepare('INSERT INTO _tables(name,lab
 }
 const fixture=()=>{const db=new Database(':memory:');initializeDatabase(db,':memory:');return db;};
 const text={name:'value',label:'ค่า',type:'text'},target=type=>({...text,type});
+test('app-scoped TEXT to EnumList preview ignores unrelated inaccessible tables without reading their data',()=>{
+ const d=fixture(),{withDatabase,db}=require('../.test-build/db'),{withApplication}=require('../.test-build/application-context'),{runAuthorized,accessFor}=require('../.test-build/permissions');
+ try{table(d,'inspection_groups',[text]);table(d,'unrelated_private',[text],[{value:'private fixture'}]);const owner={id:1,name:'Owner',email:'owner@example.test',role:'owner'};withDatabase(d,()=>withApplication({id:'default',datasets:{inspection_groups:{read:true,create:true,update:true,delete:true}}},()=>runAuthorized(owner,accessFor(owner),()=>{
+  const before=conversionFingerprint(db,'inspection_groups',{column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}}),report=previewConversion(db,'inspection_groups',{column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}});assert.equal(report.allowed,true,JSON.stringify(report));assert.equal(report.total,0);assert.equal(report.failed,0);assert.equal(conversionFingerprint(db,'inspection_groups',{column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}}),before);assert.throws(()=>db.prepare('SELECT * FROM t_unrelated_private').all(),/ไม่ได้เชื่อม/);
+ })));}finally{d.close();}
+});
+test('named app conversion validates its own metadata, preserves other apps and converts existing TEXT rows',()=>{
+ const d=fixture(),{withDatabase,db,applicationDatabase}=require('../.test-build/db'),{withApplication}=require('../.test-build/application-context'),{createApplicationConfig}=require('../.test-build/application-schema'),{runAuthorized,accessFor}=require('../.test-build/permissions'),app='a_'+'2'.repeat(24);
+ try{table(d,'scoped_groups',[text],[{value:'A'},{value:'B'}]);table(d,'private_other',[text],[{value:'private fixture'}]);d.prepare('INSERT INTO _applications(id,label,description,created_at) VALUES(?,?,?,0)').run(app,'Test app','');createApplicationConfig(d,app);d.prepare("UPDATE _tables SET owner_app_id=? WHERE name='scoped_groups'").run(app);createDefaultViews(applicationDatabase(d,app),'scoped_groups','Groups');d.exec("UPDATE _views SET display_json='{\"table_density\":\"invalid\"}'");const owner={id:1,name:'Owner',email:'owner@example.test',role:'owner'},request={column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}};
+ withDatabase(d,()=>withApplication({id:app,datasets:{scoped_groups:{read:true,create:true,update:true,delete:true}}},()=>runAuthorized(owner,accessFor(owner),()=>{const before=conversionFingerprint(db,'scoped_groups',request),report=previewConversion(db,'scoped_groups',request);assert.equal(report.allowed,true,JSON.stringify(report));assert.equal(report.converted,2);assert.equal(d.prepare('SELECT value FROM t_scoped_groups WHERE id=1').get().value,'A');applyConversion(db,'scoped_groups',request,before);assert.deepEqual(d.prepare('SELECT value FROM t_scoped_groups ORDER BY id').all().map(r=>JSON.parse(r.value)),[['A'],['B']]);assert.throws(()=>db.prepare('SELECT * FROM t_private_other').all(),/ไม่ได้เชื่อม/);})));assert.equal(d.prepare('SELECT value FROM t_private_other').get().value,'private fixture');assert.equal(JSON.parse(d.prepare('SELECT display_json FROM _views LIMIT 1').get().display_json).table_density,'invalid');
+ }finally{d.close();}
+});
+test('conversion fails closed for an out-of-app dependency without exposing its name, rows or granting access',()=>{
+ const d=fixture(),{withDatabase,db}=require('../.test-build/db'),{withApplication}=require('../.test-build/application-context'),{runAuthorized,accessFor}=require('../.test-build/permissions');try{table(d,'groups',[text],[{value:'A'}]);table(d,'secret_child',[{name:'parent',type:'ref',ref_table:'groups'}],[{parent:1}]);const owner={id:1,name:'Owner',email:'owner@example.test',role:'owner'};withDatabase(d,()=>withApplication({id:'default',datasets:{groups:{read:true,create:true,update:true,delete:true}}},()=>runAuthorized(owner,accessFor(owner),()=>{const report=previewConversion(db,'groups',{column:'value',mode:'replace',target:{type:'enumlist',options:'A'}});assert.equal(report.allowed,false);assert.match(report.issues[0].message,/นอกแอป/);assert.ok(!JSON.stringify(report).includes('secret_child'));assert.throws(()=>db.prepare('SELECT * FROM t_secret_child').all(),/ไม่ได้เชื่อม/);assert.equal(d.prepare('SELECT value FROM t_groups').get().value,'A');})));}finally{d.close();}
+});
 test('explicit conversions preserve precision and list members; support Thai booleans and calendar values',()=>{
  assert.equal(convertValue(text,target('decimal'),' 0012.50 '),12.5);assert.equal(convertValue(text,target('decimal'),'1e-3'),.001);
  for(const value of ['12,500','5oops','0xFF','Infinity','9007199254740993','0.12345678901234567890','1e-999'])assert.throws(()=>convertValue(text,target('decimal'),value));
@@ -77,3 +92,32 @@ test('audited databases allow empty Image to Signature conversion without auditi
 });
 
  test('conversion fingerprints ignore background writes but detect source and Ref mapping changes',()=>{const db=fixture();try{table(db,'items',[text],[{value:'12'}]);table(db,'unrelated',[text],[{value:'old'}]);const request={column:'value',mode:'replace',target:{type:'decimal'}},before=conversionFingerprint(db,'items',request);db.prepare("UPDATE t_unrelated SET value='new'").run();db.exec("CREATE TABLE background_noise(id INTEGER PRIMARY KEY,value TEXT);INSERT INTO background_noise VALUES(1,'noise')");assert.equal(conversionFingerprint(db,'items',request),before);assert.equal(previewConversion(db,'items',request).allowed,true);applyConversion(db,'items',request,before);assert.equal(db.prepare('SELECT value FROM t_items').get().value,12);const refRequest={column:'value',mode:'replace',target:{type:'ref',ref_table:'unrelated'}};const refBefore=conversionFingerprint(db,'items',refRequest);db.prepare("UPDATE t_unrelated SET value='changed mapping'").run();assert.notEqual(conversionFingerprint(db,'items',refRequest),refBefore);}finally{db.close();}});
+
+
+test('empty internal table converts despite a canonical Builder external-source SQL view',()=>{
+ const db=fixture();try{
+  table(db,'empty_local',[text]);table(db,'remote_cache',[text]);
+  db.exec('DROP TABLE t_remote_cache');
+  db.prepare("UPDATE _tables SET source_kind='EXTERNAL_REST_API',source_id=? WHERE name='remote_cache'").run('a'.repeat(32));
+  require('../.test-build/external-storage').createExternalReadView(db,'remote_cache',[text],'a'.repeat(32));
+  const sql=db.prepare("SELECT sql FROM sqlite_master WHERE name='t_remote_cache'").get().sql;
+  const request={column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}};
+  const report=previewConversion(db,'empty_local',request);assert.equal(report.allowed,true,JSON.stringify(report));assert.equal(report.total,0);
+  applyConversion(db,'empty_local',request);assert.equal(db.prepare("SELECT type FROM _columns WHERE table_name='empty_local' AND name='value'").get().type,'enumlist');
+  assert.equal(db.prepare("SELECT sql FROM sqlite_master WHERE name='t_remote_cache'").get().sql,sql);
+ }finally{db.close();}
+});
+
+test('conversion continues protecting custom SQL views, modified managed views, triggers and indexes',()=>{
+ for(const kind of ['view','modified-view','trigger','index']){const db=fixture();try{
+  table(db,'empty_local',[text]);
+  if(kind==='view')db.exec('CREATE VIEW custom_view AS SELECT * FROM t_empty_local');
+  if(kind==='modified-view'){table(db,'remote_cache',[text]);db.exec('DROP TABLE t_remote_cache');db.prepare("UPDATE _tables SET source_kind='EXTERNAL_REST_API',source_id=? WHERE name='remote_cache'").run('a'.repeat(32));db.exec('CREATE VIEW t_remote_cache AS SELECT * FROM t_empty_local');}
+  if(kind==='trigger')db.exec('CREATE TRIGGER custom_trigger AFTER INSERT ON t_empty_local BEGIN SELECT 1; END');
+  if(kind==='index')db.exec('CREATE INDEX custom_index ON t_empty_local(value)');
+  const request={column:'value',mode:'replace',target:{type:'enumlist',options:'A,B'}};
+  const before=db.prepare('SELECT name,type,sql FROM sqlite_master ORDER BY name').all();
+  assert.throws(()=>previewConversion(db,'empty_local',request),/SQL View/,kind);
+  assert.throws(()=>applyConversion(db,'empty_local',request));assert.deepEqual(db.prepare('SELECT name,type,sql FROM sqlite_master ORDER BY name').all(),before);
+ }finally{db.close();}}
+});

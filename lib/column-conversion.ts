@@ -1,4 +1,6 @@
-import {assertInternalTable} from './external-storage';
+import {assertInternalTable,createExternalReadView} from './external-storage';
+import {currentApplication} from './application-context';
+import {applicationDatabase} from './db';
 import {validateCustomData} from './custom-page-references';
 import {realtimeTriggerDefinitions} from "./realtime-schema";
 import {validateStoredWorkflows} from "./workflow-validation";
@@ -13,7 +15,7 @@ import {assertUniqueColumn} from "./unique";
 import {normalizeDateTime} from "./datetime";
 import {readColumns,rebuildTable,columnDefinition,foreignKeyTransaction,syncKeyIndex,createInlineViews} from "./schema";
 import {expressionContext} from "./expression-context";
-import {references,evaluateExpression} from "./expression";
+import {references,tableReferences,evaluateExpression} from "./expression";
 import {validateDisplay} from "./view-display";
 import {validateViewCondition,viewIsVisible} from "./view-visibility";
 
@@ -64,14 +66,28 @@ export function convertValue(source:Column,target:Column,raw:unknown,resolveRef?
  if(target.type==="enum"&&typeof value==="number")value=String(value);
  return normalizeValue(target,value);
 }
+// Cached API datasets are Builder-owned views over metadata, not dependent SQL views.
+// Compare canonical SQL, not just names, so modified/custom views remain protected.
+function managedExternalViews(database:Database.Database,objects:{name:string;type:string;sql:string|null}[]){
+ const trusted=new Set<string>(),template=new Database(':memory:');
+ try{for(const object of objects.filter(o=>o.type==='view')){
+  const row=database.prepare("SELECT name,source_id FROM _tables WHERE source_kind='EXTERNAL_REST_API' AND 't_'||name=?").get(object.name) as {name:string;source_id:string}|undefined;
+  if(!row)continue;
+  createExternalReadView(template,row.name,readColumns(database,row.name),row.source_id);
+  const canonical=template.prepare("SELECT sql FROM sqlite_master WHERE type='view' AND name=?").get(object.name) as {sql:string};
+  if(canonical.sql===object.sql)trusted.add(object.name);
+ }}finally{template.close();}
+ return trusted;
+}
 function prepare(database:Database.Database,table:string,request:ConversionRequest){
  assertIdentifier(table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(table))throw Error("ไม่พบตาราง");
  if(request.mode==="replace"&&(database.prepare("SELECT expression FROM _role_row_rules WHERE table_name=?").all(table) as {expression:string}[]).some(r=>references(r.expression).includes(request.column)))throw Error("คอลัมน์นี้ใช้ในกฎสิทธิ์ระดับแถว กรุณาแก้กฎก่อนแปลงชนิดข้อมูล หรือเลือกคัดลอกไปคอลัมน์ใหม่");
  assertInternalTable(database,table);const cols=readColumns(database,table),source=cols.find(c=>c.name===request.column);if(!source)throw Error("ไม่พบคอลัมน์ที่ต้องการแปลง");if(source.auto_number)throw Error("กรุณาปิดเลขรันอัตโนมัติก่อนเปลี่ยนชนิดหรือคัดลอกคอลัมน์");
  if(source.is_virtual)throw Error("ช่องคำนวณไม่เก็บข้อมูลจริง กรุณาแก้สูตรหรือสร้างคอลัมน์ข้อมูลใหม่");
  const objects=database.prepare("SELECT name,type,sql FROM sqlite_master WHERE tbl_name=? OR type='view'").all(`t_${table}`) as {name:string;type:string;sql:string|null}[];
+ const trustedViews=managedExternalViews(database,objects);
  const knownIndexes=new Set([`_key_${table}`,...cols.filter(c=>c.type==="ref"&&!c.is_virtual).map(c=>`_ref_${table}_${c.name}`),...cols.filter(c=>c.is_unique&&!c.is_virtual).map(c=>`_unique_${table}_${c.name}`)]);
- if(objects.some(o=>o.type==="trigger"&&!realtimeTriggerDefinitions(table).some(t=>t.name===o.name&&t.sql===o.sql)||request.mode==="replace"&&(o.type==="view"||o.type==="index"&&o.sql&&!knownIndexes.has(o.name))))throw Error("ตารางนี้มี SQL View, Trigger หรือดัชนีที่เพิ่มนอกระบบ กรุณาจัดการส่วนนี้ก่อน เพื่อไม่ให้สูญหายระหว่างแปลง");
+ if(objects.some(o=>o.type==="trigger"&&!realtimeTriggerDefinitions(table).some(t=>t.name===o.name&&t.sql===o.sql)||request.mode==="replace"&&(o.type==="view"&&!trustedViews.has(o.name)||o.type==="index"&&o.sql&&!knownIndexes.has(o.name))))throw Error("ตารางนี้มี SQL View, Trigger หรือดัชนีที่เพิ่มนอกระบบ กรุณาจัดการส่วนนี้ก่อน เพื่อไม่ให้สูญหายระหว่างแปลง");
  if(!["replace","copy"].includes(request.mode)||!request.target||!Object.hasOwn(SQLTYPE,request.target.type||""))throw Error("กรุณาเลือกวิธีและชนิดข้อมูลปลายทาง");
  if(request.ref_match!==undefined&&!["id","key"].includes(request.ref_match))throw Error("วิธีจับคู่ Ref ไม่ถูกต้อง");
  const target:Column={...source,scan_enabled:["text","ref"].includes(request.target.type!)?source.scan_enabled:0,related_required:request.mode!=="copy"&&request.target.type==="ref"?source.related_required:0,ref_delete_cascade:request.mode!=="copy"&&request.target.type==="ref"?source.ref_delete_cascade:0,ref_allow_add:request.target.type==="ref"?source.ref_allow_add:0,is_part_of:request.mode==="copy"||request.target.type!=="ref"?0:source.is_part_of,part_show_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_show_if,part_valid_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_valid_if,part_add_if:request.mode==="copy"||request.target.type!=="ref"?null:source.part_add_if,max_length:normalizeMaxLength(request.target.type!,["text","longtext"].includes(request.target.type!) ? request.target.max_length??source.max_length??0 : 0),gps_auto:request.target.type === "latlong" ? source.gps_auto : 0,file_path:request.target.type==='file'?source.file_path:null,image_path:request.target.type==="image"?source.image_path:null,type:request.target.type!,name:request.mode==="copy"?request.target.name!:source.name,label:request.mode==="copy"?(request.target.label||"").trim():source.label,is_unique:request.mode==="copy"?0:source.is_unique,is_key:request.mode==="copy"?0:source.is_key,is_label:request.mode==="copy"?0:source.is_label,pos:request.mode==="copy"?Math.max(-1,...cols.map(c=>c.pos||0))+1:source.pos};
@@ -124,8 +140,12 @@ function rowProblem(database:Database.Database,cols:Column[],raw:Record<string,u
 function checkDependencies(database:Database.Database,table:string,report:ConversionReport,baseline:Database.Database,now:Date){
  const all=database.prepare("SELECT name,label FROM _tables").all() as {name:string;label:string}[],schema=Object.fromEntries(all.map(t=>[t.name,readColumns(database,t.name)])),context=expressionContext(now,"",database),oldContext=expressionContext(now,"",baseline);
  const add=(owner:string,message:string,id?:number)=>{report.failed++;if(report.issues.length<20)report.issues.push({table:owner,id,message});};
+ const scope=currentApplication(),inScope=(name:string)=>!scope?.datasets||!!scope.datasets[name]?.read;
+ // Metadata can reveal a cross-app dependency, but must never authorize reading its rows.
+ // Fail closed for such dependencies instead of disclosing another app's data or ignoring the dependency.
+ for(const t of all.filter(t=>!inScope(t.name))){const cols=schema[t.name];if(cols.some(c=>c.ref_table===table||FORMULA_FIELDS.some(field=>typeof c[field]==='string'&&tableReferences(c[field] as string).some(ref=>ref.table===table)))){add(table,'มีตารางนอกแอปอ้างอิงข้อมูลนี้ จึงยังตรวจความปลอดภัยของการแปลงไม่ได้ กรุณาตรวจการเชื่อมโยงตารางก่อน');return;}}
  assertPartSchema(schema);
- for(const t of all){const cols=schema[t.name];assertFormulas(cols,schema);
+ for(const t of all.filter(t=>inScope(t.name))){const cols=schema[t.name];assertFormulas(cols,schema);
   // Check initial values against the new type without storing any calculated/default data.
   if(t.name===table)calculateRow(cols,{},true,now,false,"",context);
   const oldCols=readColumns(baseline,t.name),oldRow=baseline.prepare(`SELECT * FROM "t_${t.name}" WHERE id=?`);
@@ -148,8 +168,8 @@ export function previewConversion(database:Database.Database,table:string,reques
  // Only the independent snapshot is changed. SQLite deserialize cannot open WAL-mode buffers.
  // SQLite's documented workaround: https://sqlite.org/c3ref/deserialize.html
  snapshot[18]=1;snapshot[19]=1;
- const stage=new Database(snapshot);
- registerAuditFunctions(stage);
+ const snapshotDatabase=new Database(snapshot),stage=currentApplication()?applicationDatabase(snapshotDatabase,currentApplication()!.id):snapshotDatabase;
+ registerAuditFunctions(snapshotDatabase);
  const report:ConversionReport={allowed:false,total:0,converted:0,failed:0,samples:[],issues:[],warnings:[],source,target,mode:request.mode};
  const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id");let timeLoss=0,dateLoss=0;
  try{
@@ -166,7 +186,7 @@ export function previewConversion(database:Database.Database,table:string,reques
   try{withoutAudit(()=>foreignKeyTransaction(stage,()=>{writeConversion(stage,table,request,source,target,values);checkDependencies(stage,table,report,database,now);validateStoredWorkflows(stage);}));}
   catch(e){report.failed++;const message=(e as Error).message;report.issues.push({table,message:message.includes("UNIQUE")?"แปลงแล้ว Key มีค่าซ้ำ เช่น 01 และ 1 กรุณาแก้ข้อมูลหรือคัดลอกไปคอลัมน์ใหม่":/[ก-๙]/.test(message)?message:"โครงสร้างปลายทางไม่ผ่านการตรวจ กรุณาตรวจ Key และ Ref"});}
   report.allowed=report.failed===0;return report;
- }finally{stage.close();}
+ }finally{snapshotDatabase.close();}
 }
 // Caller must require an unchanged preview and create a backup before invoking this synchronous transaction.
 export function applyConversion(database:Database.Database,table:string,request:ConversionRequest,expectedFingerprint?:string){
