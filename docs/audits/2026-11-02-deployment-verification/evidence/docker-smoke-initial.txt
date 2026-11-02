@@ -1,0 +1,1 @@
+Docker smoke passed: non-root/read-only, health, localhost owner setup, login/CSRF, uploads/PDF, cold backup/restore, persistent recreation, crash restart, Caddy HTTPS/Secure cookies/PWA redirects/SSE.

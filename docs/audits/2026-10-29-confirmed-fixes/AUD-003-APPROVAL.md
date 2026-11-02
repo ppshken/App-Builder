@@ -1,6 +1,6 @@
 # AUD-003 — Framework security migration approval
 
-Status: PAUSED by explicit user instruction: พัก AUD-003 ไว้ก่อน. No dependency installation or package/lock/config migration performed.
+Status: RESUMED and implemented on 2026-11-02 after the user's explicit request to fix dependencies. See [migration results and remaining deployment gates](../2026-11-02-dependency-security/RESULTS.md). The previous pause and proposal below describe the historical approval state before that request.
 
 ## Confirmed evidence, 2026-10-29
 

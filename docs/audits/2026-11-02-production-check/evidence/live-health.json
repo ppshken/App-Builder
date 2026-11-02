@@ -1,0 +1,22 @@
+[
+  {
+    "app": "a_ae0af10597d7352191e7741c",
+    "checked": 49,
+    "issues": [],
+    "skipped": [],
+    "errors": 0,
+    "warnings": 0,
+    "sampled": true,
+    "checked_at": "2026-11-02T00:55:40.862Z"
+  },
+  {
+    "app": "default",
+    "checked": 96,
+    "issues": [],
+    "skipped": [],
+    "errors": 0,
+    "warnings": 0,
+    "sampled": true,
+    "checked_at": "2026-11-02T00:55:40.890Z"
+  }
+]

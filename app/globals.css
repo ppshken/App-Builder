@@ -10097,11 +10097,12 @@ button.clear-data-button:hover {
   align-items: center;
 }
 .columns-settings-toolbar {
-  padding-top: 15px;
+  padding-top: 8px;
 }
 .columns-settings-toolbar .section-toolbar {
-  gap: 18px;
-  padding-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 0;
+  padding-bottom: 6px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -15447,3 +15448,217 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 .detail-page .configured-detail .detail-field-align-left .enumlist-value-list,.detail-page .configured-detail .detail-field-align-left .row-label{justify-content:flex-start;text-align:left}
 .detail-page .configured-detail .detail-field-align-center .enumlist-value-list,.detail-page .configured-detail .detail-field-align-center .row-label{justify-content:center;text-align:center}
 .detail-page .configured-detail .detail-field-align-right .enumlist-value-list,.detail-page .configured-detail .detail-field-align-right .row-label{justify-content:flex-end;text-align:right}
+
+/* Keep the schema grid central; secondary table settings expand on demand. */
+.data-editor .columns-settings-header > .columns-page-heading {
+  min-height: 44px;
+  padding: 6px 0;
+  gap: 12px;
+}
+.columns-table-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.data-editor .columns-table-title h1 {
+  margin: 0;
+  font-size: calc(19px * var(--font-scale, 1));
+  overflow-wrap: anywhere;
+}
+.columns-table-title > code {
+  font-size: calc(11px * var(--font-scale, 1));
+  color: var(--mute);
+  overflow-wrap: anywhere;
+}
+.columns-page-heading .heading-actions > * {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.columns-settings-header .table-tabs {
+  margin: 0;
+}
+.columns-settings-header .table-tabs a {
+  padding: 7px 10px;
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.columns-settings-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--mute);
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.columns-table-details {
+  min-width: 0;
+  flex: 1;
+}
+.columns-table-details > summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 3px 0;
+}
+.columns-table-details .table-identities {
+  margin: 5px 0;
+  gap: 5px 18px;
+}
+.columns-realtime-toggle {
+  margin: 0;
+  min-height: 25px;
+  flex-shrink: 0;
+  gap: 7px;
+  font-size: inherit;
+}
+.data-editor .columns-settings-toolbar h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: calc(18px * var(--font-scale, 1));
+}
+.columns-settings-toolbar .section-toolbar > div:first-child .hint {
+  margin: 1px 0 0;
+  font-size: calc(11px * var(--font-scale, 1));
+}
+.columns-settings-toolbar .column-grid-search {
+  flex: 1;
+  min-width: 140px;
+  max-width: 290px;
+  margin-left: auto;
+}
+.columns-settings-header .column-grid-help {
+  margin: 0 0 7px;
+  font-size: calc(11px * var(--font-scale, 1));
+}
+.related-formula-reference {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.related-formula-reference code {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.related-formula-reference .text-button {
+  min-height: 30px;
+  padding: 3px 7px;
+  font-size: calc(11px * var(--font-scale, 1));
+}
+.assistant-related-count {
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--line);
+  font-size: calc(10px * var(--font-scale, 1));
+}
+.assistant-related-card {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.assistant-related-card > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.assistant-related-card h3 {
+  margin: 0;
+  font-size: calc(14px * var(--font-scale, 1));
+}
+.assistant-related-card code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-size: calc(11px * var(--font-scale, 1));
+  color: var(--accent);
+}
+.assistant-related-column {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: calc(12px * var(--font-scale, 1));
+}
+.assistant-related-column .search-select-trigger {
+  flex: 1;
+  min-width: 150px;
+}
+.assistant-related-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.assistant-related-actions .chip {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+}
+.assistant-related-empty {
+  padding: 24px 12px;
+  text-align: center;
+}
+.assistant-related-empty > svg {
+  color: var(--mute);
+}
+@media (max-width: 760px) {
+  .columns-table-title {
+    flex-direction: column;
+    gap: 0;
+  }
+  .columns-page-heading .heading-actions {
+    gap: 5px;
+  }
+  .columns-settings-toolbar .section-toolbar {
+    gap: 8px;
+    margin-bottom: 0;
+    padding-bottom: 6px;
+  }
+  .data-editor .columns-settings-toolbar .section-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .data-editor .columns-settings-toolbar h2 {
+    font-size: calc(16px * var(--font-scale, 1));
+  }
+  .data-editor .columns-settings-toolbar .column-grid-search {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+    order: 0;
+    margin: 0;
+  }
+  .data-editor .columns-settings-toolbar .heading-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    display: flex;
+    gap: 6px;
+    margin: 0;
+  }
+  .data-editor .columns-settings-toolbar .heading-actions button {
+    flex: 1;
+    padding: 6px;
+    font-size: calc(12px * var(--font-scale, 1));
+    min-width: 0;
+  }
+  .columns-settings-header .column-grid-help {
+    margin-bottom: 6px;
+  }
+  .assistant-related-card {
+    padding: 10px;
+  }
+  .assistant-related-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

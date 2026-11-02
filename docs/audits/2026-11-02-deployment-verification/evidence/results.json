@@ -1,0 +1,248 @@
+{
+  "date": "2026-11-02",
+  "go_live": "HOLD",
+  "production_modified": false,
+  "production_deployment_performed": false,
+  "disposable_test_stack_started_and_cleaned": true,
+  "unit_tests": {
+    "passed": 399,
+    "failed": 0
+  },
+  "deployment_tests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "frontend_build": "VERIFIED host and Linux Docker",
+  "docker_build": "VERIFIED Linux ARM64",
+  "docker_smoke": {
+    "project": "nocode-smoke-1793591029493",
+    "image": "nocode-builder:deployment-verify-20261102",
+    "runtime": {
+      "node": "v22.23.4",
+      "platform": "linux",
+      "arch": "arm64",
+      "uid": 1000,
+      "db_mode": 384
+    },
+    "backup_helper": "VERIFIED",
+    "restore_drill": "VERIFIED",
+    "archive_mode": 384,
+    "checks": [
+      "read-only root",
+      "DB/WAL/SHM UID 1000 and mode 0600",
+      "writable tmp/cache/data",
+      "excluded private files absent",
+      "PDF and uploads",
+      "cold backup and restore helpers",
+      "recreation persistence",
+      "crash restart",
+      "local-CA HTTPS",
+      "Secure cookies/CSRF",
+      "PWA redirects",
+      "SSE not buffered"
+    ]
+  },
+  "cleanup": {
+    "containers_remaining": 0,
+    "compose_volumes_remaining": 0
+  },
+  "config_checks": {
+    "scope": "example Compose + source + current tracked text; not a complete historical secret audit or Docker runtime test",
+    "checks": [
+      {
+        "name": "Compose HTTP renders with example configuration",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "Compose HTTPS renders with example configuration",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "ports match Next startup and app has no public host port",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "SQLite, WAL and sibling storage share a persistent volume",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "container hardening and writable runtime paths are declared",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "build/start commands and runtime font assets match source",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "optional code environment variables are passed to the container",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "Caddy routes whole app including API, PWA and Next assets without rewriting",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "build context excludes private data while preserving backup source",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "current tracked files do not include dotenv secrets, DBs or machine credentials",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "heuristic scan of current tracked text files finds no private-key/AWS/GitHub token pattern",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "selected sensitive filenames absent from reachable Git history",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "real domain, ACME email, image release, offsite backup and external-service secrets",
+        "status": "NEEDS CONFIGURATION"
+      }
+    ],
+    "private_config_metadata_only": {
+      "present": true,
+      "mode": "600",
+      "render": "VERIFIED",
+      "domain_and_email": "NEEDS CONFIGURATION",
+      "release_image": "NEEDS CONFIGURATION"
+    }
+  },
+  "runtime_checks": {
+    "status": "VERIFIED",
+    "scope": "local production CLI; not Linux container/Caddy/TLS validation",
+    "database": "generated synthetic directory only",
+    "checks": [
+      {
+        "name": "actual production startup script and health endpoint on loopback",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "application honors forwarded HTTPS for Secure cookies and rejects a cross-origin write (proxy headers simulated)",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "SQLite DB/WAL/SHM all reside in the same generated data directory and have mode 0600",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "upload disk copy resides beside DB with mode 0600",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "actual backup download, upload/inspection, restore, session invalidation and restored record/file bytes",
+        "status": "VERIFIED"
+      },
+      {
+        "name": "data and attachment bytes survive a genuine application process restart using the same synthetic path",
+        "status": "VERIFIED"
+      }
+    ]
+  },
+  "items": [
+    {
+      "item": 1,
+      "statuses": [
+        "VERIFIED",
+        "NOT TESTED"
+      ]
+    },
+    {
+      "item": 2,
+      "statuses": [
+        "VERIFIED",
+        "NEEDS CONFIGURATION"
+      ]
+    },
+    {
+      "item": 3,
+      "statuses": [
+        "VERIFIED",
+        "NOT TESTED"
+      ]
+    },
+    {
+      "item": 4,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 5,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 6,
+      "statuses": [
+        "VERIFIED",
+        "NEEDS CONFIGURATION"
+      ]
+    },
+    {
+      "item": 7,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 8,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 9,
+      "statuses": [
+        "VERIFIED",
+        "NOT TESTED",
+        "NEEDS CONFIGURATION"
+      ]
+    },
+    {
+      "item": 10,
+      "statuses": [
+        "VERIFIED",
+        "NEEDS CONFIGURATION"
+      ]
+    },
+    {
+      "item": 11,
+      "statuses": [
+        "VERIFIED",
+        "NOT TESTED"
+      ]
+    },
+    {
+      "item": 12,
+      "statuses": [
+        "VERIFIED",
+        "NOT TESTED"
+      ]
+    },
+    {
+      "item": 13,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 14,
+      "statuses": [
+        "VERIFIED"
+      ]
+    },
+    {
+      "item": 15,
+      "statuses": [
+        "NEEDS CONFIGURATION",
+        "NOT TESTED"
+      ]
+    }
+  ],
+  "public_tls_and_real_vps": "NOT TESTED",
+  "native_host_caddy": "external download/run rejected by automatic review; approved disposable Docker Caddy tested instead"
+}

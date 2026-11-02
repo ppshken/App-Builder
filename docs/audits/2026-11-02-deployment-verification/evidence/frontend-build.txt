@@ -1,0 +1,112 @@
+
+> build
+> next build --webpack
+
+▲ Next.js 16.4.3 (webpack)
+✓ Running next.config.mjs took 11ms
+- Experiments (use with caution):
+  · proxyClientMaxBodySize: "513mb"
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 6.8s
+  Running TypeScript ...
+  Finished TypeScript in 7.2s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/23) ...
+  Generating static pages using 7 workers (5/23) 
+  Generating static pages using 7 workers (11/23) 
+  Generating static pages using 7 workers (17/23) 
+✓ Generating static pages using 7 workers (23/23) in 148ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /actions
+├ ƒ /api/actions
+├ ƒ /api/actions/bulk-execute
+├ ƒ /api/app-activity
+├ ƒ /api/app-icon
+├ ƒ /api/app-management
+├ ƒ /api/application-access
+├ ƒ /api/applications
+├ ƒ /api/audit-log
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/profile
+├ ƒ /api/auth/session
+├ ƒ /api/auth/setup
+├ ƒ /api/backups
+├ ƒ /api/backups/[name]
+├ ƒ /api/backups/application
+├ ƒ /api/backups/restore
+├ ƒ /api/branding
+├ ƒ /api/data-sources
+├ ƒ /api/data/[table]
+├ ƒ /api/data/[table]/clear
+├ ƒ /api/data/[table]/validate
+├ ƒ /api/excel/[table]
+├ ƒ /api/expression-data
+├ ƒ /api/field-users
+├ ƒ /api/files
+├ ƒ /api/files/[id]
+├ ƒ /api/health
+├ ƒ /api/images
+├ ƒ /api/images/[id]
+├ ƒ /api/lists/[table]
+├ ƒ /api/pdf-templates
+├ ƒ /api/performance
+├ ƒ /api/readiness
+├ ƒ /api/realtime
+├ ƒ /api/releases
+├ ƒ /api/scan/[table]
+├ ƒ /api/settings
+├ ƒ /api/slices
+├ ƒ /api/system-report
+├ ƒ /api/tables
+├ ƒ /api/tables/[name]
+├ ƒ /api/tables/[name]/convert
+├ ƒ /api/tables/[name]/duplicates
+├ ƒ /api/tables/[name]/raw
+├ ƒ /api/user-settings
+├ ƒ /api/users
+├ ƒ /api/view-data/[table]
+├ ƒ /api/views
+├ ƒ /api/views/preview
+├ ƒ /api/workflows
+├ ƒ /api/workflows/files/[id]
+├ ƒ /app-access
+├ ƒ /app/[appId]
+├ ƒ /app/[appId]/icon/[size]
+├ ƒ /app/[appId]/login
+├ ƒ /app/[appId]/manifest.webmanifest
+├ ƒ /app/[appId]/offline
+├ ƒ /app/[appId]/sw.js
+├ ƒ /apps
+├ ƒ /audit-log
+├ ƒ /backups
+├ ƒ /data
+├ ƒ /data-sources
+├ ƒ /decorations
+├ ƒ /formulas
+├ ƒ /login
+├ ƒ /performance
+├ ƒ /preview
+├ ƒ /readiness
+├ ƒ /releases
+├ ƒ /run
+├ ƒ /settings
+├ ƒ /slices
+├ ƒ /t/[table]
+├ ƒ /t/[table]/edit
+├ ƒ /t/[table]/raw
+├ ƒ /users
+├ ƒ /views
+└ ƒ /workflows
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+

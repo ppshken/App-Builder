@@ -54,7 +54,7 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
   assertLabels(cols);
   const schema = Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as { name: string }[]).map(t => [t.name, columnsOf(t.name)]));
   const owner=Object.keys(overrides)[0]||"__new_table";
-  assertFormulas(cols, { ...schema, ...overrides,[owner]:cols });
+  assertFormulas(cols, { ...schema, ...overrides,[owner]:cols }, owner);
   assertPartSchema({...schema,[owner]:cols});
   return cols;
 }

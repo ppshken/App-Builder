@@ -1,0 +1,64 @@
+{
+  "scope": "example Compose + source + current tracked text; not a complete historical secret audit or Docker runtime test",
+  "checks": [
+    {
+      "name": "Compose HTTP renders with example configuration",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "Compose HTTPS renders with example configuration",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "ports match Next startup and app has no public host port",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "SQLite, WAL and sibling storage share a persistent volume",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "container hardening and writable runtime paths are declared",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "build/start commands and runtime font assets match source",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "optional code environment variables are passed to the container",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "Caddy routes whole app including API, PWA and Next assets without rewriting",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "build context excludes private data while preserving backup source",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "current tracked files do not include dotenv secrets, DBs or machine credentials",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "heuristic scan of current tracked text files finds no private-key/AWS/GitHub token pattern",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "selected sensitive filenames absent from reachable Git history",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "real domain, ACME email, image release, offsite backup and external-service secrets",
+      "status": "NEEDS CONFIGURATION"
+    }
+  ],
+  "private_config_metadata_only": {
+    "present": true,
+    "mode": "600",
+    "render": "VERIFIED",
+    "domain_and_email": "NEEDS CONFIGURATION",
+    "release_image": "NEEDS CONFIGURATION"
+  }
+}

@@ -24,9 +24,9 @@ COPY --from=build --chown=node:node /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/app/fonts.css ./app/fonts.css
 COPY --from=build /app/next.config.mjs ./next.config.mjs
-COPY deploy/healthcheck.cjs deploy/setup-owner.cjs ./deploy/
-RUN mkdir -p /data /app/.next/cache && chown -R node:node /data /app/.next/cache
+COPY deploy/healthcheck.cjs deploy/setup-owner.cjs deploy/start-app.sh ./deploy/
+RUN mkdir -p /data /app/.next/cache && chown -R node:node /data /app/.next/cache && chmod 0700 /data
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 CMD ["node", "deploy/healthcheck.cjs"]
-CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0", "--port", "3000"]
+CMD ["sh", "deploy/start-app.sh"]

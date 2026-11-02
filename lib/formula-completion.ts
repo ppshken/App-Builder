@@ -1,5 +1,6 @@
 import {FUNCTION_NAMES} from "./expression";
 import type {Column} from "./columns";
+import {relatedFormulaSources} from "./formula-related";
 export type FormulaTable={name:string;label?:string;columns?:Column[]};
 export type Completion={label:string;insert:string;kind:string;description?:string;cursorBack?:number};
 export function formulaCompletions(source:string,caret:number,columns:Column[],tables:FormulaTable[]):{start:number;items:Completion[]}{
@@ -14,8 +15,13 @@ export function formulaCompletions(source:string,caret:number,columns:Column[],t
   let cols=owner?tables.find(t=>t.name===owner)?.columns:select?tables.find(t=>t.name===select)?.columns:columns;
   const deref=/\[([^\]]+)\]\.\s*$/.exec(prefix);
   if(deref){const ref=columns.find(c=>c.name===deref[1]);cols=deref[1]==="_THISROW"?columns:tables.find(t=>t.name===ref?.ref_table)?.columns;}
+  const related=/\[Related_([a-z][a-z0-9_]{0,40})(?::[a-z][a-z0-9_]{0,40})?\]\s*$/.exec(prefix);
+  if(related)cols=tables.find(t=>t.name===related[1])?.columns?.filter(c=>!["list","enumlist"].includes(c.type));
   const candidates=[{name:"id",type:"Number"},...(cols||[])];
-  if(!owner&&!select&&!deref)candidates.push({name:"_THISROW",type:"Row"},{name:"_THIS",type:"Value"});
+  if(!owner&&!select&&!deref&&!related){
+    candidates.push({name:"_THISROW",type:"Row"},{name:"_THIS",type:"Value"});
+    for(const related of relatedFormulaSources(columns,tables))candidates.push({name:related.alias,type:"Related List"});
+  }
   return {start:bracket.index+1,items:candidates.filter(c=>c.name.toLowerCase().startsWith(bracket[1].toLowerCase())).map(c=>({label:c.name,insert:c.name+(source[caret]==="]"?"":"]"),kind:c.type}))};
  }
  const word=/[a-z_][a-z0-9_]*$/i.exec(before);if(!word)return {start:caret,items:[] as Completion[]};

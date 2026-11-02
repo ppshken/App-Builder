@@ -2,16 +2,17 @@ import {PART_FORMULA_FIELDS} from "./part-of-config";
 import {actionConfigExpressions} from "./action-config";
 import { db, columnsOf } from "./db";
 import { FORMULA_FIELDS, refTablesOf } from "./columns";
-import { references, tableReferences, referencePaths, renameReference, renameDereference } from "./expression";
+import { references, tableReferences, referencePaths, relatedReferences, renameReference, renameDereference } from "./expression";
 type StoredColumn = { table_name: string; name: string; label: string } & Record<string, string | null>;
 export function referenceSchemas() {
   return Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, refTablesOf(columnsOf(t.name))]));
 }
 export function externalFormulaUse(table: string, column?: string): string | undefined {
   const schemas = referenceSchemas();
+  const targetColumn = column ? columnsOf(table).find(c=>c.name===column) : undefined;
   if(column)for(const a of db.prepare("SELECT label,config_json FROM _actions WHERE kind='new_form'").all() as any[]){const config=JSON.parse(a.config_json||"{}");const target=db.prepare("SELECT table_name FROM _views WHERE name=?").get(config.view_name) as {table_name:string}|undefined;if(target?.table_name===table&&Object.hasOwn(config.initial_values||{},column))return 'ค่าตั้งต้นฟอร์มใน Action '+a.label;}
   for(const rule of db.prepare("SELECT * FROM _role_row_rules WHERE table_name=?").all(table) as any[])if(!column||references(rule.expression).includes(column))return "กฎสิทธิ์ระดับแถว กรุณาแก้กฎในหน้าบทบาทก่อน";
-  const uses = (source: string, owner: string) => source.trim() && (tableReferences(source).some(r => r.table === table && (!column || r.column === column)) || referencePaths(source).some(p => schemas[p.table || owner]?.[p.column] === table && (!column || p.property === column)));
+  const uses = (source: string, owner: string) => source.trim() && (tableReferences(source).some(r => r.table === table && (!column || r.column === column)) || referencePaths(source).some(p => schemas[p.table || owner]?.[p.column] === table && (!column || p.property === column)) || relatedReferences(source).some(r=>r.table===table&&targetColumn?.type==="ref"&&!targetColumn.is_virtual&&(r.refColumn ? r.refColumn===column : targetColumn.ref_table===(r.ownerTable||owner))));
   for (const v of db.prepare("SELECT * FROM _views").all() as any[]) if ((column || v.table_name !== table) && uses(v.show_if || "", v.table_name)) return `Show_If ของ View ${v.label}`;
   const columns = db.prepare("SELECT * FROM _columns").all() as StoredColumn[];
   for (const c of columns) {

@@ -30,3 +30,24 @@ server-backups
 *.zip
 *.pem
 *.key
+# Local credentials and agent state must never enter COPY . .
+.aws
+.ssh
+.codex
+.agents
+.npmrc
+.netrc
+.DS_Store
+**/.aws
+**/.ssh
+**/.codex
+**/.agents
+**/.npmrc
+**/.netrc
+**/*.pem
+**/*.key
+# Keep backup UI/API source even if exclusions are broadened later.
+!app/backups
+!app/backups/**
+!app/api/backups
+!app/api/backups/**

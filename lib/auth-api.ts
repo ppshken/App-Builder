@@ -14,6 +14,8 @@ import {beginSystemRequest} from './system-metrics';
 export function withAuth(handler:(...args:any[])=>Promise<Response>){return async(req:Request,context:any)=>{
  let finish:((status:number)=>void)|undefined,status=500;
  try{
+  // Resolve Next async route parameters before permission checks and handlers.
+  if(context?.params)context={...context,params:await context.params};
   const user=requestUser(req);if(!user)return NextResponse.json({error:"กรุณาเข้าสู่ระบบก่อนใช้งาน"},{status:401,headers:{"Cache-Control":"no-store"}});
   const pathName=new URL(req.url).pathname,platform=['/api/system-report','/api/applications','/api/users','/api/backups','/api/audit-log','/api/app-management','/api/auth/'].some(p=>pathName===p||pathName.startsWith(p+'/'));
   const mediaApp=['GET','HEAD'].includes(req.method)&&/^\/api\/(files|images)\//.test(pathName)?new URL(req.url).searchParams.get('pwa_app'):null,routeApp=mediaApp||req.headers.get('x-nocode-pwa-app')||req.headers.get('x-nocode-route-app')||(pathName==='/api/realtime'&&new URL(req.url).searchParams.get('pwa')==='1'?new URL(req.url).searchParams.get('app'):null),application=platform?undefined:applicationScopeFor(user,routeApp||applicationCookie(req.headers.get('cookie'))),expected=req.headers.get('x-nocode-app')||(pathName==='/api/realtime'?new URL(req.url).searchParams.get('app'):null);if(application&&expected&&expected!==application.id)throw new AuthError('แอปเปลี่ยน กรุณาโหลดหน้าใหม่ก่อนทำรายการ',409);

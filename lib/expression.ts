@@ -9,6 +9,7 @@ type Node = { kind: "literal"; value: Value; start:number; end:number } | { kind
   | { kind: "outer"; name: string; start: number; end: number }
   | { kind: "deref"; column: string; name: string; start: number; end: number; refStart: number; refEnd: number }
   | { kind: "table"; table: string; name: string; start: number; end: number }
+  | { kind: "related"; table: string; name: string; refColumn?: string; start: number; end: number; tableStart: number; tableEnd: number; refStart?: number }
   | { kind: "unary"; op: string; value: Node } | { kind: "binary"; op: string; left: Node; right: Node }
   | { kind: "call"; name: string; args: Node[] };
 type Token = { kind: string; text: string; start: number; end: number; value?: Value };
@@ -64,6 +65,9 @@ function tokenize(source: string): Token[] {
       const end = source.indexOf("]", i + 1);
       if (end < 0) fail("ขาด ] ปิดชื่อคอลัมน์", i);
       const name = source.slice(i + 1, end).trim();
+      if (/^Related_[a-z][a-z0-9_]{0,40}(?::[a-z][a-z0-9_]{0,40})?$/.test(name)) {
+        i = end + 1; tokens.push({kind: "related", text: name, start, end: i}); continue;
+      }
       if (!/^(?:[a-z][a-z0-9_]{0,40}|_THIS|_THISROW|__SYNC_(?:CREATED|UPDATED|FAILED|SOURCE))$/.test(name)) fail("ใช้ชื่อคอลัมน์ในระบบภายใน [ ] เช่น [qty]", i);
       i = end + 1; tokens.push({ kind: "column", text: name, start, end: i });
     } else if (ch === '"' || ch === "'") {
@@ -135,7 +139,7 @@ export function formatFormula(source:string):string {
       }
       if(t.text===','){out=out.trimEnd()+', ';continue;}
       if(t.text==='.'){out=out.trimEnd()+'.';continue;}
-      out+=t.kind==='column'?'['+t.text+']':source.slice(t.start,t.end);
+      out+=t.kind==='column'||t.kind==='related'?'['+t.text+']':source.slice(t.start,t.end);
     }
     return out.trim();
   }
@@ -154,6 +158,14 @@ export function parseExpression(source: string): Node {
     const token = tokens[p++];
     let node: Node;
     if (token.kind === "literal") node = { kind: "literal", value: token.value!, start:token.start, end:token.end };
+    else if (token.kind === "related") {
+      const [table, refColumn] = token.text.slice("Related_".length).split(":");
+      if (table === "id" || refColumn === "id") fail("Related ต้องระบุชื่อตารางลูกและคอลัมน์ Ref ที่ถูกต้อง", token.start);
+      const tableStart = source.indexOf("Related_", token.start) + "Related_".length;
+      const property = tokens[p].kind === "column" ? tokens[p++] : undefined;
+      if (property?.text.startsWith("_")) fail("Related ต้องดึงคอลัมน์ข้อมูลของตารางลูก", property.start);
+      node = {kind: "related", table, name: property?.text || "id", refColumn, start: property?.start ?? token.start, end: property?.end ?? token.end, tableStart, tableEnd: tableStart + table.length, refStart: refColumn ? tableStart + table.length + 1 : undefined};
+    }
     else if (token.kind === "column") {
       if (token.text === "_THISROW") {
         if (tokens[p].text !== "." || tokens[p + 1]?.kind !== "column" || tokens[p + 1].text.startsWith("_")) fail("ใช้ [_THISROW].[ชื่อคอลัมน์] เพื่ออ้างแถวในฟอร์ม", token.start);
@@ -210,7 +222,7 @@ export function parseExpression(source: string): Node {
 export function remapExpressionTables(source:string,mapping:Record<string,string>){
  if(!source.trim()||!Object.keys(mapping).length)return source;
  parseExpression(source);const tokens=tokenize(source),edits:{start:number;end:number;value:string}[]=[];
- for(let i=0;i<tokens.length-1;i++){const t=tokens[i],name=source.slice(t.start,t.end);if(t.kind==='word'&&tokens[i+1].kind==='column'&&mapping[name])edits.push({start:t.start,end:t.end,value:mapping[name]});}
+ for(let i=0;i<tokens.length-1;i++){const t=tokens[i],name=source.slice(t.start,t.end);if(t.kind==='word'&&tokens[i+1].kind==='column'&&mapping[name])edits.push({start:t.start,end:t.end,value:mapping[name]});if(t.kind==='related'){const table=t.text.slice(8).split(':')[0];if(mapping[table]){const start=source.indexOf('Related_',t.start)+8;edits.push({start,end:start+table.length,value:mapping[table]});}}}
  for(const edit of edits.reverse())source=source.slice(0,edit.start)+edit.value+source.slice(edit.end);return source;
 }
 function visit(node: Node, fn: (node: Node) => void) {
@@ -220,7 +232,7 @@ function visit(node: Node, fn: (node: Node) => void) {
   if (node.kind === "call") node.args.forEach((arg) => visit(arg, fn));
 }
 export function userSettingReferences(source:string):(string|null)[]{const names=new Set<string|null>();if(source.trim())visit(parseExpression(source),n=>{if(n.kind==="call"&&n.name==="USERSETTINGS"){const a=n.args[0];names.add(a.kind==="literal"&&typeof a.value==="string"?a.value:null);}});return [...names];}
-function listSourceNode(node:Node):{table:string;column:string}|null{if(node.kind==='table')return {table:node.table,column:node.name};if(node.kind==='call'&&['SELECT','ORDERBY'].includes(node.name))return listSourceNode(node.args[0]);return null;}
+function listSourceNode(node:Node):{table:string;column:string}|null{if(node.kind==='table'||node.kind==='related')return {table:node.table,column:node.name};if(node.kind==='call'&&['SELECT','ORDERBY'].includes(node.name))return listSourceNode(node.args[0]);return null;}
 function scopedVisit(node: Node, fn: (node: Node, table?: string) => void, table?: string) {
   fn(node, table);
   if (node.kind === "unary") scopedVisit(node.value, fn, table);
@@ -231,14 +243,23 @@ export function references(source: string): string[] {
   const names = new Set<string>();
   scopedVisit(parseExpression(source), (n, table) => { if (n.kind === "outer" || (n.kind === "column" && (!table || n.name === "_THIS"))) names.add(n.name); });
   scopedVisit(parseExpression(source), (n, table) => { if (n.kind === "deref" && !table) names.add(n.column); });
+  scopedVisit(parseExpression(source), (n, table) => { if (n.kind === "related" && !table) names.add("id"); });
   return [...names];
 }
-export function tableReferences(source: string): { table: string; column: string }[] {
+export function tableReferences(source: string, includeRelated = true): { table: string; column: string }[] {
   const result: { table: string; column: string }[] = [];
   scopedVisit(parseExpression(source), (n, table) => {
     if (n.kind === "table") result.push({ table: n.table, column: n.name });
+    else if (n.kind === "related" && includeRelated) { result.push({table: n.table, column: n.name}); if (n.refColumn) result.push({table: n.table, column: n.refColumn}); }
     else if (n.kind === "column" && table && n.name !== "_THIS") result.push({ table, column: n.name });
     else if (n.kind === "deref" && table) result.push({ table, column: n.column });
+  });
+  return result;
+}
+export function relatedReferences(source: string): {table: string; column: string; refColumn?: string; ownerTable?: string}[] {
+  const result: {table: string; column: string; refColumn?: string; ownerTable?: string}[] = [];
+  scopedVisit(parseExpression(source), (n, ownerTable) => {
+    if (n.kind === "related") result.push({table: n.table, column: n.name, refColumn: n.refColumn, ownerTable});
   });
   return result;
 }
@@ -281,20 +302,24 @@ export function renameReference(source: string, oldName: string, newName: string
   const nodes: { start: number; end: number }[] = [];
   scopedVisit(parseExpression(source), (n, table) => {
     if (n.kind === "table" && targetTable === n.table && n.name === oldName) nodes.push(n);
+    else if (n.kind === "related" && targetTable === n.table) {
+      if (n.name === oldName && n.start > n.tableEnd) nodes.push(n);
+      if (n.refColumn === oldName && n.refStart !== undefined) nodes.push({start: n.refStart, end: n.refStart + oldName.length});
+    }
     else if (n.kind === "column" && n.name === oldName && (targetTable ? table === targetTable : !table)) nodes.push(n);
     else if (n.kind === "outer" && !targetTable && n.name === oldName) nodes.push(n);
     else if (n.kind === "deref" && n.column === oldName && (targetTable ? table === targetTable : !table)) nodes.push({ start: n.refStart, end: n.refEnd });
   });
   // Replace spans from the end; text literals such as "[qty]" are left untouched.
-  for (const n of nodes.sort((a, b) => b.start - a.start)) source = source.slice(0, n.start) + `[${newName}]` + source.slice(n.end);
+  for (const n of nodes.sort((a, b) => b.start - a.start)) source = source.slice(0, n.start) + (source[n.start] === "[" ? `[${newName}]` : newName) + source.slice(n.end);
   return source;
 }
 const parsedCache = new Map<string, Node>();
 // Formatting rules are fixed; values are still evaluated with this call's clock.
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
-export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string> };
+export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string> };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
-export type ExpressionContext = ExpressionUser & { columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; getRelatedTable?: (name: string, column: string) => ExpressionTable; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -327,7 +352,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     if (typeof value !== "string" && typeof value !== "number") fail("คอลัมน์ตัวเลือกต้องเป็นข้อความหรือตัวเลข");
     return String(value);
   }
-  function run(n: Node, scope?: { row: Record<string, Value>; refs: Record<string, string> }, referenceResult = false): Value {
+  function run(n: Node, scope?: { row: Record<string, Value>; refs: Record<string, string>; table?: string }, referenceResult = false): Value {
     if (++steps > (options.tables || options.getTable ? 100000 : 2000)) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
     let result: Value;
     if (n.kind === "literal") result = n.value;
@@ -336,6 +361,24 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${n.table}`);
       if (referenceResult && n.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
       result = data.rows.map(r => {const value=tableValue(data,n.name,r);return value===null ? null : referenceResult ? String(r.id) : value;}).filter((v): v is string => v !== null);
+    } else if (n.kind === "related") {
+      const data = options.getRelatedTable ? options.getRelatedTable(n.table, n.name) : dataset(n.table);
+      if (data.rows.length > 10000) fail("ตาราง Related มีข้อมูลเกิน 10,000 แถว");
+      if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${n.table}`);
+      const owner = scope?.table || options.tableName;
+      const links = Object.entries(data.relatedRefs ?? data.refs ?? {}).filter(([name, target]) => (!n.refColumn || name === n.refColumn) && (!owner || target === owner));
+      if (links.length !== 1) fail(links.length ? `ตาราง ${n.table} มี Ref ไปตารางแม่หลายช่อง กรุณาระบุ [Related_${n.table}:ชื่อคอลัมน์Ref][${n.name}]` : `ไม่พบ Ref จากตาราง ${n.table} ไปตารางแม่ปัจจุบัน`);
+      if (referenceResult && n.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
+      const id = scope ? scope.row.id : options.resolve ? options.resolve("id") : row.id;
+      const values: string[] = [];
+      // An unsaved parent must never match orphan rows with an empty Ref.
+      if (!isBlank(id)) for (const candidate of data.rows) {
+        if (++steps > 100000) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
+        if (!listEquivalent(candidate[links[0][0]], id ?? null)) continue;
+        const value = tableValue(data, n.name, candidate);
+        if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
+      }
+      result = values;
     } else if (n.kind === "deref") {
       const table = (scope?.refs || options.refTables || {})[n.column];
       if (!table) fail(`คอลัมน์ [${n.column}] ต้องเป็นชนิด Ref ก่อนดึง [${n.name}]`);
@@ -390,7 +433,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');if(keys.length>10000)fail('ORDERBY รับได้ไม่เกิน 10,000 แถว');
           const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
           const keyColumn=referenceResult?'id':source.column,lookup=new Map(data.rows.map(row=>[String(row[keyColumn]),row]));
-          const decorated=keys.map((key,index)=>{const row=lookup.get(String(key));if(!row)fail('ORDERBY ไม่พบรหัสแถว '+String(key)+' ในตาราง '+source.table);return {key,index,sorts:sorters.map(sort=>{const value=run(sort.node,{row,refs:data.refs||{}});if(Array.isArray(value))fail('ค่าสำหรับเรียง ORDERBY ต้องเป็นค่าเดียว');return value;})};});
+          const decorated=keys.map((key,index)=>{const row=lookup.get(String(key));if(!row)fail('ORDERBY ไม่พบรหัสแถว '+String(key)+' ในตาราง '+source.table);return {key,index,sorts:sorters.map(sort=>{const value=run(sort.node,{row,refs:data.refs||{},table:source.table});if(Array.isArray(value))fail('ค่าสำหรับเรียง ORDERBY ต้องเป็นค่าเดียว');return value;})};});
           const compare=(a:Value,b:Value)=>{if(isBlank(a)||isBlank(b))return isBlank(a)?isBlank(b)?0:-1:1;if(isDuration(a)&&isDuration(b))return durationMilliseconds(a)-durationMilliseconds(b);if(typeof a==='number'&&typeof b==='number')return a-b;if(typeof a==='boolean'&&typeof b==='boolean')return Number(a)-Number(b);return String(a).localeCompare(String(b),'th',{numeric:true});};
           decorated.sort((a,b)=>{for(let i=0;i<sorters.length;i++){const compared=compare(a.sorts[i],b.sorts[i]);if(compared)return compared*(sorters[i].descending?-1:1);}return a.index-b.index;});result=decorated.map(item=>item.key);break;
         }
@@ -401,7 +444,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           if (!data.columns.includes(source.name)) fail(`ไม่พบคอลัมน์ [${source.name}] ในตาราง ${source.table}`);
           const values: string[] = [];
           for (const candidate of data.rows) {
-            if (!asBoolean(run(n.args[1], { row: candidate, refs: data.refs || {} }))) continue;
+            if (!asBoolean(run(n.args[1], { row: candidate, refs: data.refs || {}, table: source.table }))) continue;
             const value = tableValue(data, source.name, candidate); if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
           }
           result = distinct ? [...new Set(values)] : values; break;

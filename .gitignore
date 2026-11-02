@@ -32,3 +32,10 @@ out/
 /.app-releases/
 !.env.docker.example
 /server-backups/
+
+# Machine credentials and private deployment overrides
+/.aws/
+/.ssh/
+/.npmrc
+/.netrc
+/compose.runtime.yaml

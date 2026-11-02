@@ -1,0 +1,15 @@
+✔ deployment shell scripts parse; startup forwards the real Next CLI arguments with a private umask (628.85825ms)
+✔ cold archive keeps committed WAL data, upload bytes and draft files in an independent restore (32.835416ms)
+✔ backup helper uses cold tar without TTY, creates a private archive and resumes the same app (586.379833ms)
+✔ backup restart failure is reported, and tar failure still resumes without publishing a broken archive (605.848959ms)
+✔ backup helper never starts an originally stopped app and refuses an absent app (372.241208ms)
+✔ restore drill targets only a generated disposable volume, without network, app startup or production mounts (394.742542ms)
+✔ restore drill refuses an existing target and unsafe archives without deleting anything (274.140958ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2962.843041

@@ -5,7 +5,7 @@ import Icon from './Icon';
 import {scanCode} from '@/lib/barcode';
 import './barcode-scanner.css';
 function ScannerDialog({label,onClose,onResult}:{label:string;onClose:()=>void;onResult:(code:string,signal:AbortSignal)=>Promise<void>}){
- const video=useRef<HTMLVideoElement>(null),controls=useRef<{stop:()=>void}>(),camera=useRef<MediaStream>(),alive=useRef(false),consumed=useRef(false),abort=useRef(new AbortController()),callback=useRef(onResult);callback.current=onResult;
+ const video=useRef<HTMLVideoElement>(null),controls=useRef<{stop:()=>void}>(undefined),camera=useRef<MediaStream>(undefined),alive=useRef(false),consumed=useRef(false),abort=useRef(new AbortController()),callback=useRef(onResult);callback.current=onResult;
  const [error,setError]=useState(''),[cameraError,setCameraError]=useState(''),[code,setCode]=useState(''),[busy,setBusy]=useState(false),[revision,setRevision]=useState(0),[scanning,setScanning]=useState(false);
  function stopHandle(handle?:{stop:()=>void}){try{void Promise.resolve(handle?.stop()).catch(()=>{});}catch{}}
  function stop(){stopHandle(controls.current);controls.current=undefined;camera.current?.getTracks().forEach(t=>t.stop());camera.current=undefined;const stream=video.current?.srcObject as MediaStream|null;stream?.getTracks().forEach(t=>t.stop());if(video.current)video.current.srcObject=null;}

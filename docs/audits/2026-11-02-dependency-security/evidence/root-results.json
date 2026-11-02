@@ -1,0 +1,18 @@
+[
+  {
+    "mode": "api",
+    "status": 0
+  },
+  {
+    "mode": "attachments",
+    "status": 0
+  },
+  {
+    "mode": "deferredimages",
+    "status": 0
+  },
+  {
+    "mode": "pwa",
+    "status": 0
+  }
+]

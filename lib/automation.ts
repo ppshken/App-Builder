@@ -31,7 +31,7 @@ export function sliceFor(name: string | null, table: string) {
   assertIdentifier(name); const s = slices().find(s => s.name === name && s.table_name === table);
   if (!s) throw new Error("ไม่พบ Slice ของตารางนี้ กรุณาเลือก Slice ใหม่"); return s;
 }
-export function matches(source: string, row: Record<string, any>, userEmail = "", table?: string, context: ExpressionContext = expressionContext(new Date(), userEmail)) { return asBoolean(evaluateExpression(source, row, { ...context, refTables: table ? refTablesOf(columnsOf(table)) : {}, userEmail })); }
+export function matches(source: string, row: Record<string, any>, userEmail = "", table?: string, context: ExpressionContext = expressionContext(new Date(), userEmail)) { return asBoolean(evaluateExpression(source, row, { ...context, tableName:table||context.tableName, refTables: table ? refTablesOf(columnsOf(table)) : {}, userEmail })); }
 export function executeAction(name: string, id: number, userEmail: string, sliceName: string | null) {
   assertIdentifier(name);
   if (!Number.isSafeInteger(id) || id < 1) throw new Error("กรุณาเลือกแถวข้อมูล");

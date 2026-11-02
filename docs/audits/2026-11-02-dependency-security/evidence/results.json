@@ -1,0 +1,108 @@
+{
+  "date": "2026-11-02",
+  "next": "16.4.3",
+  "react": "19.3.1",
+  "react-dom": "19.3.1",
+  "postcss": "8.5.23",
+  "local_node": "24.9.0",
+  "unit_passed": 392,
+  "api_passed": 15,
+  "production_suites": [
+    {
+      "mode": "api",
+      "status": 0
+    },
+    {
+      "mode": "auth",
+      "status": 0
+    },
+    {
+      "mode": "attachmentboundary",
+      "status": 0
+    },
+    {
+      "mode": "permissions",
+      "status": 0
+    },
+    {
+      "mode": "buildersecurity",
+      "status": 0
+    },
+    {
+      "mode": "readiness",
+      "status": 0
+    },
+    {
+      "mode": "deferredimages",
+      "status": 0
+    },
+    {
+      "mode": "relatedexpression",
+      "status": 0
+    },
+    {
+      "mode": "concurrentedit",
+      "status": 0
+    },
+    {
+      "mode": "workflows",
+      "status": 0
+    },
+    {
+      "mode": "exceltext",
+      "status": 0
+    },
+    {
+      "mode": "exceloptions",
+      "status": 0
+    },
+    {
+      "mode": "pwa",
+      "status": 0
+    },
+    {
+      "mode": "cache",
+      "status": 0
+    },
+    {
+      "mode": "navcontract",
+      "status": 0
+    },
+    {
+      "mode": "browser",
+      "status": 0
+    },
+    {
+      "mode": "columnssettings",
+      "status": 0
+    },
+    {
+      "mode": "refcreate",
+      "status": 0
+    },
+    {
+      "mode": "attachments",
+      "status": 0
+    },
+    {
+      "mode": "readinessperf",
+      "status": 0
+    },
+    {
+      "mode": "safety",
+      "status": 0
+    }
+  ],
+  "audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 8,
+    "high": 0,
+    "critical": 0,
+    "total": 8
+  },
+  "docker": "NOT TESTED: daemon unavailable",
+  "physical_iphone": "NOT TESTED",
+  "production_https": "NOT TESTED",
+  "package_lock_sha256": "7e92cc8fc2a6e703b74b20197c8888776d0ac4f08dc1b45c903ea9d35079753d"
+}

@@ -1,6 +1,6 @@
 import {assertAutoNumberColumn,type AutoNumberConfig} from './auto-number';
 import {normalizeTime,normalizePhone,normalizeEmail,normalizeUrl} from './scalar-fields';
-import { asBoolean, evaluateExpression, isBlank, references, tableReferences, referencePaths, listSource, ExpressionContext, ExpressionOptions, Value } from "./expression";
+import { asBoolean, evaluateExpression, isBlank, references, tableReferences, referencePaths, relatedReferences, listSource, ExpressionContext, ExpressionOptions, Value } from "./expression";
 import { normalizeCoordinates } from "./location";
 import {normalizeDuration} from "./duration";
 import { normalizeDateTime } from "./datetime";
@@ -11,6 +11,7 @@ export const UNIQUE_TYPES = ["user","price","percent","rating","time","phone","e
 export const FORMULA_FIELDS = ["virtual_expr", "default_expr", "show_if", "valid_if", "required_if", "editable_if"] as const;
 export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
+  table_name?: string;
   auto_number?:AutoNumberConfig|null;
   name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
   scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
@@ -25,10 +26,11 @@ export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");
 }
-export type FormulaSchema = Record<string, { name: string; type: string; ref_table?: string | null }[]>;
+export type FormulaSchema = Record<string, { name: string; type: string; ref_table?: string | null; is_virtual?: number | boolean; table_name?: string }[]>;
 export const refTablesOf = (cols: Column[]): Record<string, string> => Object.fromEntries(cols.filter(c => c.type === "ref" && c.ref_table).map(c => [c.name, c.ref_table!]));
-export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<string, string> {
+export function formulaErrors(cols: Column[], schema?: FormulaSchema, ownerTable?: string): Record<string, string> {
   const errors: Record<string, string> = {}, names = new Set(["id", ...cols.map(c => c.name)]);
+  ownerTable ||= cols.find(c => c.table_name)?.table_name || (schema ? Object.keys(schema).find(name => schema[name] === cols) : undefined);
   const graphs: Record<string, string[]> = Object.create(null);
   for (const c of cols) {
     try{assertAutoNumberColumn(c);}catch(e){errors[`${c.name}.auto_number`]=(e as Error).message;}
@@ -47,6 +49,11 @@ export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<st
         if (schema) for (const ref of tableReferences(source)) {
           if (!Object.hasOwn(schema, ref.table)) throw new Error(`ไม่พบตาราง ${ref.table} กรุณาใช้ชื่อในระบบ`);
           if (ref.column !== "id" && !schema[ref.table].some(c => c.name === ref.column)) throw new Error(`ไม่พบคอลัมน์ [${ref.column}] ในตาราง ${ref.table}`);
+        }
+        if (schema) for (const related of relatedReferences(source)) {
+          const parent = related.ownerTable || ownerTable;
+          const links = (schema[related.table] || []).filter(c => c.type === "ref" && !c.is_virtual && (!related.refColumn || c.name === related.refColumn) && (!parent || c.ref_table === parent));
+          if (links.length !== 1) throw new Error(links.length ? `ตาราง ${related.table} มี Ref ไปตารางแม่หลายช่อง กรุณาระบุ [Related_${related.table}:ชื่อคอลัมน์Ref][${related.column}]` : `ไม่พบ Ref จากตาราง ${related.table} ไปตารางแม่ปัจจุบัน`);
         }
         for (const path of referencePaths(source)) {
           const owner = path.table ? schema?.[path.table] : cols;
@@ -76,8 +83,8 @@ export function formulaErrors(cols: Column[], schema?: FormulaSchema): Record<st
   }
   return errors;
 }
-export function assertFormulas(cols: Column[], schema?: FormulaSchema) {
-  const errors = formulaErrors(cols, schema), first = Object.keys(errors)[0];
+export function assertFormulas(cols: Column[], schema?: FormulaSchema, ownerTable?: string) {
+  const errors = formulaErrors(cols, schema, ownerTable), first = Object.keys(errors)[0];
   if (first) {
     if(first === "reset_on_edit")throw new Error(errors[first]);
     const [name, field] = first.split(".");
@@ -150,7 +157,7 @@ export function evaluateColumnExpression(c: Column, source: string, row: Record<
 }
 // Missing keys receive initial values only on insert/opening a new form. Explicit null stays empty.
 export function calculateRow(cols: Column[], raw: Record<string, unknown>, defaults = false, now = new Date(), tolerant = false, userEmail = "", context: ExpressionContext = {}) {
-  context = { ...context, columnTypes:Object.fromEntries(cols.map(c=>[c.name,c.type])),refTables: refTablesOf(cols) };
+  context = { ...context, tableName: cols.find(c=>c.table_name)?.table_name || context.tableName, columnTypes:Object.fromEntries(cols.map(c=>[c.name,c.type])),refTables: refTablesOf(cols) };
   const row: Record<string, Value> = {}, errors: Record<string, string> = {}, byName = new Map(cols.map(c => [c.name, c]));
   const visiting = new Set<string>();
   function resolve(name: string): Value {
@@ -193,7 +200,7 @@ function formCalculationColumns(cols: Column[], selected: Column[]) {
   return cols.filter(c => needed.has(c.name));
 }
 export function formState(cols: Column[], raw: Record<string, unknown>, now = new Date(), userEmail = "", context: ExpressionContext = {}, original?: Record<string, unknown>, selectedNames?: readonly string[]) {
-  context = { ...context, refTables: refTablesOf(cols) };
+  context = { ...context, tableName:cols.find(c=>c.table_name)?.table_name || context.tableName, refTables: refTablesOf(cols) };
   const selected = selectedNames ? new Set(selectedNames) : undefined;
   const fields = selected ? cols.filter(c => selected.has(c.name)) : cols;
   const calculation = selected ? formCalculationColumns(cols, fields) : cols;

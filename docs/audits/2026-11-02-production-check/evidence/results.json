@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-02",
+  "decision": "HOLD_PUBLIC_PRODUCTION",
+  "unit": {
+    "passed": 392,
+    "failed": 0
+  },
+  "build": "passed",
+  "production_suites": {
+    "api": "passed",
+    "attachmentboundary": "passed",
+    "buildersecurity": "passed",
+    "readiness": "passed",
+    "deferredimages": "passed",
+    "relatedexpression": "passed",
+    "workflows": "passed",
+    "auth": "passed",
+    "permissions": "passed",
+    "concurrentedit": "passed",
+    "readinessperf": "passed",
+    "safety": "passed",
+    "pwa": "passed",
+    "exceltext": "passed",
+    "exceloptions": "passed"
+  },
+  "api_tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "docker_compose_http_config": "passed",
+  "docker_compose_https_config": "passed",
+  "docker_container": "not tested: daemon unavailable",
+  "actual_production_https": "not tested: no target provided",
+  "physical_ios": "not tested",
+  "database": "read-only inspection only"
+}

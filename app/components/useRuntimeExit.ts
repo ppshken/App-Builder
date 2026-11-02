@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,type RefObject} from 'react';
 export type NavigationGuard=(proceed?:()=>void)=>boolean;
 export default function useRuntimeExit({disabled=false,guard,holdUntilHidden}:{disabled?:boolean;guard?:NavigationGuard;holdUntilHidden?:RefObject<HTMLElement>}={}) {
- const [closing,setClosing]=useState(false),locked=useRef(false),timer=useRef<ReturnType<typeof setTimeout>>();
+ const [closing,setClosing]=useState(false),locked=useRef(false),timer=useRef<ReturnType<typeof setTimeout>>(undefined);
  const latest=useRef({disabled,guard});latest.current={disabled,guard};
  const reset=()=>{locked.current=false;setClosing(false);};
  useEffect(()=>()=>clearTimeout(timer.current),[]);

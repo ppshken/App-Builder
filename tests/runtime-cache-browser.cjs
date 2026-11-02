@@ -29,9 +29,9 @@ async function main(){
  await expect(app.locator('.runtime-route:not([hidden])').getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true})).toBeVisible();
  await app.locator('.runtime-route:not([hidden])').getByRole('button',{name:'ดูรายละเอียด รายการทดสอบ',exact:true}).click();await expect(app.getByRole('button',{name:'แก้ไขข้อมูล',exact:true})).toBeVisible();
  await app.getByRole('button',{name:'แก้ไขข้อมูล',exact:true}).click();await app.getByLabel('ชื่อ',{exact:true}).fill('รายการแก้ไขแล้ว');
- await expect(app.getByLabel('สินค้า',{exact:true})).toContainText('สินค้าทดสอบ');
+ await expect(app.getByRole('combobox',{name:'สินค้า',exact:true})).toContainText('สินค้าทดสอบ');
  await app.getByRole('button',{name:'บันทึกการแก้ไข',exact:true}).click();await expect(app.locator('.runtime-route:not([hidden]) .runtime-screen')).toContainText('รายการแก้ไขแล้ว');
- await expect(app.locator('.runtime-route:not([hidden]) .success-banner').first()).toContainText('บันทึกข้อมูลแล้ว');
+ await expect.poll(async()=>(await api('/api/data/cache_cart'))[0].name).toBe('รายการแก้ไขแล้ว');
  await app.getByRole('button',{name:'กลับหน้าก่อนหน้า',exact:true}).click();await expect(app.getByRole('button',{name:'ดูรายละเอียด รายการแก้ไขแล้ว',exact:true})).toBeVisible();
  await page.screenshot({path:'artifacts/runtime-cache-preview.png'});
  requests.length=0;await app.getByRole('button',{name:'โหลดข้อมูลใหม่',exact:true}).click();await expect(app.locator('.runtime-transition')).toHaveAttribute('aria-busy','false');

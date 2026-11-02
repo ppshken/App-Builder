@@ -1,0 +1,31 @@
+{
+  "status": "VERIFIED",
+  "scope": "local production CLI; not Linux container/Caddy/TLS validation",
+  "database": "generated synthetic directory only",
+  "checks": [
+    {
+      "name": "actual production startup script and health endpoint on loopback",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "application honors forwarded HTTPS for Secure cookies and rejects a cross-origin write (proxy headers simulated)",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "SQLite DB/WAL/SHM all reside in the same generated data directory and have mode 0600",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "upload disk copy resides beside DB with mode 0600",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "actual backup download, upload/inspection, restore, session invalidation and restored record/file bytes",
+      "status": "VERIFIED"
+    },
+    {
+      "name": "data and attachment bytes survive a genuine application process restart using the same synthetic path",
+      "status": "VERIFIED"
+    }
+  ]
+}

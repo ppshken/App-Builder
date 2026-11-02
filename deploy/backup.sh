@@ -13,7 +13,15 @@ fi
 mkdir -p "$backup_dir"
 archive="$backup_dir/nocode-data-$(date -u +%Y%m%dT%H%M%SZ)-$$.tar.gz"
 was_running=$(compose ps --status running -q app)
-resume() { if [ -n "$was_running" ]; then compose start app >&2 || true; fi; }
+resume() {
+  result=$?
+  trap - EXIT
+  if [ -n "$was_running" ] && ! compose start --wait --wait-timeout 180 app >&2; then
+    echo 'Backup operation finished but the app could not restart. Check the app before ending maintenance.' >&2
+    if [ "$result" -eq 0 ]; then result=1; fi
+  fi
+  exit "$result"
+}
 trap resume EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM

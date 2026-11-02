@@ -1,0 +1,18 @@
+{
+  "node": "v24.9.0",
+  "compose": "Docker Compose version v5.1.4",
+  "private_env_file_present": true,
+  "existing_nginx_configuration_found": false,
+  "scope": "local synthetic data only; no deployment or production volume modification",
+  "private_env_file_mode": "0o600",
+  "docker_runtime": {
+    "node": "v22.23.4",
+    "platform": "linux",
+    "arch": "arm64",
+    "uid": 1000,
+    "db_mode": 384
+  },
+  "private_config_values": "not printed or stored; metadata/render/placeholder status only",
+  "docker_available_on_final_check": true,
+  "test_project": "nocode-smoke-1793591029493"
+}

@@ -6,7 +6,14 @@ import RecordLabel from "./RecordLabel";
 import Icon from "./Icon";
 type Option={value:string;label:string;disabled:boolean;image?:string};
 const text=(node:ReactNode):string=>Children.toArray(node).map(n=>isValidElement<{children?:ReactNode}>(n)?text(n.props.children):String(n??"")).join("");
-function optionsOf(children:ReactNode,disabled=false):Option[]{return Children.toArray(children).flatMap(n=>{if(!isValidElement<any>(n))return [];if(n.type==="option")return [{value:String(n.props.value??text(n.props.children)),label:String(n.props.label??text(n.props.children)),disabled:disabled||!!n.props.disabled,image:n.props["data-image"]}];return optionsOf(n.props.children,disabled||!!n.props.disabled);});}
+function optionsOf(children:ReactNode,disabled=false):Option[]{
+ return Children.toArray(children).flatMap(node=>{
+  if(!isValidElement<{value?:unknown;label?:unknown;children?:ReactNode;disabled?:boolean;'data-image'?:string}>(node))return [];
+  const props=node.props;
+  if(node.type==="option")return [{value:String(props.value??text(props.children)),label:String(props.label??text(props.children)),disabled:disabled||!!props.disabled,image:props['data-image']}];
+  return optionsOf(props.children,disabled||!!props.disabled);
+ });
+}
 export default function SearchSelect(props:SelectHTMLAttributes<HTMLSelectElement>&{onQueryChange?:(query:string)=>void;onCreate?:()=>void;renderOptionLabel?:(option:{value:string;label:string;image?:string})=>ReactNode}){
  const {onQueryChange,renderOptionLabel,onCreate,children,id,value,defaultValue,disabled,className,style,onChange,onFocus,onBlur,autoFocus,required,name,...rest}=props;
  const uid=useId(),dialogId=uid+"-dialog",listId=uid+"-list",touchInteraction=useRef(false),native=useRef<HTMLSelectElement>(null),trigger=useRef<HTMLButtonElement>(null),dialog=useRef<HTMLDialogElement>(null);

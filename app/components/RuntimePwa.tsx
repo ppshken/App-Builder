@@ -6,7 +6,7 @@ import EditorDialog from './EditorDialog';
 import {pwaApplication,pwaBase} from '@/lib/pwa';
 type InstallEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>};
 export default function RuntimePwa({guard}:{guard:(proceed:()=>void)=>boolean}){
- const {application}=useAuth(),{settings}=useAppSettings(),[open,setOpen]=useState(false),[install,setInstall]=useState<InstallEvent|null>(null),[installed,setInstalled]=useState(false),[waiting,setWaiting]=useState<ServiceWorker|null>(null),[pending,setPending]=useState(false),[message,setMessage]=useState(''),registration=useRef<ServiceWorkerRegistration>();
+ const {application}=useAuth(),{settings}=useAppSettings(),[open,setOpen]=useState(false),[install,setInstall]=useState<InstallEvent|null>(null),[installed,setInstalled]=useState(false),[waiting,setWaiting]=useState<ServiceWorker|null>(null),[pending,setPending]=useState(false),[message,setMessage]=useState(''),registration=useRef<ServiceWorkerRegistration>(undefined);
  const guardRef=useRef(guard);guardRef.current=guard;
  useEffect(()=>{
   let active=true;const app=pwaApplication(location.pathname),base=pwaBase(application),standalone=()=>matchMedia('(display-mode: standalone)').matches||!!(navigator as Navigator&{standalone?:boolean}).standalone;

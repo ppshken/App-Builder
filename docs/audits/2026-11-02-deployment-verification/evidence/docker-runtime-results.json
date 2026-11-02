@@ -1,0 +1,28 @@
+{
+  "project": "nocode-smoke-1793591029493",
+  "image": "nocode-builder:deployment-verify-20261102",
+  "runtime": {
+    "node": "v22.23.4",
+    "platform": "linux",
+    "arch": "arm64",
+    "uid": 1000,
+    "db_mode": 384
+  },
+  "backup_helper": "VERIFIED",
+  "restore_drill": "VERIFIED",
+  "archive_mode": 384,
+  "checks": [
+    "read-only root",
+    "DB/WAL/SHM UID 1000 and mode 0600",
+    "writable tmp/cache/data",
+    "excluded private files absent",
+    "PDF and uploads",
+    "cold backup and restore helpers",
+    "recreation persistence",
+    "crash restart",
+    "local-CA HTTPS",
+    "Secure cookies/CSRF",
+    "PWA redirects",
+    "SSE not buffered"
+  ]
+}

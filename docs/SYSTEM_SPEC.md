@@ -21,7 +21,7 @@
 
 ## 2. สถาปัตยกรรม
 
-- Next.js 14 App Router + TypeScript + React
+- Next.js 16 App Router + TypeScript + React 19
 - better-sqlite3 สำหรับอ่านและเขียน SQLite
 - CSS ธรรมดาและ CSS variables รองรับธีมสว่าง/มืด ไม่มี Tailwind หรือ shadcn
 - Leaflet สำหรับแผนที่, ExcelJS สำหรับ Excel, Playwright และ Edge/Chromium สำหรับ PDF และการทดสอบเบราว์เซอร์
