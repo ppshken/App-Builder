@@ -53,17 +53,17 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
       }
       case "edit_column": {
         if (!found) return bad("ไม่พบคอลัมน์", 404);
-        if ((b.type !== undefined && b.type !== found.type) || (b.is_virtual !== undefined && !!b.is_virtual !== !!found.is_virtual))
+        if ((b.type !== undefined && b.type !== found.type && !found.is_virtual) || (b.is_virtual !== undefined && !!b.is_virtual !== !!found.is_virtual))
           return bad("เปลี่ยนชนิดผ่านปุ่มแปลงชนิดข้อมูลเพื่อตรวจก่อนยืนยัน ส่วนการสลับช่องข้อมูลกับช่องคำนวณต้องสร้างคอลัมน์ใหม่");
-        if (found.type === "ref" && b.ref_table !== undefined && b.ref_table !== found.ref_table) return bad("เปลี่ยนตารางอ้างอิงผ่านปุ่มแปลงชนิดข้อมูล เพื่อตรวจการจับคู่ Ref ก่อนยืนยัน");
-        const all = normalizeColumns(cols.map(c => c.name === found.name ? { ...c, ...b, name: c.name, type: c.type, is_virtual: c.is_virtual } : { ...c, ...(b.is_key ? { is_key: 0 } : {}), ...(b.is_label && (c.type==="image")===(found.type==="image") ? { is_label: 0 } : {}) }),{[t]:[]});
+        if (found.type === "ref" && !found.is_virtual && b.ref_table !== undefined && b.ref_table !== found.ref_table) return bad("เปลี่ยนตารางอ้างอิงผ่านปุ่มแปลงชนิดข้อมูล เพื่อตรวจการจับคู่ Ref ก่อนยืนยัน");
+        const all = normalizeColumns(cols.map(c => c.name === found.name ? { ...c, ...b, name: c.name, type: c.is_virtual?b.type??c.type:c.type, is_virtual: c.is_virtual } : { ...c, ...(b.is_key ? { is_key: 0 } : {}), ...(b.is_label && (c.type==="image")===(found.type==="image") ? { is_label: 0 } : {}) }),{[t]:[]});
         const editedText = all.find(c=>c.name===found.name)!;
         if (!editedText.is_virtual && ["text","longtext"].includes(editedText.type) && editedText.max_length) {
           const oversized = db.prepare(`SELECT id,"${found.name}" AS value FROM "t_${t}" WHERE length(CAST("${found.name}" AS BLOB)) > ?`).iterate(editedText.max_length);
           for (const row of oversized as Iterable<{id:number;value:string|null}>) { if (row.value != null && row.value.length > editedText.max_length) throw Error(`ตั้งจำนวนตัวอักษรไม่ได้: แถว ${row.id} มีข้อความยาวเกิน ${editedText.max_length} ตัวอักษร กรุณาแก้ข้อมูลเดิมหรือเพิ่มจำนวนที่อนุญาต`); }
         }
         backupBeforeSchema();
-        db.transaction(() => { if(found.type === "list" && b.ref_table !== undefined && b.ref_table !== found.ref_table) { const edited = all.find(c=>c.name===found.name)!; if(!edited.is_virtual) for(const row of db.prepare(`SELECT "${found.name}" AS value FROM "t_${t}"`).all() as {value:unknown}[]) checkLists([edited],{[edited.name]:normalizeValue(edited,row.value)}); } assertKeyData(t, all); all.forEach(c => saveColumn(t, c)); syncKeyIndex(db, t); })();
+        db.transaction(() => { if(found.type === "list" && b.ref_table !== undefined && b.ref_table !== found.ref_table) { const edited = all.find(c=>c.name===found.name)!; if(!edited.is_virtual) for(const row of db.prepare(`SELECT "${found.name}" AS value FROM "t_${t}"`).all() as {value:unknown}[]) checkLists([edited],{[edited.name]:normalizeValue(edited,row.value)}); } assertKeyData(t, all); if(found.is_virtual&&editedText.type!==found.type)db.prepare("UPDATE _columns SET type=? WHERE table_name=? AND name=?").run(editedText.type,t,found.name); all.forEach(c => saveColumn(t, c)); syncKeyIndex(db, t); })();
         break;
       }
       case "rename_column": {

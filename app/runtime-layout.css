@@ -2,7 +2,8 @@
  --runtime-header-height:52px;
  --runtime-sidebar-collapsed-width:64px;
  --runtime-sidebar-expanded-width:260px;
- --runtime-default-nav-height:calc(60px + env(safe-area-inset-bottom,0px));
+ --runtime-bottom-nav-padding:10px;
+ --runtime-default-nav-height:calc(60px + var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
  --runtime-pagination-height:40px;
  --runtime-enter-duration:220ms;
  --runtime-exit-duration:180ms;
@@ -66,12 +67,12 @@
  .runtime-app .runtime-screen[data-closing="true"] > .runtime-screen-body {animation-duration:var(--runtime-exit-duration)!important;}
 }
 
-/* Bottom navigation has its own configurable height; safe-area is additional space. */
+/* Keep controls above the bottom edge, in addition to the device safe area. */
 .runtime-app > .runtime-primary.app-navigation[class] {
- height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
- min-height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
- max-height:calc(var(--app-navigation-height,60px) + env(safe-area-inset-bottom,0px));
- padding:0 8px env(safe-area-inset-bottom,0px);
+ height:calc(var(--app-navigation-height,60px) + var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
+ min-height:calc(var(--app-navigation-height,60px) + var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
+ max-height:calc(var(--app-navigation-height,60px) + var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
+ padding:0 8px calc(var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
  align-items:stretch;
 }
 .runtime-app > .runtime-primary.app-navigation .app-nav-item {

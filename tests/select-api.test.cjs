@@ -26,3 +26,17 @@ test('EnumList Valid_If SELECT and table[key] use full data, show labels, reject
  const full=await api('/api/expression-data?table='+owner);assert.equal(full[source].rows.length,513);assert.equal(full[source].labels.bulk_509,'ชื่อสิทธิ์ 509');await api('/api/data/'+owner,'POST',{name:'ตัวเลือกท้ายตาราง',permissions:['bulk_509']});
  await api('/api/actions','POST',{name:'select_set_invalid',label:'ใส่สิทธิ์ปลอม',table_name:owner,kind:'set',condition_expr:'TRUE',confirmation:'',values:{permissions:'LIST("fake")'}});await api('/api/actions','POST',{op:'execute',name:'select_set_invalid',id},400);
 });
+
+test('self-table SELECT counts and form snapshots do not recursively calculate their own virtual field',async()=>{
+ await api('/api/tables','POST',{name:'count_parent',label:'Count parents',columns:[{name:'name',label:'Name',type:'text'}]});
+ const parent=await api('/api/data/count_parent','POST',{name:'Parent'});
+ await api('/api/tables','POST',{name:'count_child',label:'Count rows',columns:[{name:'inspection_id',label:'Inspection',type:'ref',ref_table:'count_parent'},{name:'group_id',label:'Group',type:'number'}]});
+ await api('/api/data/count_child','POST',{inspection_id:parent.id,group_id:10});await api('/api/data/count_child','POST',{inspection_id:parent.id,group_id:11});
+ const formula='COUNT(SELECT(count_child[id], [inspection_id] = [_THISROW].[inspection_id]))';
+ await api('/api/tables/count_child','PATCH',{op:'add_column',column:{name:'current_count',label:'Count',type:'number',is_virtual:true,virtual_expr:formula}});
+ const rows=await api('/api/data/count_child');assert.deepEqual(rows.map(r=>r.current_count),[2,2]);
+ const snapshot=await api('/api/expression-data?table=count_child');assert(!snapshot.count_child.columns.includes('current_count'));
+ const {evaluateExpression}=require('../.test-build/expression.js');assert.equal(evaluateExpression(formula,{inspection_id:parent.id},{tables:snapshot}),2);
+ await api('/api/data/count_child','POST',{inspection_id:parent.id,group_id:12});
+ assert.deepEqual((await api('/api/data/count_child')).map(r=>r.current_count),[3,3,3]);
+});

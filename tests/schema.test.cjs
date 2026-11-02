@@ -165,3 +165,37 @@ test('Inline migration backs up WAL, preserves original layouts and creates one 
 });
 
 test('Ref cascade migration preserves previously authorized links once and leaves other references disabled',()=>{const db=new Database(':memory:');legacy(db);db.exec("INSERT INTO _tables(name,label) VALUES('inspection','Inspection'),('inspection_image','Images'),('list_inspection','Items'); INSERT INTO _columns(table_name,name,label,type,ref_table) VALUES('inspection_image','inspection_id','Inspection','ref','inspection'),('list_inspection','inspection_id','Inspection','ref','inspection'); CREATE TABLE t_inspection(id INTEGER PRIMARY KEY AUTOINCREMENT); CREATE TABLE t_inspection_image(id INTEGER PRIMARY KEY AUTOINCREMENT,inspection_id INTEGER REFERENCES t_inspection(id)); CREATE TABLE t_list_inspection(id INTEGER PRIMARY KEY AUTOINCREMENT,inspection_id INTEGER REFERENCES t_inspection(id));");try{initializeDatabase(db,':memory:');assert.equal(readColumns(db,'inspection_image')[0].ref_delete_cascade,1);assert.equal(readColumns(db,'list_inspection')[0].ref_delete_cascade,1);assert.equal(readColumns(db,'orders').find(c=>c.name==='customer').ref_delete_cascade,0);db.prepare("UPDATE _columns SET ref_delete_cascade=0 WHERE table_name='inspection_image'").run();initializeDatabase(db,':memory:');assert.equal(readColumns(db,'inspection_image')[0].ref_delete_cascade,0);}finally{db.close();}});
+
+test('default reference views have persistent origin; custom references stay separate across migrations',()=>{
+ const db=new Database(':memory:');legacy(db);
+ try{
+  initializeDatabase(db,':memory:');
+  const {createDefaultViews}=require('../.test-build/schema.js');
+  assert.equal(db.prepare("SELECT count(*) n FROM _views WHERE position='ref' AND system_generated=1").get().n,4);
+  db.prepare("INSERT INTO _views(name,label,table_name,kind,position) VALUES('custom_ref','My detail','customers','detail','ref')").run();
+  db.prepare("UPDATE _views SET label='Custom appearance' WHERE table_name='customers' AND kind='detail'").run();
+  initializeDatabase(db,':memory:');
+  assert.equal(db.prepare("SELECT system_generated FROM _views WHERE name='custom_ref'").get().system_generated,0);
+  assert.equal(db.prepare("SELECT system_generated FROM _views WHERE label='Custom appearance'").get().system_generated,1);
+  db.prepare("DELETE FROM _views WHERE table_name='orders'").run();createDefaultViews(db,'orders','รายการ');
+  assert.equal(db.prepare("SELECT count(*) n FROM _views WHERE table_name='orders' AND position='ref' AND system_generated=1").get().n,2);
+ }finally{db.close();}
+});
+
+test('legacy origin backfill is conservative and works for application-scoped views',()=>{
+ const db=new Database(':memory:');legacy(db);
+ try{
+  initializeDatabase(db,':memory:');
+  const {migrateSystemViews}=require('../.test-build/system-views.js');
+  const target='_a_'+ 'a'.repeat(24)+'_views';
+  db.exec(`CREATE TABLE "${target}" AS SELECT name,label,table_name,kind,position,slice_name FROM _views`);
+  db.prepare(`INSERT INTO "${target}" VALUES(?,?,?,?,?,NULL)`).run('custom','My reference','customers','detail','ref');
+  migrateSystemViews(db,target);
+  assert.equal(db.prepare(`SELECT count(*) n FROM "${target}" WHERE system_generated=1`).get().n,4);
+  assert.equal(db.prepare(`SELECT system_generated FROM "${target}" WHERE name='custom'`).get().system_generated,0);
+  db.prepare(`UPDATE "${target}" SET system_generated=0 WHERE kind='detail'`).run();
+  migrateSystemViews(db,target);
+  assert.equal(db.prepare(`SELECT count(*) n FROM "${target}" WHERE kind='detail' AND system_generated=1`).get().n,0);
+  assert.throws(()=>migrateSystemViews(db,'_views; DROP TABLE _tables'));
+ }finally{db.close();}
+});

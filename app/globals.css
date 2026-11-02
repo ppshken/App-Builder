@@ -125,12 +125,9 @@ input[type="checkbox"] {
   accent-color: var(--accent);
   cursor: pointer;
 }
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
+input:not(:is([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"], [type="image"])):focus-visible,
 textarea:focus-visible,
-a:focus-visible,
-summary:focus-visible {
+[contenteditable="true"]:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
@@ -14485,6 +14482,19 @@ textarea::placeholder {
 .view-save-button {
   position: relative;
 }
+:root[data-mode] button.primary.view-save-button:disabled {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--mute);
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+:root[data-mode] button.primary.view-save-button:disabled .view-save-spinner {
+  border-color: var(--mute);
+  border-top-color: transparent;
+}
 .view-save-label {
   display: inline-flex;
   align-items: center;
@@ -15662,3 +15672,60 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Focus rings belong to editable fields; controls keep their active/selected styles. */
+:focus:not(:is(input, textarea, [contenteditable="true"], [role="textbox"])) ,
+input:is([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="file"], [type="range"], [type="color"], [type="image"]):focus,
+.backup-upload .button:focus-within,
+.profile-photo-picker:focus-within {
+  outline: none !important;
+}
+.enumlist-chip-field:focus-within:not(:has(input:focus, textarea:focus, [contenteditable="true"]:focus)) {
+  border-color: var(--line);
+}
+
+/* The wide defaults preview escapes the settings sidebar through a modal. */
+.defaults-wide-dialog {width:min(1200px,96vw);max-width:96vw;}
+.defaults-wide-dialog .defaults-preview {position:static;margin-top:0;}
+.defaults-wide-dialog .defaults-preview-screen.is-wide {max-width:none;}
+.defaults-preview .chart-svg-scroll svg {max-width:none;}
+
+.readiness-results {margin-top:20px;}
+.readiness-results [role="status"] p {margin:6px 0 0;}
+.readiness-review-banner {padding:14px;border:1px solid #d6a648;border-radius:10px;background:color-mix(in srgb,#d6a648 12%,var(--panel));color:var(--ink);}
+.readiness-filters {display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;}
+.readiness-filters button[aria-pressed="true"] {background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+.readiness-severity {display:inline-block;margin:0 8px 6px 0;padding:2px 8px;border-radius:6px;font-size:12px;}
+.readiness-severity.error {color:var(--danger);background:var(--danger-soft);}
+.readiness-severity.warning {color:var(--ink);background:color-mix(in srgb,#d6a648 20%,var(--panel));}
+.health-issue[data-severity="error"] {border-left:3px solid var(--danger);padding-left:12px;}
+
+.formula-result-types {padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin:12px 0;}
+.formula-result-types p {margin:4px 0;overflow-wrap:anywhere;}
+
+/* Detail tabs share the normal detail field renderer and retain inactive panels. */
+.detail-tabs {min-width:0;}
+.detail-tab-bar {display:flex;gap:4px;overflow-x:auto;max-width:100%;padding:4px 0 0;border-bottom:1px solid var(--line);margin-bottom:14px;background:var(--panel);scrollbar-width:thin;position:sticky;top:0;z-index:2;}
+.detail-tab-bar button {display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;white-space:nowrap;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--mute);padding:10px 14px;min-height:44px;font-size:13px;box-shadow:none;}
+.detail-tab-bar button[aria-selected="true"] {color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.detail-tab-bar button>span {display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;font-size:10px;background:var(--bg);border-radius:20px;color:var(--mute);}
+.detail-tab-bar button[aria-selected="true"]>span {background:var(--accent-soft);color:var(--accent);}
+.detail-tabs-pills .detail-tab-bar {border-bottom:0;padding:4px 0;gap:6px;}
+.detail-tabs-pills .detail-tab-bar button {border:1px solid var(--line);border-radius:24px;padding:8px 14px;}
+.detail-tabs-pills .detail-tab-bar button[aria-selected="true"] {background:var(--accent-soft);border-color:var(--accent);}
+.detail-tabs>[hidden] {display:none;}
+.detail-tabs-editor {border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0 20px;background:var(--panel);}
+.detail-tabs-editor-heading {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.detail-tabs-editor-heading h3 {margin:0;font-size:14px;}
+.detail-tabs-style {display:flex;gap:8px;margin:12px 0;}
+.detail-tabs-style button[aria-pressed="true"] {color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+.detail-tab-editor {border:1px solid var(--line);border-radius:8px;margin:10px 0;overflow:hidden;}
+.detail-tab-editor>summary {display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;background:var(--bg);font-weight:600;}
+.detail-tab-editor-body {padding:12px;}
+.detail-tab-title-row {display:flex;align-items:flex-end;gap:6px;margin-bottom:10px;}
+.detail-tab-title-row>label {flex:1;min-width:0;}
+.detail-tab-title-row>button {flex:none;min-width:32px;padding:6px;}
+.detail-tab-field-list {display:grid;gap:4px;max-height:230px;overflow:auto;}
+.detail-tab-field-list>label {display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 6px;cursor:pointer;}
+.detail-tab-field-list small {display:block;color:var(--mute);font-size:10px;overflow-wrap:anywhere;}
+@media(max-width:600px){.detail-tab-bar button {padding:9px 12px;}.detail-tabs-editor {padding:10px;}}

@@ -319,7 +319,7 @@ const parsedCache = new Map<string, Node>();
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string> };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
-export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string) => ExpressionTable; getRelatedTable?: (name: string, column: string) => ExpressionTable; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string) => ExpressionTable; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -339,8 +339,13 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     const get = (type: string) => parts.find(p => p.type === type)!.value;
     return formattedTime = { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}:${get("second")}` };
   };
-  function dataset(name: string): ExpressionTable {
-    const data = options.getTable ? options.getTable(name) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
+  function scopedColumns(nodes:Node[],table:string){
+    const columns=new Set<string>();
+    for(const node of nodes)scopedVisit(node,(n,scope)=>{if(scope===table){if(n.kind==='column'&&n.name!=='_THIS')columns.add(n.name);else if(n.kind==='deref')columns.add(n.column);}},table);
+    return [...columns];
+  }
+  function dataset(name: string, columns?:string[]): ExpressionTable {
+    const data = options.getTable ? options.getTable(name,columns) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
     if (!data) fail(`ไม่พบข้อมูลตาราง ${name} กรุณาตรวจชื่อในระบบหรือโหลดข้อมูลใหม่`);
     if (data.rows.length > 10000) fail("ตารางตัวเลือกมีข้อมูลเกิน 10,000 แถว กรุณาลดจำนวนรายการ");
     return data;
@@ -357,12 +362,12 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     let result: Value;
     if (n.kind === "literal") result = n.value;
     else if (n.kind === "table") {
-      const data = dataset(n.table);
+      const data = dataset(n.table,[n.name]);
       if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${n.table}`);
       if (referenceResult && n.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
       result = data.rows.map(r => {const value=tableValue(data,n.name,r);return value===null ? null : referenceResult ? String(r.id) : value;}).filter((v): v is string => v !== null);
     } else if (n.kind === "related") {
-      const data = options.getRelatedTable ? options.getRelatedTable(n.table, n.name) : dataset(n.table);
+      const data = options.getRelatedTable ? options.getRelatedTable(n.table, n.name) : dataset(n.table,[n.name]);
       if (data.rows.length > 10000) fail("ตาราง Related มีข้อมูลเกิน 10,000 แถว");
       if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${n.table}`);
       const owner = scope?.table || options.tableName;
@@ -385,7 +390,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       const id = run({ kind: "column", name: n.column, start: n.refStart, end: n.refEnd }, scope);
       if (isBlank(id)) result = null;
       else {
-        const data = dataset(table);
+        const data = dataset(table,[n.name]);
         if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${table}`);
         const target = data.rows.find(r => r.id === Number(id));
         if (!target) fail(`ไม่พบแถวที่ [${n.column}] อ้างอิง กรุณาเลือกข้อมูลใหม่`);
@@ -428,7 +433,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       switch (n.name) {
         case "ORDERBY": {
           const source=listSourceNode(n.args[0]);if(!source)fail('ORDERBY ช่องแรกต้องเป็น ตาราง[id] หรือ SELECT(ตาราง[id], เงื่อนไข)');
-          const data=dataset(source.table);if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
+          const data=dataset(source.table,[source.column,...scopedColumns(n.args.filter((_,i)=>i%2===1),source.table)]);if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
           if(referenceResult&&source.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
           const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');if(keys.length>10000)fail('ORDERBY รับได้ไม่เกิน 10,000 แถว');
           const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
@@ -439,7 +444,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         }
         case "SELECT": {
           const source = n.args[0]; if (source.kind !== "table") fail("SELECT ต้องระบุตาราง[คอลัมน์]");
-          const data = dataset(source.table), distinct = n.args.length === 3 ? asBoolean(arg(2)) : false;
+          const data = dataset(source.table,[source.name,...scopedColumns([n.args[1]],source.table)]), distinct = n.args.length === 3 ? asBoolean(arg(2)) : false;
           if (referenceResult && source.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
           if (!data.columns.includes(source.name)) fail(`ไม่พบคอลัมน์ [${source.name}] ในตาราง ${source.table}`);
           const values: string[] = [];

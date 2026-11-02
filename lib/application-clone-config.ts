@@ -7,7 +7,7 @@ export function remapApplicationConfig(value:any,mapping:Record<string,string>,k
   if(formulaMap||formulaKeys.has(key)||key.endsWith('_expr'))return remapExpressionTables(value,mapping);
   if(['table','table_name','ref_table','owner_table','source_table','target_table'].includes(key))return mapping[value]||value;
   if(key==='text'&&value.startsWith('='))return '='+remapExpressionTables(value.slice(1),mapping);
-  if(['detail_order','form_order'].includes(key))return reference(value);
+  if(['detail_order','form_order','fields'].includes(key))return reference(value);
   return value;
  }
  if(Array.isArray(value))return value.map(v=>remapApplicationConfig(v,mapping,key,formulaMap));

@@ -7,7 +7,7 @@ export function inlineView(name: string): AppView | undefined {
   if(!v)return; const {columns_json,display_json,...rest}=v;return {...rest,columns:JSON.parse(columns_json),display:JSON.parse(display_json)};
 }
 export function validateRelatedDisplay(display: ViewDisplay, table: string, kind: string) {
-  const fieldRelations=Object.keys(display.detail_fields||{}).filter(n=>n.startsWith('related:')).map(n=>n.slice(8));
+  const fieldRelations=[...Object.keys(display.detail_fields||{}),...(display.detail_tabs||[]).flatMap(t=>t.fields)].filter(n=>n.startsWith('related:')).map(n=>n.slice(8));
   if(!Object.keys(display.related || {}).length&&!fieldRelations.length)return;
   if(!["detail","form"].includes(kind))throw new Error("ตั้งค่า Related ได้ใน View รายละเอียดและฟอร์มเท่านั้น");
   const related=relatedLists(table);
@@ -25,11 +25,12 @@ export function changeRelatedReference(table: string, old: string, next?: string
   for(const v of db.prepare("SELECT name,display_json FROM _views").all() as {name:string;display_json:string}[]) {
     const display=JSON.parse(v.display_json) as ViewDisplay, key=`${table}:${old}`;
     const fieldKey='related:'+key;
-    if(!Object.hasOwn(display.related || {},key)&&!Object.hasOwn(display.detail_fields||{},fieldKey)&&!display.detail_order?.includes(fieldKey))continue;
+    if(!Object.hasOwn(display.related || {},key)&&!Object.hasOwn(display.detail_fields||{},fieldKey)&&!display.detail_order?.includes(fieldKey)&&!display.detail_tabs?.some(t=>t.fields.includes(fieldKey)))continue;
     const related={...display.related},config=related[key];delete related[key];if(next)related[`${table}:${next}`]=config;
     const detail_fields={...display.detail_fields},field=detail_fields[fieldKey];delete detail_fields[fieldKey];if(next&&field)detail_fields['related:'+table+':'+next]=field;
+    const detail_tabs=display.detail_tabs?.map(t=>({...t,fields:t.fields.flatMap(n=>n===fieldKey?next?["related:"+table+":"+next]:[]:[n])}));
     const detail_order=display.detail_order?.flatMap(n=>n===fieldKey?next?['related:'+table+':'+next]:[]:[n]);
-    db.prepare("UPDATE _views SET display_json=? WHERE name=?").run(JSON.stringify({...display,related,...(display.detail_fields?{detail_fields}:{}),...(detail_order?{detail_order}:{})}),v.name);
+    db.prepare("UPDATE _views SET display_json=? WHERE name=?").run(JSON.stringify({...display,related,...(display.detail_fields?{detail_fields}:{}),...(detail_order?{detail_order}:{}),...(detail_tabs?{detail_tabs}:{})}),v.name);
   }
   if(next)db.prepare("UPDATE _views SET inline_ref=? WHERE table_name=? AND inline_ref=?").run(next,table,old);
   else db.prepare("DELETE FROM _views WHERE table_name=? AND position='inline' AND inline_ref=?").run(table,old);

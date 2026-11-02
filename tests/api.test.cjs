@@ -77,3 +77,34 @@ test('runtime formulas, defaults, conditions, metadata editing and SQL safety en
   const malformed = await fetch(base + '/api/data/products', { method: 'POST', body: '{' }); assert.equal(malformed.status, 400);
   assert.ok((await api('/api/tables')).length >= 4);
 });
+
+test('stale View IDs allocate a new ID while preserving existing views and duplicate-label validation',async()=>{
+ await create('view_id_collision',[column('title')]);
+ const original=(await api('/api/views')).find(v=>v.table_name==='view_id_collision'&&v.kind==='detail');
+ const first=await api('/api/views','POST',{...original,label:'Collision reference A'});
+ assert.notEqual(first.name,original.name);
+ assert.match(first.name,/^view_[a-f0-9]{32}$/);
+ const second=await api('/api/views','POST',{...original,label:'Collision reference B'});
+ assert.notEqual(second.name,first.name);
+ const views=await api('/api/views');
+ assert.deepEqual(views.find(v=>v.name===original.name),original);
+ assert.equal(views.find(v=>v.name===first.name).label,'Collision reference A');
+ assert.equal(views.find(v=>v.name===first.name).system_generated,0);
+ await api('/api/views','POST',{...original,label:'Collision reference A'},400);
+ await api('/api/views','PUT',{...views.find(v=>v.name===second.name),label:'Collision reference updated'});
+ assert.equal((await api('/api/views')).find(v=>v.name===second.name).label,'Collision reference updated');
+ await api('/api/tables/view_id_collision','DELETE');
+});
+
+test('virtual result types can change atomically with the formula while stored columns still require conversion',async()=>{
+ await create('formula_type_change',[column('name'),column('computed',{type:'text',is_virtual:true,virtual_expr:'"old"'})]);
+ const row=await api('/api/data/formula_type_change','POST',{name:'Keep this'});
+ await patch('formula_type_change',{op:'edit_column',name:'computed',type:'number',virtual_expr:'COUNT(formula_type_change[id])'});
+ const saved=(await api('/api/tables')).find(t=>t.name==='formula_type_change').columns.find(c=>c.name==='computed');
+ assert.equal(saved.type,'number');assert.equal(saved.is_virtual,1);
+ const data=(await api('/api/data/formula_type_change?id='+row.id))[0];assert.equal(data.computed,1);assert.equal(data.name,'Keep this');
+ await patch('formula_type_change',{op:'edit_column',name:'name',type:'number'},400);
+ await patch('formula_type_change',{op:'edit_column',name:'computed',type:'bogus'},400);
+ assert.equal((await api('/api/tables')).find(t=>t.name==='formula_type_change').columns.find(c=>c.name==='computed').type,'number');
+ await api('/api/tables/formula_type_change','DELETE');
+});

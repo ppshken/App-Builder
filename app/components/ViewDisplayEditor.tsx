@@ -1,4 +1,5 @@
 "use client";
+import DetailTabsEditor from "./DetailTabsEditor";
 import DetailColumnEditor from './DetailColumnEditor';
 import {BULK_DEFAULTS} from '@/lib/bulk-action-config';
 import {canQuickFilter} from '@/lib/view-filter-config';
@@ -53,6 +54,7 @@ export default function ViewDisplayEditor({ view, cols, related=[], busy, onChan
 
     {(view.position === "inline" || defaultsMode) && view.kind === "table" && setting("ปุ่มในตาราง Inline", "แสดงปุ่มแก้ไขหรือ Action ของแต่ละรายการ", select("ปุ่มในตาราง Inline", d.list_buttons, [["none","ไม่แสดงปุ่ม"],["edit","ปุ่มแก้ไข"],["actions","ปุ่ม Action"],["both","ปุ่มแก้ไขและ Action"]], v=>patch({list_buttons:v as ViewDisplay["list_buttons"]})))}
     {view.kind === "detail" && <>
+      {!defaultsMode&&<DetailTabsEditor value={d} columns={columnOrdered} related={related} busy={busy} onChange={patch}/>}
       {setting("รูปแบบข้อมูล", "เลือกข้อมูลแบบเรียบหรือแยกแต่ละช่องเป็นการ์ด", select("สไตล์รายละเอียด", d.detail_style, [["plain","แบบเรียบ"],["card","การ์ดรายช่อง"]], v=>patch({detail_style:v as ViewDisplay["detail_style"]})))}
       {setting("การวางชื่อและค่า", "เลือกวางค่าใต้ชื่อ วางข้างกัน หรือชื่อชิดซ้ายและข้อมูลชิดขวา", select("รูปแบบรายละเอียด", d.detail_layout, [["vertical", "แนวตั้ง"], ["horizontal", "แนวนอน"], ["edges", "ข้อมูลชิดขอบ · ชื่อซ้าย ข้อมูลขวา"]], v => patch({ detail_layout: v as ViewDisplay["detail_layout"] })))}
       {setting("จำนวนช่องต่อแถว", "เลือกแสดงรายละเอียด 1 หรือ 2 ช่องต่อแถว", select("จำนวนช่องรายละเอียดต่อแถว", d.detail_columns, [[1, "1 ช่อง"], [2, "2 ช่อง"]], v => patch({ detail_columns: Number(v) as 1 | 2 })))}

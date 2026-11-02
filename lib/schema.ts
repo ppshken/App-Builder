@@ -1,3 +1,4 @@
+import {migrateSystemViews} from "./system-views";
 import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
 import {EXTERNAL_SCHEMA,externalTable} from './external-storage';
 import {AUTO_NUMBER_SCHEMA,assertAutoNumberColumn,normalizeAutoNumber} from './auto-number';
@@ -76,7 +77,8 @@ export function createDefaultViews(db: Database.Database, table: string, label: 
   for (const [kind, position, suffix] of [["list", "primary", ""], ["detail", "ref", " · รายละเอียด"], ["form", "ref", " · ฟอร์ม"]]) {
     if(kind==="form"&&externalTable(db,table))continue;
     let i = 1; while (db.prepare("SELECT 1 FROM _views WHERE name=?").get(`view_${i}`)) i++;
-    db.prepare("INSERT INTO _views(name,label,table_name,kind,position,pos) VALUES(?,?,?,?,?,?)").run(`view_${i}`, label + suffix, table, kind, position, i);
+    const provenance=(db.pragma("table_info('_views')") as {name:string}[]).some(c=>c.name==="system_generated");
+    db.prepare("INSERT INTO _views(name,label,table_name,kind,position,pos"+(provenance?",system_generated":"")+") VALUES(?,?,?,?,?,?"+(provenance?",?":"")+")").run(`view_${i}`, label + suffix, table, kind, position, i,...(provenance?[position==="ref"?1:0]:[]));
   }
   createInlineViews(db,table);
 }
@@ -141,6 +143,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const missingViewOptions = ["icon", "group_column", "group_dir", "menu_group"].filter(name => !viewFields.has(name));
   const needVisibility = !viewFields.has("show_if");
   const needDisplay = !viewFields.has("display_json");
+  const needSystemViews = !viewFields.has("system_generated");
   const needInline = !viewFields.has("inline_ref");
   const needFiles = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_files'").get() || !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_file_uploads'").get();
   const needImages = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_images'").get();
@@ -156,7 +159,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (needSystemViews || needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
@@ -193,6 +196,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if (needDisplay) db.exec("ALTER TABLE _views ADD COLUMN display_json TEXT NOT NULL DEFAULT '{}'");
       if (needInline) db.exec("ALTER TABLE _views ADD COLUMN inline_ref TEXT NOT NULL DEFAULT ''");
       if (needSliceSource) db.exec("ALTER TABLE _views ADD COLUMN slice_name TEXT REFERENCES _slices(name)");
+      if (needSystemViews) migrateSystemViews(db);
       if (needTablelessDashboard) {
         const sql=(db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='_views'").get() as {sql:string}).sql;
         db.exec(sql.replace(/CREATE TABLE\s+["`]?_views["`]?/i,'CREATE TABLE _views_tableless').replace(/table_name TEXT NOT NULL/i,'table_name TEXT'));

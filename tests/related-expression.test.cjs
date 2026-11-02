@@ -113,3 +113,46 @@ test('cloning an app remaps Related aliases to its own child table and preserves
  assert.equal(calculateRow(cols,{id:7,name:'First'},false,now,false,'',expressionContext(now,'',db)).row.cover,image);
  assert.deepEqual(db.pragma('foreign_key_check'),[]);
 }));
+
+function inspectionFixture(work){const db=new Database(':memory:');try{initializeDatabase(db,':memory:');return withDatabase(db,()=>{
+ db.exec(`INSERT INTO _tables(name,label) VALUES('inspection','Inspection'),('inspection_groups','Groups'),('list_inspection','Rows');
+ INSERT INTO _columns(table_name,name,label,type,is_virtual,virtual_expr,ref_table) VALUES
+ ('inspection','name','Name','text',0,NULL,NULL),
+ ('inspection_groups','type_access','Types','enumlist',0,NULL,NULL),
+ ('list_inspection','inspection_id','Inspection','ref',0,NULL,'inspection'),
+ ('list_inspection','inspection_groups_id','Group','ref',0,NULL,'inspection_groups'),
+ ('list_inspection','current_inspection_type','Type','text',0,NULL,NULL),
+ ('list_inspection','current_list_inspection','Count','number',1,'COUNT(SELECT(list_inspection[id], [inspection_id] = [_THISROW].[inspection_id]))',NULL),
+ ('list_inspection','unrelated_cycle','Cycle','number',1,'COUNT(SELECT(list_inspection[unrelated_cycle], TRUE))',NULL);
+ UPDATE _columns SET options='bus,van' WHERE table_name='inspection_groups' AND name='type_access';
+ CREATE TABLE t_inspection(id INTEGER PRIMARY KEY,name TEXT);INSERT INTO t_inspection VALUES(7,'First'),(8,'Second');
+ CREATE TABLE t_inspection_groups(id INTEGER PRIMARY KEY,type_access TEXT);INSERT INTO t_inspection_groups VALUES(10,'["bus"]'),(11,'["bus"]'),(12,'["bus"]'),(13,'["van"]');
+ CREATE TABLE t_list_inspection(id INTEGER PRIMARY KEY,inspection_id INTEGER,inspection_groups_id INTEGER,current_inspection_type TEXT);
+ INSERT INTO t_list_inspection VALUES(1,7,10,'bus'),(2,7,11,'bus'),(3,8,10,'bus');`);
+ return work(db);
+ });}finally{db.close();}}
+const inspectionCount='COUNT(SELECT(list_inspection[id], [inspection_id] = [_THISROW].[inspection_id]))';
+const inspectionChoices='SELECT(inspection_groups[id], AND(IN([_THISROW].[current_inspection_type], [type_access]), NOT(IN([id], SELECT(list_inspection[inspection_groups_id], [inspection_id] = [_THISROW].[inspection_id])))))';
+test('SELECT self-table counts and nested Valid_if read only required fields on server and browser',()=>inspectionFixture(db=>{
+ const cols=readColumns(db,'list_inspection'),row={inspection_id:7,current_inspection_type:'bus'},ctx=expressionContext(now,'',db);
+ assert.equal(evaluateExpression(inspectionCount,row,ctx),2);
+ assert.equal(evaluateExpression('IF(TRUE, '+inspectionCount+', COUNT(list_inspection[unrelated_cycle]))',row,ctx),2);
+ assert.deepEqual(evaluateExpression(inspectionChoices,row,ctx),['12']);
+ const snapshot=expressionContext(now,'',db).snapshot([inspectionCount,inspectionChoices],cols);
+ assert(!snapshot.list_inspection.columns.includes('current_list_inspection'));
+ assert(!snapshot.list_inspection.columns.includes('unrelated_cycle'));
+ assert.equal(evaluateExpression(inspectionCount,row,{tables:snapshot}),2);
+ assert.deepEqual(evaluateExpression(inspectionChoices,row,{tables:snapshot}),['12']);
+ assert.equal(evaluateExpression(inspectionCount,{inspection_id:999},ctx),0);
+ assert.throws(()=>evaluateExpression('list_inspection[unrelated_cycle]',row,expressionContext(now,'',db)),/วนกัน/);
+}));
+test('SELECT projected rows still enforce row and table permissions',()=>inspectionFixture(db=>{
+ db.exec("INSERT INTO _roles(name,label,builder) VALUES('inspection_staff','Staff',0); INSERT INTO _role_row_rules VALUES('inspection_staff','list_inspection','read','[id] = 2');");
+ const user={id:8,name:'Staff',email:'staff@example.test',role:'inspection_staff'},rights={read:true,create:false,update:false,delete:false};
+ runAuthorized(user,{owner:false,builder:false,tables:{list_inspection:rights},actions:[]},()=>{
+  assert.equal(evaluateExpression(inspectionCount,{inspection_id:7},expressionContext(now,'',db)),1);
+  const snapshot=expressionContext(now,'',db).snapshot([inspectionCount],readColumns(db,'list_inspection'));
+  assert.deepEqual(snapshot.list_inspection.rows.map(r=>r.id),[2]);
+ });
+ runAuthorized(user,{owner:false,builder:false,tables:{},actions:[]},()=>assert.throws(()=>evaluateExpression(inspectionCount,{inspection_id:7},expressionContext(now,'',db)),/สิทธิ์/));
+}));

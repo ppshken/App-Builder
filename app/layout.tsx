@@ -1,3 +1,4 @@
+import {STANDARD_SETTINGS,usesStandardTheme} from "@/lib/standard-theme";
 import {pwaBrand} from '@/lib/pwa-server';
 import {pwaBase} from '@/lib/pwa';
 import {applicationCookie,withApplication} from '@/lib/application-context';
@@ -37,12 +38,13 @@ export default async function Root({ children }: { children: React.ReactNode }) 
   const scoped=<T,>(work:()=>T)=>application?withApplication(application,work):work();
   let settings=scoped(()=>readAppSettings(!user||!application));if(pwa&&!user){const brand=pwaBrand(pwa);if(brand)settings={...settings,name:brand.name,icon_image:pwaBase(pwa)+"icon/192"};}const draftId=pwa?undefined:requestCookies.get(DRAFT_COOKIE)?.value;
   if(draftId&&user&&access.builder&&page!=="/login"&&page!=="/releases"){try{const draft=scoped(()=>openDraft(draftId,user.id));try{settings=scoped(()=>withDatabase(draft,()=>readAppSettings()));}finally{draft.close();}}catch{}}
-  const dark=settings.mode==="dark",colors=themeColors(settings,dark);
-  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(settings.font),"--app-font-weight":String(settings.font_weight),"--font-scale":String(settings.font_size/14)} as CSSProperties;
-  const palettes=JSON.stringify({light:themeColors(settings,false),dark:themeColors(settings,true)}).replace(/</g,"\\u003c");
+  const appearance=usesStandardTheme(page)?STANDARD_SETTINGS:settings;
+  const dark=appearance.mode==="dark",colors=themeColors(appearance,dark);
+  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(appearance.font),"--app-font-weight":String(appearance.font_weight),"--font-scale":String(appearance.font_size/14)} as CSSProperties;
+  const palettes=JSON.stringify({light:themeColors(appearance,false),dark:themeColors(appearance,true)}).replace(/</g,"\\u003c");
   const bootstrap=`(()=>{const root=document.documentElement,dark=matchMedia('(prefers-color-scheme:dark)').matches,palette=(${palettes})[dark?'dark':'light'];root.dataset.mode=dark?'dark':'light';for(const [key,value] of Object.entries({'--accent':palette.accent,'--accent-soft':palette.soft,'--brand-color':palette.button,'--brand-contrast':palette.buttonText}))root.style.setProperty(key,value);})();`;
   return (
-    <html lang="th" data-mode={dark?"dark":"light"} style={style} suppressHydrationWarning><head>{settings.mode==="auto"&&<script dangerouslySetInnerHTML={{__html:bootstrap}}/>}</head><body>
+    <html lang="th" data-mode={dark?"dark":"light"} style={style} suppressHydrationWarning><head>{appearance.mode==="auto"&&<script dangerouslySetInnerHTML={{__html:bootstrap}}/>}</head><body>
       <AuthProvider initialApplication={application?.id||'default'} initialWorkspace={access.builder?(draftId||"live"):"live"} user={user} needsSetup={needsSetup} access={access} expressionUser={application?scoped(()=>expressionUser(user)):user?{userId:user.id,userName:user.name,userRoleKey:user.role,userRole:"",userSettings:{}}:{}}><RealtimeSync/><AppSettingsProvider initialSettings={settings}><ImagePreviewProvider><AppShell>{children}</AppShell></ImagePreviewProvider></AppSettingsProvider></AuthProvider>
     </body></html>
   );

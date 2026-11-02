@@ -1,3 +1,4 @@
+import {migrateSystemViews} from "./system-views";
 import type Database from 'better-sqlite3';
 import {APPLICATION_CONFIG_TABLES,applicationSql,applicationTable,validApplicationId} from './application-context';
 export const APPLICATION_SCHEMA=`
@@ -20,6 +21,7 @@ export function applicationIds(database:Database.Database){if(!database.prepare(
 export function configurationTables(database:Database.Database){return applicationIds(database).filter(id=>id!=='default').flatMap(id=>APPLICATION_CONFIG_TABLES.map(table=>applicationTable(id,table)));}
 export function createApplicationConfig(database:Database.Database,id:string,label?:string){if(id==='default')return;
  for(const table of APPLICATION_CONFIG_TABLES){const source=database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as {sql:string}|undefined;if(!source)throw Error('โครงสร้างการตั้งค่าแอปไม่ครบ');const target=applicationTable(id,table);database.exec(applicationSql(source.sql.replace(/CREATE TABLE /i,'CREATE TABLE IF NOT EXISTS '),id));
+ if(table==='_views')migrateSystemViews(database,target);
  // Forward-compatible additions follow the default schema on future upgrades.
  const columns=database.pragma('table_info("'+target+'")') as {name:string}[],known=new Set(columns.map(c=>c.name));for(const c of database.pragma('table_info("'+table+'")') as {name:string;type:string;notnull:number;dflt_value:string|null}[]){if(!known.has(c.name))database.exec('ALTER TABLE "'+target+'" ADD COLUMN "'+c.name+'" '+c.type+(c.notnull?' NOT NULL':'')+(c.dflt_value===null?'':' DEFAULT '+c.dflt_value));}}
  database.prepare('INSERT OR IGNORE INTO "'+applicationTable(id,'_app_settings')+'"(id,name,icon,color,mode,list_reference_version) VALUES(1,?,?,?,?,1)').run(label||'แอปใหม่','grid','blue','auto');

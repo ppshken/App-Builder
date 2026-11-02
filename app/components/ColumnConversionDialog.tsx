@@ -6,8 +6,8 @@ import type {ConversionReport} from "@/lib/column-conversion";
 import EditorDialog from "./EditorDialog";
 import {TYPES,typeName} from "./ColumnEditor";
 type Table={name:string;label:string;columns:Column[]};
-export default function ColumnConversionDialog({table,column,tables,onClose,onSaved}:{table:string;column:Column;tables:Table[];onClose:()=>void;onSaved:(message:string)=>Promise<void>}){
- const [mode,setMode]=useState<"replace"|"copy">("replace"),[target,setTarget]=useState<Partial<Column>>({...column,type:column.type==="text"?"decimal":"text",name:column.name.slice(0,35)+"_new",label:column.label+" (ใหม่)",options:column.options||"",ref_table:column.ref_table||""}),[match,setMatch]=useState<"id"|"key">("id");
+export default function ColumnConversionDialog({table,column,tables,onClose,onSaved,initialTarget}:{initialTarget?:Partial<Column>;table:string;column:Column;tables:Table[];onClose:()=>void;onSaved:(message:string)=>Promise<void>}){
+ const [mode,setMode]=useState<"replace"|"copy">("replace"),[target,setTarget]=useState<Partial<Column>>({...column,type:column.type==="text"?"decimal":"text",name:column.name.slice(0,35)+"_new",label:column.label+" (ใหม่)",options:column.options||"",ref_table:column.ref_table||"",...initialTarget}),[match,setMatch]=useState<"id"|"key">("id");
  const [report,setReport]=useState<ConversionReport|null>(null),[confirmation,setConfirmation]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const token=useRef(""),url=`/api/tables/${table}/convert`;
  useEffect(()=>()=>{if(token.current)fetch(url,{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token.current}),keepalive:true}).catch(()=>{});},[url]);
