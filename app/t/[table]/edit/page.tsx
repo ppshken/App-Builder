@@ -1,4 +1,6 @@
 "use client";
+import SharedTableDialog from '@/app/components/SharedTableDialog';
+import SharedTableSettings from '@/app/components/SharedTableSettings';
 import TableTabs from "@/app/components/TableTabs";
 import SearchSelect from "@/app/components/SearchSelect";
 import AppLoading from "@/app/components/AppLoading";
@@ -16,13 +18,14 @@ import ColumnCell, { ColumnToggle } from "@/app/components/ColumnCell";
 import { metadataChanged } from "@/app/components/AppShell";
 import { blankColumn, Column, FormulaField, formulaErrors, UNIQUE_TYPES } from "@/lib/columns";
 import {relatedFormulaSources} from "@/lib/formula-related";
-type Table = { realtime_enabled?:number; name: string; label: string; columns: Column[]; related?: {table:string;column:string;label:string;list_limit:number;required?:boolean}[] };
+type Table = {shared?:boolean;source_app?:string;schema_stale?:boolean;overlay_configured?:boolean; realtime_enabled?:number; name: string; label: string; columns: Column[]; related?: {table:string;column:string;label:string;list_limit:number;required?:boolean}[] };
 export default function EditStructure() {
   const { table } = useParams<{ table: string }>(), router = useRouter();
   const [tables, setTables] = useState<Table[]>([]), [loaded, setLoaded] = useState(false), [label, setLabel] = useState("");
   const [editor, setEditor] = useState<{ original?: string; column: Column } | null>(null), [query, setQuery] = useState("");
   const [err, setErr] = useState(""), [success, setSuccess] = useState(""), [busy, setBusy] = useState(false), [tableSettings, setTableSettings] = useState(false);
   const [rename, setRename] = useState<string | null>(null), [deletion, setDeletion] = useState<{ name?: string; label: string } | null>(null);
+  const [sharing,setSharing]=useState(false);
   const [duplicates,setDuplicates]=useState<string|null>(null);
   const [formulaCell,setFormulaCell]=useState<{column:Column;field:FormulaField}|null>(null);
   const [conversionTarget,setConversionTarget]=useState<Partial<Column>|undefined>();
@@ -74,12 +77,13 @@ export default function EditStructure() {
   }
   if (!loaded) return <AppLoading/>;
   if (!meta) return <><p>{err || "ไม่พบตารางนี้"}</p><Link href="/data">กลับหน้าหลัก</Link></>;
+  if(meta.shared&&meta.overlay_configured)return <SharedTableSettings key={table} table={meta} tables={tables} reload={load}/>;
   const showInternalId = "id รหัสภายใน key อัตโนมัติ auto".includes(query.trim().toLocaleLowerCase());
   const filtered = meta.columns.filter(c => `${c.name} ${c.label}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const relatedSources = relatedFormulaSources(meta.columns,tables,meta.name);
   const copyRelated = async (expression:string) => {try{await navigator.clipboard.writeText(expression);setErr("");setSuccess(`คัดลอก ${expression} แล้ว`);}catch{setErr("คัดลอกไม่ได้ กรุณาเลือกข้อความสูตรแล้วคัดลอกด้วยตนเอง");}};
-  return <div className="columns-settings-page"><header className="columns-settings-header">
-    <div className="page-heading columns-page-heading"><div className="columns-table-title"><h1>{meta.label}</h1><code>{meta.name}</code></div><div className="heading-actions"><Link className="button" href={`/t/${table}`}><Icon name="eye"/>เปิดหน้าข้อมูล</Link><button aria-label="ตั้งค่าตาราง" onClick={() => { setErr(""); setTableSettings(true); }}><Icon name="settings"/>ตั้งค่าตาราง</button></div></div>
+  return <div className="columns-settings-page">{sharing&&<SharedTableDialog table={table} onClose={()=>setSharing(false)}/>}<header className="columns-settings-header">
+    <div className="page-heading columns-page-heading"><div className="columns-table-title"><h1>{meta.label}</h1><code>{meta.name}</code></div><div className="heading-actions">{!meta.shared&&<button onClick={()=>setSharing(true)}>แชร์ตารางกลาง</button>}<Link className="button" href={`/t/${table}`}><Icon name="eye"/>เปิดหน้าข้อมูล</Link><button aria-label="ตั้งค่าตาราง" onClick={() => { setErr(""); setTableSettings(true); }}><Icon name="settings"/>ตั้งค่าตาราง</button></div></div>
     <TableTabs table={table} selected="columns"/>
     <div className="columns-settings-meta"><details className="columns-table-details"><summary>Key และ Label</summary><div className="table-identities"><span>Key ระบบ: <strong>id (อัตโนมัติ)</strong></span><span>Key ในแอป: <strong>{meta.columns.find(c => c.is_key)?.label || "ยังไม่ได้เลือก"}</strong></span><span>Label ข้อความ: <strong>{meta.columns.find(c => c.is_label&&c.type!=="image")?.label || meta.columns.find(c => c.type === "text")?.label || "id"}</strong></span><span>Label รูปภาพ: <strong>{meta.columns.find(c=>c.is_label&&c.type==="image")?.label||"ยังไม่ได้เลือก"}</strong></span></div></details><label className="display-check columns-realtime-toggle" title="อัปเดตข้อมูลจากผู้ใช้คนอื่นและ Automation อัตโนมัติ"><input type="checkbox" role="switch" aria-label="เปิด Realtime สำหรับตารางนี้" checked={!!meta.realtime_enabled} disabled={busy} onChange={async e=>{const enabled=e.target.checked;setTables(all=>all.map(t=>t.name===table?{...t,realtime_enabled:enabled?1:0}:t));if(!await patch({op:"realtime",enabled}))setTables(all=>all.map(t=>t.name===table?{...t,realtime_enabled:enabled?0:1}:t));}}/>Realtime</label></div>
     {success && <div className="success-banner" role="status"><Icon name="check"/>{success}</div>}{err && !editor && !tableSettings && !deletion && <div className="error-banner" role="alert">{err}</div>}

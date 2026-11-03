@@ -1,3 +1,4 @@
+import {effectiveColumns} from './shared-table-columns';
 import {applicationSql,currentApplication,applicationTable,APPLICATION_CONFIG_TABLES,assertApplicationSql} from './application-context';
 import {AsyncLocalStorage} from "node:async_hooks";
 import {installAuditing} from "./audit-schema";
@@ -10,7 +11,7 @@ export const databasePath = process.env.NOCODE_DB_PATH ? resolve(process.env.NOC
 const path = databasePath;
 export function databaseGeneration(){return (globalThis as any).__nocodeDbGeneration || 0;}
 export function markDatabaseRestored(){(globalThis as any).__nocodeDbGeneration = databaseGeneration()+1;}
-const schemaVersion = "multi-application-runtime-v10-bulk-actions";
+const schemaVersion = "multi-application-runtime-v11-shared-table-overlays";
 const g = globalThis as typeof globalThis & { __nocodeDb?: { path: string; db: Database.Database; version?: string } };
 const scopeGlobal=globalThis as typeof globalThis & {__nocodeDatabaseScope?:AsyncLocalStorage<Database.Database>};
 const databaseScope=scopeGlobal.__nocodeDatabaseScope??=new AsyncLocalStorage<Database.Database>();
@@ -42,7 +43,7 @@ export const db = new Proxy({} as Database.Database, {
   },
 });
 export { IDENT, SQLTYPE };
-export const columnsOf = (table: string): Column[] => readColumns(db, table);
+export const columnsOf = (table: string): Column[] => effectiveColumns(db, table);
 export const tableExists = (table: string) => typeof table === "string" && IDENT.test(table) && table !== "id" && (!currentApplication()?.datasets||!!currentApplication()!.datasets![table]?.read) && !!db.prepare("SELECT 1 FROM _tables WHERE name=?").get(table);
 export const labelCol = (table: string) => { const cols = columnsOf(table); return labelTextColumn(cols); };
 export const rebuild = (table: string) => rebuildTable(db, table);

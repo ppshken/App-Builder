@@ -15,3 +15,12 @@ test('local-role backup can be inspected without changing current permissions',(
 test('action grant cleanup is scoped and cannot restore stale grants when names are reused',()=>fixture(({admin,app,as,database})=>{const {db}=require('../.test-build/db.js'),{pruneApplicationActionGrants}=require('../.test-build/application-role-grants.js');const insert=()=>db.prepare("INSERT INTO _actions(name,label,table_name,kind,condition_expr,values_json,confirmation) VALUES('stamp','Stamp','cars','set','TRUE','{}','')").run();as('default',owner,insert);as(app.id,owner,insert);const a=admin(()=>manageApplicationRoles('default',{...role('Editor',true),actions:['stamp']})),b=admin(()=>manageApplicationRoles(app.id,{...role('Editor',true),actions:['stamp']}));as('default',owner,()=>{db.prepare("DELETE FROM _actions WHERE name='stamp'").run();pruneApplicationActionGrants(db);insert();});assert.equal(database.prepare('SELECT COUNT(*) AS n FROM _application_role_actions WHERE app_id=? AND role_name=?').get('default',a.name).n,0);assert.equal(database.prepare('SELECT COUNT(*) AS n FROM _application_role_actions WHERE app_id=? AND role_name=?').get(app.id,b.name).n,1);}));
 
 test('local roles can grant app access independently of an empty legacy role without granting Builder',()=>fixture(({admin,app,as,database})=>{database.prepare("UPDATE _roles SET builder=0 WHERE name='staff'").run();database.prepare("DELETE FROM _role_tables WHERE role_name='staff'").run();const r=admin(()=>manageApplicationRoles(app.id,role('Editor',true)));admin(()=>manageApplicationRoles(app.id,{op:'app_member',user_id:2,can_use:true,role_name:r.name}));as(app.id,staff,()=>{const a=accessFor(staff);assert.equal(a.builder,false);assert.equal(a.owner,false);assert.equal(tableAccess(a,'cars').read,true);assert.equal(tableAccess(a,'cars').update,true);assert.equal(tableAccess(a,'hidden').read,false);});}));
+
+test('role editor exposes dataset ceilings and rejects grants exceeding them',()=>fixture(({admin,app,database})=>{
+ setApplicationDataset(app.id,'cars',{read:true,create:false,update:false,delete:false,export:false});
+ admin(()=>{
+  const cars=applicationRolesOverview(app.id).tables.find(t=>t.name==='cars');assert.deepEqual(cars.rights,{read:true,create:false,update:false,delete:false,export:false});
+  assert.throws(()=>manageApplicationRoles(app.id,role('Over ceiling',true)),e=>e.status===403);
+ });
+ assert.equal(database.prepare('SELECT COUNT(*) n FROM _application_local_roles WHERE app_id=?').get(app.id).n,0);
+}));

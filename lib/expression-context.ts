@@ -3,7 +3,7 @@ import {expressionUser} from "./user-settings";
 import {assertTablePermission,canRead,currentUser} from "./permissions";
 import { db } from "./db";
 import type Database from "better-sqlite3";
-import {readColumns} from "./schema";
+import {effectiveColumns} from "./shared-table-columns";
 import {IDENT} from "./columns";
 import { labelTextColumn,labelImageColumn, calculateRow, Column, refTablesOf } from "./columns";
 import { ExpressionContext, ExpressionTable, tableReferences, referencePaths, relatedReferences, references } from "./expression";
@@ -12,7 +12,7 @@ import { ExpressionContext, ExpressionTable, tableReferences, referencePaths, re
 export function expressionContext(now = new Date(), userEmail = "", database:Database.Database=db) {
   // Request-local metadata only: never share permissions or snapshots between users.
   const metadata=new Map<string,Column[]>();
-  const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=readColumns(database,name);metadata.set(name,cols);}return cols;};
+  const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=effectiveColumns(database,name);metadata.set(name,cols);}return cols;};
   const tableExists=(name:string)=>IDENT.test(name)&&name!=="id"&&!!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(name);
   const tables: Record<string, ExpressionTable> = Object.create(null), loading = new Set<string>();
   const fullTables = new Map<string, ExpressionTable>(), projections = new Map<string, ExpressionTable>();

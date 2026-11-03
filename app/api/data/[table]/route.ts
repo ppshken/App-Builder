@@ -1,4 +1,5 @@
 import {refreshExternalTable} from '@/lib/external-sources';
+import {writeColumns} from '@/lib/shared-table-columns';
 import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
 import {viewFilterOptions} from '@/lib/view-filter-options';
 import {sqlPageWindow} from '@/lib/sql-page-window';
@@ -32,10 +33,11 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     const cols = columnsOf(t), now = new Date(), userEmail = previewEmail(req), u = new URL(req.url), context = expressionContext(now, userEmail);
     if(u.searchParams.has("options_for"))return NextResponse.json(viewFilterOptions(t,u.searchParams,userEmail));
     if (u.searchParams.get("defaults") === "1") {
-      const { row, errors } = calculateRow(cols, {}, true, now, true, userEmail, context);
-      const firstError = cols.find(c => !c.is_virtual && errors[c.name]);
+      const defaultColumns=writeColumns(db,t);
+      const { row, errors } = calculateRow(defaultColumns, {}, true, now, true, userEmail, context);
+      const firstError = defaultColumns.find(c => !c.is_virtual && errors[c.name]);
       if (firstError) throw new Error(`ค่าเริ่มต้นของ "${firstError.label}": ${errors[firstError.name]}`);
-      return NextResponse.json({ values: Object.fromEntries(cols.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
+      return NextResponse.json({ values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
     }
     const filters=parseFilters(u.searchParams.get("filters"),cols),paged=u.searchParams.has("page"),size=Number(u.searchParams.get("page_size")||25),requested=Number(u.searchParams.get("page")||1);
     if(paged&&(!Number.isSafeInteger(requested)||requested<1||![10,25,50,100].includes(size)))return bad("หน้าหรือจำนวนรายการต่อหน้าไม่ถูกต้อง");

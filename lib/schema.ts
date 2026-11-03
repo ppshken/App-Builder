@@ -1,3 +1,4 @@
+import {SHARED_TABLE_SCHEMA} from './shared-table-schema';
 import {migrateSystemViews} from "./system-views";
 import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
 import {EXTERNAL_SCHEMA,externalTable} from './external-storage';
@@ -222,6 +223,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   db.exec(REALTIME_SCHEMA);
   for(const {name} of tables)installRealtimeTriggers(db,name);
   db.exec(APPLICATION_SCHEMA);
+  db.exec(SHARED_TABLE_SCHEMA);
   db.exec("CREATE INDEX IF NOT EXISTS _tables_owner_app ON _tables(owner_app_id)");
   for(const id of applicationIds(db))createApplicationConfig(db,id);
   db.pragma("journal_mode = WAL");

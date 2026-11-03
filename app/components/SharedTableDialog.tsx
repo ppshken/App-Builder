@@ -1,0 +1,37 @@
+"use client";
+import {useEffect,useState} from 'react';
+import EditorDialog from './EditorDialog';
+import Icon from './Icon';
+import {metadataChanged} from './AppShell';
+import {sharedRequest} from './shared-table-client';
+import SharedDisconnectDialog from './SharedDisconnectDialog';
+import {MAX_SHARED_TABLE_SELECTION} from '@/lib/shared-table-schema';
+const rightsLabels={read:'อ่าน',create:'เพิ่ม',update:'แก้ไข',delete:'ลบ',export:'ส่งออก'};
+export default function SharedTableDialog({table,onClose,onImported,mode='import'}:{mode?:'import'|'disconnect';table?:string;onClose:()=>void;onImported?:()=>void}){
+ const [catalog,setCatalog]=useState<any>(),[query,setQuery]=useState(''),[selected,setSelected]=useState<string[]>([]),[disconnecting,setDisconnecting]=useState(false),[target,setTarget]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState('');
+ const [rights,setRights]=useState({read:true,create:false,update:false,delete:false,export:false});
+ const load=()=>sharedRequest().then(setCatalog);useEffect(()=>{load().catch(e=>setError(e.message));},[]);
+ const owned=catalog?.owned.find((t:any)=>t.name===table),rows=(catalog?.tables||[]).filter((t:any)=>selected.includes(t.name));
+ const visible=(catalog?.tables||[]).filter((t:any)=>(mode!=='disconnect'||t.connected)&&(t.label+' '+t.name+' '+t.source_app).toLowerCase().includes(query.toLowerCase()));
+ const groups=Array.from(new Set<string>(visible.map((t:any)=>t.owner_app_id))).map(id=>({id,label:visible.find((t:any)=>t.owner_app_id===id).source_app,tables:visible.filter((t:any)=>t.owner_app_id===id)}));
+ const available=new Set([...(catalog?.owned||[]).map((t:any)=>t.name),...(catalog?.tables||[]).filter((t:any)=>t.readable).map((t:any)=>t.name),...selected]);
+ const missing=mode==='import'?[...new Set<string>(rows.flatMap((t:any)=>t.columns.map((c:any)=>c.ref_table).filter((name:any)=>name&&!available.has(name))))]:[];
+ function choose(names:string[]){const next=[...new Set(names)];if(next.length>MAX_SHARED_TABLE_SELECTION){setError('เลือกได้ไม่เกิน '+MAX_SHARED_TABLE_SELECTION+' ตารางต่อครั้ง');return;}setSelected(next);setError('');}
+ if(disconnecting)return <SharedDisconnectDialog tables={selected} onClose={()=>setDisconnecting(false)} onDisconnected={()=>{onImported?.();onClose();}}/>;
+ async function save(){if(!table&&mode==='disconnect'){setDisconnecting(true);return;}setBusy(true);setError('');setSuccess('');try{await sharedRequest(table?{op:'share',table,target_app_id:target,rights}:{op:'import',tables:selected});metadataChanged();if(table){await load();setSuccess('บันทึกสิทธิ์แชร์แล้ว');}else{onImported?.();onClose();}}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ return <EditorDialog className="shared-table-dialog" title={table?'แชร์ตารางกลาง':mode==='disconnect'?'ยกเลิกเชื่อมต่อตารางกลาง':'เพิ่มตารางจากส่วนกลาง'} subtitle={table?'กำหนดสิทธิ์แยกตามแอปปลายทาง':mode==='disconnect'?'เลือกตารางที่จะนำออกจากแอปนี้ แล้วตรวจผลกระทบก่อนยืนยัน':'เลือกหลายตารางพร้อมกันได้ รวมตารางที่อ้างอิงกันด้วย Ref'} onClose={onClose} busy={busy} wide footer={<><button disabled={busy} onClick={onClose}>ปิด</button><button className="primary" disabled={busy||!catalog||(table?!target:!selected.length||!!missing.length)} onClick={save}>{busy?<Icon name="refresh"/>:<Icon name="check"/>}{table?'บันทึกสิทธิ์':mode==='disconnect'?'ตรวจผลกระทบ':'นำเข้า'}</button></>}>
+  {error&&<div className="error-banner" role="alert">{error}</div>}{success&&<div className="success-banner" role="status">{success}</div>}
+  {!catalog?<p role="status">กำลังโหลด…</p>:table?<>
+   <h3>{owned?.label||table}</h3><label className="field">แอปปลายทาง<select aria-label="แอปปลายทาง" value={target} onChange={e=>{setTarget(e.target.value);const grant=owned?.grants.find((g:any)=>g.target_app_id===e.target.value);setRights(Object.fromEntries(Object.keys(rightsLabels).map(op=>[op,grant?!!grant['can_'+op]:op==='read'])) as typeof rights);}}><option value="">เลือกแอป</option>{catalog.apps.filter((a:any)=>a.id!==owned?.owner_app_id).map((a:any)=><option key={a.id} value={a.id}>{a.label}</option>)}</select></label>
+   <div className="row">{Object.entries(rightsLabels).map(([op,label])=><label className="display-check" key={op}><input type="checkbox" aria-label={`สิทธิ์${label}`} checked={rights[op as keyof typeof rights]} disabled={busy||op!=='read'&&!rights.read} onChange={e=>setRights(old=>op==='read'&&!e.target.checked?{read:false,create:false,update:false,delete:false,export:false}:{...old,[op]:e.target.checked})}/>{label}</label>)}</div><p className="hint">สิทธิ์นี้เป็นเพดานร่วมกับสิทธิ์ผู้ใช้ในแอปปลายทาง การปิดอ่านจะระงับการเข้าถึงในการเรียกครั้งถัดไป</p>
+   <p className="hint">เลือกอ่านอย่างเดียวหากยังไม่ต้องการให้แก้ข้อมูลต้นทาง การเพิ่ม/แก้ไข/ลบจะกระทบข้อมูลชุดเดียวกัน</p>
+  </>:<>
+   <div className="search-box"><Icon name="search"/><input aria-label="ค้นหาตารางกลาง" placeholder="ค้นหาตารางหรือแอปต้นทาง…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
+   <div className="shared-table-selection-toolbar"><span className="hint">เลือกแล้ว {selected.length} / {MAX_SHARED_TABLE_SELECTION} ตาราง</span><button disabled={busy||!visible.length} onClick={()=>choose([...selected,...visible.filter((t:any)=>mode==='disconnect'||!t.connected&&t.rights.read).map((t:any)=>t.name)])}>เลือกทั้งหมดที่แสดง</button><button disabled={busy||!selected.length} onClick={()=>choose([])}>ล้างที่เลือก</button></div>
+   <div className="shared-table-options" role="group" aria-label="ตารางส่วนกลาง">{groups.map(group=><section className="shared-table-app-group" key={group.id} aria-label={group.label}><h3>{group.label}<span className="badge">{group.tables.length}</span></h3>{group.tables.map((t:any)=><label className="shared-table-option" key={t.name}><input type="checkbox" name="shared-tables" value={t.name} checked={selected.includes(t.name)} disabled={busy||mode==='import'&&(t.connected||!t.rights.read)} onChange={e=>choose(e.target.checked?[...selected,t.name]:selected.filter(n=>n!==t.name))}/><span className="shared-table-option-copy"><span className="shared-table-option-heading"><strong title={t.label}>{t.label}</strong><span className="badge" title={`จาก ${t.source_app}`}>จาก {t.source_app}</span></span><span className="shared-table-option-details hint"><span title={t.name}>{t.name}</span><small>{t.columns.length} คอลัมน์จริง{t.connected?' · เชื่อมแล้ว':!t.rights.read?' · ระงับสิทธิ์อ่าน':''}</small></span></span></label>)}</section>)}</div>
+   {!visible.length&&<p className="hint">{mode==='disconnect'?'ไม่มีตารางที่เชื่อมอยู่ในรายการนี้':'ไม่พบตาราง ให้เจ้าของตารางแชร์มายังแอปนี้ก่อน'}</p>}
+   {!!missing.length&&<div className="error-banner" role="alert">ต้องเลือกตารางอ้างอิงเพิ่ม: {missing.map(name=>catalog.tables.find((t:any)=>t.name===name)?.label||name).join(', ')}<p className="hint">หากตารางไม่อยู่ในรายการหรือถูกระงับสิทธิ์ ให้เจ้าของตารางอนุญาตอ่านก่อน</p></div>}
+   {mode==='import'&&rows.length>0&&<div className="panel"><h3>คอลัมน์ที่จะนำเข้า · {rows.length} ตาราง</h3>{rows.map((t:any)=><details key={t.name}><summary>{t.label} · {t.columns.length} คอลัมน์จริง</summary><p>{t.columns.map((c:any)=>c.label).join(' · ')}</p><p className="hint">สิทธิ์: {Object.entries(rightsLabels).filter(([op])=>t.rights[op]).map(([,label])=>label).join(' · ')}</p></details>)}<p className="hint">เชื่อมทั้งชุดพร้อมกัน ไม่คัดลอกแถวข้อมูล และไม่รับคอลัมน์คำนวณต้นทาง</p></div>}
+  </>}
+ </EditorDialog>;
+}

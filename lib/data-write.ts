@@ -1,3 +1,4 @@
+import {writeColumns} from './shared-table-columns';
 import {allocateAutoNumbers} from './auto-number';
 import {traceAction} from "./action-trace";
 import {assertRowVersion} from "./row-version";
@@ -22,7 +23,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
     assertTablePermission(table, id ? "update" : "create");
     if (!tableExists(table))
         throw new AuthError("ไม่พบตาราง", 404);
-    const cols = columnsOf(table), now = new Date(), email = currentUser()?.email || "", context = expressionContext(now, email);
+    const cols = writeColumns(db,table), now = new Date(), email = currentUser()?.email || "", context = expressionContext(now, email);
     if (!id && Object.hasOwn(body, "id"))
         throw Error("id เป็นรหัสภายในที่ระบบสร้างให้ กรุณากำหนดรหัสของคุณในคอลัมน์ Key แทน");
     if (id && Object.hasOwn(body, "id") && Number(body.id) !== id)

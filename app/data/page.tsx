@@ -1,4 +1,5 @@
 "use client";
+import SharedTableDialog from '../components/SharedTableDialog';
 import SchemaDiagram from './SchemaDiagram';
 import {useAuth} from '../components/AuthProvider';
 import SearchSelect from "@/app/components/SearchSelect";
@@ -11,10 +12,11 @@ import EditorDialog from "../components/EditorDialog";
 import Icon from "../components/Icon";
 import { metadataChanged } from "../components/AppShell";
 import { blankColumn, Column, formulaErrors, UNIQUE_TYPES } from "@/lib/columns";
-type Table = { source_kind?:string;source_id?:string; name: string; label: string; columns: Column[] };
+type Table = { shared?:boolean;source_app?:string;schema_stale?:boolean; source_kind?:string;source_id?:string; name: string; label: string; columns: Column[] };
 export default function Home() {
   const router = useRouter();const {application}=useAuth();
   const [tables, setTables] = useState<Table[]>([]), [loaded, setLoaded] = useState(false), [query, setQuery] = useState("");
+  const [sharedOpen,setSharedOpen]=useState(false),[sharedMode,setSharedMode]=useState<'import'|'disconnect'>('import');
   const [diagram,setDiagram]=useState(false);
   useEffect(()=>{setDiagram(new URL(location.href).searchParams.get('tab')==='diagram');},[]);
   const changeTab=(value:boolean)=>{setDiagram(value);const url=new URL(location.href);if(value)url.searchParams.set('tab','diagram');else url.searchParams.delete('tab');history.replaceState(history.state,'',url);};
@@ -43,16 +45,17 @@ export default function Home() {
   }
   const filtered = tables.filter(t => `${t.label} ${t.name}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   return <>
-    <div className="page-heading"><div><div className="eyebrow">ข้อมูลมาก่อน แอปตามมา</div><h1>ตารางของฉัน</h1><p>เลือกตารางเพื่อดูข้อมูล หรือเริ่มสร้างตารางใหม่</p></div><div className="data-heading-actions"><button className="primary" onClick={start}><Icon name="plus"/>สร้างตารางใหม่</button><Link className="button" href="/data-sources"><Icon name="external"/>เพิ่มแหล่งข้อมูล API</Link></div></div>
+    <div className="page-heading"><div><div className="eyebrow">ข้อมูลมาก่อน แอปตามมา</div><h1>ตารางของฉัน</h1><p>เลือกตารางเพื่อดูข้อมูล หรือเริ่มสร้างตารางใหม่</p></div><div className="data-heading-actions"><button className="primary" onClick={start}><Icon name="plus"/>สร้างตารางใหม่</button><button onClick={()=>{setSharedMode("import");setSharedOpen(true);}}>เพิ่มตารางจากส่วนกลาง</button><button onClick={()=>{setSharedMode("disconnect");setSharedOpen(true);}}>ยกเลิกเชื่อมต่อตารางกลาง</button><Link className="button" href="/data-sources"><Icon name="external"/>เพิ่มแหล่งข้อมูล API</Link></div></div>
     {restored&&<div className="success-banner" role="status">กู้คืนข้อมูลเรียบร้อยแล้ว ระบบสำรองข้อมูลก่อนกู้คืนไว้ในหน้า สำรองและกู้คืนข้อมูล</div>}
     <div className="schema-tabs" role="tablist" aria-label="รูปแบบข้อมูล"><button role="tab" aria-selected={!diagram} onClick={()=>changeTab(false)}>ตารางข้อมูล</button><button role="tab" aria-selected={diagram} onClick={()=>changeTab(true)}>แผนผังตาราง</button></div>
     {diagram ? (!loaded?<AppLoading/>:<SchemaDiagram tables={tables} application={application}/>) : <>
     <div className="overview-stats"><div><Icon name="table"/><span><strong>{tables.length}</strong> ตารางข้อมูล</span></div><div><Icon name="database"/><span>เก็บข้อมูลบนเครื่องของคุณ</span></div></div>
     <div className="content-toolbar"><div className="search-box"><Icon name="search"/><input aria-label="ค้นหาตาราง" placeholder="ค้นหาตาราง…" value={query} onChange={e => setQuery(e.target.value)}/></div><span className="hint">{filtered.length} ตาราง</span></div>
     {err && !creating && <div className="error-banner" role="alert">{err}</div>}
-    {!loaded ? <AppLoading/> : !filtered.length ? <div className="panel empty-state"><span className="empty-icon"><Icon name="table" width="32" height="32"/></span><h2>{query ? "ไม่พบตารางที่ค้นหา" : "เริ่มจากตารางแรกของคุณ"}</h2><p>{query ? "ลองค้นหาด้วยชื่ออื่น" : "เช่น ลูกค้า สินค้า หรือรายการขาย ระบบจะสร้างหน้าข้อมูลและฟอร์มให้เอง"}</p>{!query && <button className="primary" onClick={start}><Icon name="plus"/>สร้างตารางแรก</button>}</div> : <div className="table-cards">{filtered.map((t, i) => <article className="table-card" key={t.name}><Link href={`/t/${t.name}`} className="table-card-main"><span className={`table-avatar color-${i % 4}`}><Icon name="table" width="26" height="26"/></span><h2>{t.label}</h2><span className="badge">{t.source_kind||"INTERNAL_DATABASE"}</span><p>{t.columns.length} คอลัมน์{t.columns.some(c => c.is_virtual) ? ` · ${t.columns.filter(c => c.is_virtual).length} ช่องคำนวณ` : ""}</p><span className="card-open">เปิดข้อมูล<Icon name="chevron" width="16" height="16"/></span></Link><footer><span className="hint">{t.name}</span><Link href={t.source_kind==="EXTERNAL_REST_API"?`/data-sources?source=${t.source_id}`:`/t/${t.name}/edit`}><Icon name="settings" width="16" height="16"/>ตั้งค่าคอลัมน์</Link></footer></article>)}</div>}
+    {!loaded ? <AppLoading/> : !filtered.length ? <div className="panel empty-state"><span className="empty-icon"><Icon name="table" width="32" height="32"/></span><h2>{query ? "ไม่พบตารางที่ค้นหา" : "เริ่มจากตารางแรกของคุณ"}</h2><p>{query ? "ลองค้นหาด้วยชื่ออื่น" : "เช่น ลูกค้า สินค้า หรือรายการขาย ระบบจะสร้างหน้าข้อมูลและฟอร์มให้เอง"}</p>{!query && <button className="primary" onClick={start}><Icon name="plus"/>สร้างตารางแรก</button>}</div> : <div className="table-cards">{filtered.map((t, i) => <article className="table-card" key={t.name}><Link href={`/t/${t.name}`} className="table-card-main"><span className={`table-avatar color-${i % 4}`}><Icon name="table" width="26" height="26"/></span><h2>{t.label} {t.shared&&<span className="badge">จาก {t.source_app||"ตารางกลาง"}</span>}</h2>{t.schema_stale&&<small className="hint">มีโครงสร้างใหม่ · กรุณารีเจน</small>}<span className="badge">{t.source_kind||"INTERNAL_DATABASE"}</span><p>{t.columns.length} คอลัมน์{t.columns.some(c => c.is_virtual) ? ` · ${t.columns.filter(c => c.is_virtual).length} ช่องคำนวณ` : ""}</p><span className="card-open">เปิดข้อมูล<Icon name="chevron" width="16" height="16"/></span></Link><footer><span className="hint">{t.name}</span><Link href={t.source_kind==="EXTERNAL_REST_API"?`/data-sources?source=${t.source_id}`:`/t/${t.name}/edit`}><Icon name="settings" width="16" height="16"/>ตั้งค่าคอลัมน์</Link></footer></article>)}</div>}
     </>}
     {diagram&&err&&!creating&&<div className="error-banner" role="alert">{err}</div>}
+    {sharedOpen&&<SharedTableDialog mode={sharedMode} onClose={()=>setSharedOpen(false)} onImported={()=>{fetch("/api/tables").then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.error);setTables(data);}).catch(e=>setErr(e.message));}}/>}
     {creating && <EditorDialog title="สร้างตารางใหม่" subtitle="ตั้งชื่อและเลือกคอลัมน์ที่ต้องการ เริ่มน้อย ๆ แล้วเพิ่มภายหลังได้" busy={busy} onClose={() => { setCreating(false); setActive(null); }} wide className="create-table-dialog" footer={<><button disabled={busy} onClick={() => setCreating(false)}>ยกเลิก</button><button className="primary" disabled={busy} onClick={save}><Icon name="check"/>{busy ? "กำลังสร้าง…" : "สร้างตาราง"}</button></>}>
       <div className="field"><label htmlFor="table-name">ชื่อในระบบของตาราง</label><input id="table-name" autoFocus disabled={busy} value={name} onChange={e => setName(e.target.value)}/><small className="hint">ระบบตั้งชื่อให้อัตโนมัติ เปลี่ยนได้หากต้องการใช้อ้างอิง</small></div>
       <div className="field"><label htmlFor="table-label">ชื่อที่แสดงของตาราง</label><input id="table-label" disabled={busy} placeholder="เช่น ลูกค้า" value={label} onChange={e => setLabel(e.target.value)}/></div>

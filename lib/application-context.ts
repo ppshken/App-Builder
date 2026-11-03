@@ -10,7 +10,7 @@ export function withApplication<T>(app:ApplicationScope,work:()=>T){return scope
 export function withApplicationTemporaryTable<T>(name:string,work:()=>T){const application=currentApplication();return application?withApplication({...application,temporaryTables:new Set([...(application.temporaryTables||[]),name])},work):work();}
 export function applicationCookie(cookie:string|null){return cookie?.split(';').map(x=>x.trim()).find(x=>x.startsWith(APPLICATION_COOKIE+'='))?.slice(APPLICATION_COOKIE.length+1)||DEFAULT_APPLICATION;}
 export function validApplicationId(id:string){return id===DEFAULT_APPLICATION||/^a_[a-f0-9]{24}$/.test(id);}
-export const APPLICATION_CONFIG_TABLES=['_slices','_views','_actions','_app_settings','_pdf_templates','_automations','_automation_jobs','_app_versions','_role_actions','_user_setting_defs','_user_setting_values'] as const;
+export const APPLICATION_CONFIG_TABLES=['_table_overlays','_slices','_views','_actions','_app_settings','_pdf_templates','_automations','_automation_jobs','_app_versions','_role_actions','_user_setting_defs','_user_setting_values'] as const;
 export function applicationTable(id:string,table:string){if(!validApplicationId(id))throw Error('รหัสแอปไม่ถูกต้อง');return id===DEFAULT_APPLICATION?table:'_'+id+table;}
 const tokens=/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]|[A-Za-z_][A-Za-z0-9_]*/g;
 // Only trusted SQL identifiers are routed; string literals (including stored formulas) and comments are untouched.

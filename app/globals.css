@@ -15729,3 +15729,51 @@ input:is([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [t
 .detail-tab-field-list>label {display:flex;align-items:center;gap:10px;min-height:38px;padding:4px 6px;cursor:pointer;}
 .detail-tab-field-list small {display:block;color:var(--mute);font-size:10px;overflow-wrap:anywhere;}
 @media(max-width:600px){.detail-tab-bar button {padding:9px 12px;}.detail-tabs-editor {padding:10px;}}
+
+/* Shared dataset picker: bounded, touch-friendly and theme-aware. */
+.shared-table-options{display:grid;gap:8px;max-height:360px;overflow:auto;margin:12px 0}.shared-table-option{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}.shared-table-option:has(input:checked){background:var(--accent-soft);border-color:var(--accent)}.shared-table-option small{display:block;margin-top:4px}.shared-table-option input{flex:none}.shared-table-option:has(input:disabled){opacity:.6}.data-table-link .badge{display:inline-block;font-size:10px;padding:1px 4px;margin-left:4px}
+
+.shared-table-settings>.panel{padding:16px;margin-top:12px}.shared-table-settings .field{display:grid;gap:6px;margin-bottom:12px}.shared-table-settings td small{display:block;margin-top:3px;font-size:11px}.shared-table-settings td,.shared-table-settings th{padding:10px;text-align:left;white-space:nowrap}.shared-table-settings .column-grid-scroll{margin-top:12px}.shared-table-settings .heading-actions{flex-wrap:wrap}.shared-table-settings .badge{font-size:11px;font-weight:500}
+
+.data-table-link>a>.shared-origin-tag{flex-shrink:0;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.data-table-link>a:has(.shared-origin-tag)>span{flex:1;min-width:0}
+
+/* Keep native row selectors separate from the Builder's full-width text inputs. */
+.editor-dialog.shared-table-dialog .search-box{width:100%;background:var(--bg)}
+.editor-dialog.shared-table-dialog .dialog-body{min-width:0;overflow-x:hidden}
+.shared-table-dialog .shared-table-options{min-width:0;overflow-x:hidden;max-height:min(360px,48dvh)}
+.shared-table-dialog .shared-table-option{min-width:0;min-height:66px;padding:10px 12px}
+.editor-dialog.shared-table-dialog .shared-table-option>input[type="radio"]{appearance:auto;flex:0 0 18px;width:18px;height:18px;min-width:18px;max-width:18px;min-height:18px;max-height:18px;padding:0;margin:0;border:initial;border-radius:50%;background:initial;box-shadow:none;accent-color:var(--accent)}
+.shared-table-option-copy{flex:1;min-width:0}
+.shared-table-option-heading,.shared-table-option-details{display:flex;align-items:center;gap:8px;min-width:0}
+.shared-table-option-heading strong,.shared-table-option-details>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shared-table-option-heading .badge{display:block;flex-shrink:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:500}
+.shared-table-dialog .shared-table-option-details{margin-top:4px;font-size:11px}
+.shared-table-dialog .shared-table-option-details small{flex:none;margin:0;font-size:inherit;white-space:nowrap}
+.shared-table-dialog .panel{padding:12px;min-width:0}
+.shared-table-dialog .panel p{overflow-wrap:anywhere}
+
+/* Column workspace tabs: one stable row; narrow screens may scroll horizontally only. */
+.columns-settings-header .table-tabs{gap:4px;min-height:40px;align-items:stretch;overflow-x:auto;overflow-y:hidden;flex-shrink:0}
+.columns-settings-header .table-tabs>a{flex:0 0 auto;min-height:40px;margin-bottom:0;padding:8px 12px;white-space:nowrap}
+
+.editor-dialog.shared-table-dialog .shared-table-option>input[type="checkbox"]{appearance:auto;flex:0 0 18px;width:18px;height:18px;min-width:18px;max-width:18px;min-height:18px;max-height:18px;margin:0;padding:0;accent-color:var(--accent)}
+.shared-table-selection-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}.shared-table-selection-toolbar>.hint{flex:1;min-width:130px}.shared-table-selection-toolbar>button{padding:5px 8px;font-size:12px}.shared-disconnect-impact{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}.shared-disconnect-impact section{min-width:0;border:1px solid var(--line);border-radius:6px;padding:12px}.shared-disconnect-impact ul{padding-left:18px;max-height:140px;overflow:auto;overflow-wrap:anywhere}
+
+.shared-disconnect-dialog .dialog-body{overflow-x:hidden}.shared-disconnect-dialog .dialog-body p{overflow-wrap:anywhere}.shared-disconnect-dialog .dialog-footer{flex-wrap:wrap}
+
+/* Shared column settings own their scrolling region inside the fixed Data shell. */
+.shared-table-settings>.panel{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px;margin-top:8px}
+.shared-table-settings .field{margin-bottom:8px;gap:4px}
+.shared-table-settings .field input{min-height:36px;padding:7px 10px}
+.shared-table-settings .column-grid-scroll{overflow:visible;padding-bottom:0;margin-top:8px}
+.shared-table-settings table{width:100%;font-size:12px}
+.shared-table-settings th{position:sticky;top:-12px;z-index:1;background:var(--panel)}
+.shared-table-settings td,.shared-table-settings th{padding:6px 10px}
+.shared-table-settings td small{display:inline;margin:0 0 0 8px;font-size:11px}
+.shared-table-settings td button{min-height:30px;padding:4px 8px;font-size:12px;gap:5px}
+.shared-table-settings td button svg{width:15px;height:15px}
+
+.shared-column-dialog .shared-column-label-toggle{display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer}
+.shared-column-dialog .shared-column-label-toggle>input[type="checkbox"]{appearance:auto;flex:0 0 18px;width:18px;height:18px;min-width:18px;min-height:18px;margin:0;padding:0;accent-color:var(--accent)}
+
+.shared-table-app-group{min-width:0;display:grid;gap:6px}.shared-table-app-group>h3{display:flex;align-items:center;gap:8px;font-size:13px;margin:0;padding:8px 4px;position:sticky;top:0;background:var(--panel);z-index:1}.shared-table-app-group>h3 .badge{font-size:11px;font-weight:400}
