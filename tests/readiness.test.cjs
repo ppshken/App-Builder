@@ -48,3 +48,22 @@ test('builders see incomplete permission-check status without private role detai
   assert(!report.issues.some(i=>i.kind==='permission'));assert(!JSON.stringify(report).includes('private_role'));
  });}finally{d.close();}
 });
+
+test('health checks exclude retained views and source configuration on unreadable app datasets',()=>{
+ const d=readinessFixture(),{inspectApp}=require('../.test-build/readiness.js'),{runAuthorized}=require('../.test-build/permissions.js'),{withApplication}=require('../.test-build/application-context.js');try{withDatabase(d,()=>{
+  d.prepare("UPDATE _views SET sort_column='stale' WHERE table_name='ready'").run();
+  d.exec("INSERT INTO _actions(name,label,table_name,kind) VALUES('retained','Retained','ready','set'); INSERT INTO _slices(name,label,table_name,filter_expr) VALUES('retained_slice','Retained slice','ready','[gone] = 1');");
+  const datasets={ready:{read:false,create:false,update:false,delete:false},parents:{read:true,create:true,update:true,delete:true}},user={id:1,name:'Owner',email:'owner@example.test',role:'owner'};
+  const inspect=()=>withApplication({id:'default',datasets},()=>runAuthorized(user,{owner:true,builder:true,tables:{},actions:[],datasets},()=>inspectApp()));
+  const before=d.serialize(),report=inspect();assert.equal(report.errors,0);assert.equal(report.excluded.View,3);assert.equal(report.excluded.Action,1);assert.equal(report.excluded.Slice,1);assert.deepEqual(d.serialize(),before);
+  const hidden=d.prepare("SELECT name FROM _views WHERE table_name='ready' AND kind='list'").get().name;
+  d.prepare("INSERT INTO _actions(name,label,table_name,kind,config_json) VALUES('visible_link','Visible link','parents','open_view',?)").run(JSON.stringify({view_name:hidden}));
+  assert(inspect().issues.some(i=>i.name==='visible_link'&&i.kind==='action'));
+ });}finally{d.close();}
+});
+test('genuinely missing view tables still fail readiness instead of being silently excluded',()=>{
+ const d=readinessFixture(),{inspectApp}=require('../.test-build/readiness.js');try{withDatabase(d,()=>{
+  d.pragma('foreign_keys=OFF');d.exec("INSERT INTO _views(name,label,table_name,kind,position) VALUES('dangling','Missing table','gone','list','primary')");
+  const report=inspectApp();assert(report.issues.some(i=>i.name==='dangling'&&i.message.includes('ไม่พบตารางของ View')));assert.equal(report.excluded.View,undefined);
+ });}finally{d.close();}
+});

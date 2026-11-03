@@ -1,3 +1,4 @@
+import {setSessionCookie} from "./auth-response";
 import {externalTable} from './external-storage';
 import {recordAppUsage} from './app-usage';
 import {platformDatabase} from './db';
@@ -8,7 +9,7 @@ import {withDraftRequest} from "./draft-request";
 import {withAuditActor} from "./audit-context";
 import {NextResponse} from "next/server";
 import {db} from "./db";
-import {requestUser,assertSameOrigin,AuthError} from "./auth";
+import {cookieToken,requestUser,assertSameOrigin,AuthError} from "./auth";
 import {accessFor,runAuthorized,assertExcelExport,assertTablePermission,canExecuteAction,assertFileAccess,assertImageAccess} from "./permissions";
 import {beginSystemRequest} from './system-metrics';
 export function withAuth(handler:(...args:any[])=>Promise<Response>){return async(req:Request,context:any)=>{
@@ -49,6 +50,6 @@ export function withAuth(handler:(...args:any[])=>Promise<Response>){return asyn
    const usageBody=path==='/api/applications'&&!read?await req.clone().json().catch(()=>null):null;
    const response=await withAuditActor(user,(application&&application.id!=='default'?'app:'+application.id+' ':'')+path,()=>handler(new Request(req,{headers}),context));if((!read&&(/^\/api\/(data|excel|actions|files|images)(?:\/|$)/.test(path)||path==='/api/applications'&&usageBody?.op==='select'))||(read&&path.startsWith('/api/excel/')&&url.searchParams.get('template')!=='1')){try{const event=path==='/api/applications'?'open_app':path.startsWith('/api/excel')?(read?'export':'import'):path==='/api/actions'?'action':req.method==='DELETE'?'delete':req.method==='POST'?'create':'update';recordAppUsage(platformDatabase(),user,path==='/api/applications'?usageBody.id:application?.id||null,event,path,response.status);}catch(error){console.error('Usage log failed',error);}}
    response.headers.set("Cache-Control",response.headers.get("Content-Type")?.startsWith("text/event-stream")?"private, no-store, no-transform":"private, no-store");if(application)response.headers.set('X-Nocode-App',application.id);response.headers.set("X-Nocode-Workspace",access.builder?(draftCookie(req)||"live"):"live");return response;
-  }));};const result=application?await withApplication(application,run):await run();status=result.status;return result;
+  }));};const result=application?await withApplication(application,run):await run();status=result.status;if(result.status!==401)setSessionCookie(result,req,cookieToken(req.headers.get("cookie")));return result;
  }catch(e){status=(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500;if(!(e instanceof AuthError))console.error(e);return NextResponse.json({error:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.message:"ตรวจสิทธิ์ไม่ได้ กรุณาลองใหม่"},{status:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500,headers:{"Cache-Control":"no-store"}});}finally{finish?.(status);}
 };}

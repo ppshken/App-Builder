@@ -13,5 +13,5 @@ export default function LoginPage(){const {needsSetup}=useAuth(),[account,setAcc
  <label htmlFor="auth-password">รหัสผ่าน<input id="auth-password" type="password" autoComplete={needsSetup?"new-password":"current-password"} value={password} onChange={e=>setPassword(e.target.value)} required minLength={needsSetup?4:undefined} maxLength={128} disabled={busy||!ready}/></label>
  {needsSetup&&<><small className="hint">ใช้รหัสผ่าน 4–128 ตัวอักษร</small><label htmlFor="auth-confirm">ยืนยันรหัสผ่าน<input id="auth-confirm" type="password" autoComplete="new-password" value={confirmation} onChange={e=>setConfirmation(e.target.value)} required maxLength={128} disabled={busy||!ready}/></label></>}
  {error&&<div className="error-banner" role="alert">{error}</div>}<button className="primary" disabled={busy||!ready} type="submit">{busy?"กำลังตรวจสอบ…":needsSetup?"สร้างบัญชีเจ้าของแอป":"เข้าสู่ระบบ"}</button>
- </form><p className="auth-note">Session มีอายุสูงสุด 12 ชั่วโมง และหมดอายุเมื่อไม่ใช้งาน 2 ชั่วโมง</p></section></main>;
+ </form><p className="auth-note">เข้าสู่ระบบต่อเนื่องได้ โดยต่ออายุอัตโนมัติขณะใช้งาน · หากไม่เปิดใช้งาน 30 วัน กรุณาเข้าสู่ระบบใหม่</p></section></main>;
 }

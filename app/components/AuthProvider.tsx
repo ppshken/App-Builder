@@ -16,6 +16,13 @@ export const useAuth=()=>useContext(Context);
 export async function logout(all=false){if(!requestLogout)throw Error('ยังไม่พร้อมออกจากระบบ กรุณาลองอีกครั้ง');return requestLogout(all);}
 async function finishLogout(all:boolean){signingOut=true;try{const response=await fetch("/api/auth/logout"+(all?"?all=1":""),{method:"POST"});if(!response.ok)throw Error("ออกจากระบบไม่ได้ กรุณาลองใหม่");clearRuntimeCache();await invalidateRuntimeStorage();try{sessionStorage.removeItem("nocode:read-session");localStorage.setItem("nocode:auth",String(Date.now()));}catch{}location.assign(runtimeLogin());}catch(error){signingOut=false;throw error;}}
 export default function AuthProvider({user,needsSetup,access,expressionUser,children,initialWorkspace="live",initialApplication="default"}:{user:AuthUser|null;needsSetup:boolean;access:AppAccess;expressionUser:ExpressionUser;children:React.ReactNode;initialWorkspace?:string;initialApplication?:string}){
+ // Keep a visible app signed in, including while reading or filling a long form.
+ useEffect(()=>{
+  if(!user)return;let stopped=false,pending=false,last=0;const controller=new AbortController();
+  const renew=async()=>{if(stopped||pending||document.visibilityState==='hidden'||!navigator.onLine||signingOut||Date.now()-last<30000)return;pending=true;last=Date.now();try{const response=await fetch('/api/auth/session',{cache:'no-store',signal:controller.signal}),data=await response.json();if(response.ok&&!data.user){stopped=true;clearInterval(timer);}}catch{}finally{pending=false;}};
+  const timer=setInterval(renew,5*60*1000);document.addEventListener('visibilitychange',renew);window.addEventListener('focus',renew);window.addEventListener('online',renew);void renew();
+  return()=>{stopped=true;clearInterval(timer);controller.abort();document.removeEventListener('visibilitychange',renew);window.removeEventListener('focus',renew);window.removeEventListener('online',renew);};
+ },[user?.id]);
  const [logoutRequest,setLogoutRequest]=useState<{all:boolean;resolve:()=>void}|null>(null),[logoutBusy,setLogoutBusy]=useState(false),[logoutError,setLogoutError]=useState('');
  const pendingLogout=useRef<typeof logoutRequest>(null),logoutRunning=useRef(false);
  useEffect(()=>{const prompt=(all:boolean)=>{if(pendingLogout.current)return Promise.resolve();return new Promise<void>(resolve=>{const request={all,resolve};pendingLogout.current=request;setLogoutError('');setLogoutRequest(request);});};requestLogout=prompt;return()=>{if(requestLogout===prompt)requestLogout=null;pendingLogout.current?.resolve();pendingLogout.current=null;};},[]);

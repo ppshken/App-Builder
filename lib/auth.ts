@@ -5,8 +5,8 @@ import type Database from "better-sqlite3";
 import {db} from "./db";
 const scrypt=(password:string,salt:string,length:number,options:{N:number;r:number;p:number;maxmem:number})=>new Promise<Buffer>((resolve,reject)=>scryptCallback(password,salt,length,options,(error,hash)=>error?reject(error):resolve(hash)));
 export const SESSION_COOKIE="nocode_session";
-export const SESSION_AGE=12*60*60*1000;
-export const SESSION_IDLE=2*60*60*1000;
+export const SESSION_AGE=30*24*60*60*1000;
+export const SESSION_IDLE=SESSION_AGE;
 export type AuthUser={id:number;name:string;email:string;role:string;avatar?:string;username?:string;nickname?:string;department?:string};
 export class AuthError extends Error {constructor(message:string,public status=400){super(message);}}
 export function emailAddress(value:unknown){if(typeof value!=="string" || value.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()))throw new AuthError("กรุณากรอกอีเมลให้ถูกต้อง");return value.trim().toLowerCase();}
@@ -25,7 +25,7 @@ export function sessionUser(token:string,database:Database.Database=db,now=Date.
  if(!/^[A-Za-z0-9_-]{43}$/.test(token))return null;
  const row=database.prepare("SELECT u.id,u.name,COALESCE(u.email,'') AS email,u.role,u.username,u.nickname,u.department,s.last_seen,s.expires_at,u.active FROM _sessions s JOIN _users u ON u.id=s.user_id WHERE s.token_hash=?").get(tokenHash(token)) as AuthUser&{last_seen:number;expires_at:number;active:number}|undefined;
  if(!row)return null;if(!row.active||row.expires_at<=now||row.last_seen<=now-SESSION_IDLE){database.prepare("DELETE FROM _sessions WHERE token_hash=?").run(tokenHash(token));return null;}
- if(now-row.last_seen>=60000)database.prepare("UPDATE _sessions SET last_seen=? WHERE token_hash=?").run(now,tokenHash(token));
+ if(now-row.last_seen>=60000||row.expires_at<now+SESSION_AGE-60000)database.prepare("UPDATE _sessions SET last_seen=?,expires_at=? WHERE token_hash=?").run(now,now+SESSION_AGE,tokenHash(token));
  const avatar=(database.prepare("SELECT avatar FROM _user_profiles WHERE user_id=?").get(row.id) as {avatar:string}|undefined)?.avatar;return {id:row.id,name:row.name,email:row.email,role:row.role,...(row.username?{username:row.username}:{}),...(row.nickname?{nickname:row.nickname}:{}),...(row.department?{department:row.department}:{}),...(avatar?{avatar}:{})};
 }
 export function requestUser(req:Request){return sessionUser(cookieToken(req.headers.get("cookie")));}

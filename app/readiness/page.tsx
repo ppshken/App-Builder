@@ -5,7 +5,7 @@ import {useAuth} from '../components/AuthProvider';
 import SimulationTester from '../components/SimulationTester';
 import SearchSelect from '../components/SearchSelect';
 type Issue={kind:string;name:string;label:string;severity:'error'|'warning';message:string;href:string};
-type Report={checked:number;errors:number;warnings:number;issues:Issue[];skipped?:string[];checked_at:string;sampled:boolean};
+type Report={checked:number;errors:number;warnings:number;issues:Issue[];skipped?:string[];excluded?:Record<string,number>;checked_at:string;sampled:boolean};
 const kinds:Record<string,string>={table:'ตาราง',formula:'สูตร',sample:'ข้อมูลตัวอย่าง',view:'View',slice:'Slice',action:'Action',automation:'Automation',pdf:'แม่แบบ PDF',jobs:'ประวัติงาน',permission:'สิทธิ์',settings:'การตั้งค่า',navigation:'เมนู'};
 export default function ReadinessPage(){
  const {access}=useAuth(),[busy,setBusy]=useState(false),[sample,setSample]=useState(false),[error,setError]=useState('');
@@ -24,6 +24,7 @@ export default function ReadinessPage(){
     <div className={report.errors?'error-banner':report.warnings||report.skipped?.length?'readiness-review-banner':'success-banner'} role="status"><strong>{report.errors?'ต้องแก้ไขก่อนเผยแพร่':report.warnings?'มีข้อควรตรวจสอบก่อนเผยแพร่':report.skipped?.length?'ตรวจแล้วบางส่วน':'พร้อมเผยแพร่ตามรายการที่ตรวจ'}</strong><p>{report.errors?'แก้ข้อผิดพลาดแล้วตรวจใหม่ก่อนเผยแพร่ฉบับร่าง':report.warnings?'ตรวจข้อควรระวังและทดสอบขั้นตอนใช้งานจริงก่อนเผยแพร่':report.skipped?.length?'ยังมีรายการที่ต้องตรวจด้วยบัญชีที่มีสิทธิ์':'ไม่พบปัญหาจากรายการที่ตรวจ'}</p></div>
     <p>ตรวจ {report.checked} รายการ · ปัญหา {report.errors} · ข้อควรตรวจ {report.warnings}</p>
     <p className="hint">ตรวจเมื่อ {new Date(report.checked_at).toLocaleString('th-TH')} · {report.sampled?'ตรวจข้อมูลตัวอย่างแล้ว':'ยังไม่ได้ตรวจข้อมูลตัวอย่าง'} · หากแก้การตั้งค่าแล้ว กรุณาตรวจใหม่</p>
+    {!!Object.keys(report.excluded||{}).length&&<p className="hint">ข้ามรายการของตารางที่ไม่ได้เปิดใช้งานในแอป: {Object.entries(report.excluded||{}).map(([kind,count])=>kind+" "+count+" รายการ").join(" · ")} · เก็บการตั้งค่าเดิมไว้โดยไม่ลบข้อมูล</p>}
     {!!report.skipped?.length&&<p className="hint">รายการที่ยังไม่ได้ตรวจ: {report.skipped.join(', ')}</p>}
     {!!report.issues.length&&<><div className="readiness-filters" role="group" aria-label="กรองผลตรวจ">{[['all','ทั้งหมด',report.issues.length],['error','ต้องแก้ไข',report.errors],['warning','ข้อควรตรวจ',report.warnings]].map(([key,label,count])=><button type="button" key={key} aria-pressed={filter===key} onClick={()=>setFilter(String(key))}>{label} ({count})</button>)}</div>
      {issues.length?issues.map((issue,i)=><article className="health-issue" key={issue.kind+issue.name+i} data-severity={issue.severity}><div><span className={'readiness-severity '+issue.severity}>{issue.severity==='error'?'ต้องแก้ไข':'ข้อควรตรวจ'}</span><strong>{issue.label}</strong><small>{kinds[issue.kind]||issue.kind} · {issue.name}</small><p>{issue.message}</p></div><Link className="button" href={issue.href}>ไปแก้ไข</Link></article>):<p className="hint">ไม่มีรายการในหมวดนี้</p>}</>}
