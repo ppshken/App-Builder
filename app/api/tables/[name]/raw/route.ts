@@ -1,3 +1,8 @@
+import {columnsOf} from '@/lib/db';
+import {rowVersion} from '@/lib/row-version';
+import {tableAccess} from '@/lib/access';
+import {currentAccess} from '@/lib/permissions';
+import {currentApplication} from '@/lib/application-context';
 import {NextResponse} from 'next/server';
 import {withAuth} from '@/lib/auth-api';
 import {db,tableExists} from '@/lib/db';
@@ -10,5 +15,6 @@ if(!Number.isSafeInteger(requested)||requested<1||![10,25,50,100].includes(size)
 const columns=(db.prepare('PRAGMA table_info("t_'+t+'")').all() as {name:string;type:string}[]).map(c=>({name:c.name,type:c.type}));
 const total=(db.prepare('SELECT COUNT(*) AS total FROM "t_'+t+'"').get() as {total:number}).total,pages=Math.max(1,Math.ceil(total/size)),page=Math.min(requested,pages);
 const rows=db.prepare('SELECT * FROM "t_'+t+'" ORDER BY id ASC LIMIT ? OFFSET ?').all(size,(page-1)*size);
-return NextResponse.json({columns,rows,total,page,pages});
+const fields=columnsOf(t).filter(c=>!c.is_virtual),rights=tableAccess(currentAccess(),t);
+return NextResponse.json({columns,rows,total,page,pages,appId:currentApplication()?.id,rights,fields:fields.map(c=>({name:c.name,label:c.label,type:c.type,editable:c.is_editable!==false&&c.is_editable!==0&&!c.auto_number&&!c.virtual_expr})),versions:Object.fromEntries((rows as Record<string,any>[]).map(row=>[row.id,rowVersion(t,fields,row)]))});
 }catch(e){return bad(errorMessage(e));}});

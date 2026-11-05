@@ -15,8 +15,8 @@ async function handleGET(req: Request) {
     if (userEmail && (userEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail))) return bad("อีเมลสำหรับ Preview ไม่ถูกต้อง");
     const sources = source !== null ? [source] : table ? columnsOf(table).filter(c => u.searchParams.get("display") !== "1" || c.type !== "list").flatMap(c => FORMULA_FIELDS.map(f => c[f] || "")) : [];
     if (source === null && table) {
-      const childLinks=db.prepare("SELECT table_name,name FROM _columns WHERE ref_table=? AND is_part_of=1").all(table) as {table_name:string;name:string}[];
-      for(const link of childLinks){const c=columnsOf(link.table_name).find(c=>c.name===link.name);if(c)sources.push(c.part_add_if||"");}
+      const childLinks=db.prepare("SELECT table_name,name FROM _columns WHERE ref_table=? AND (is_part_of=1 OR related_required=1)").all(table) as {table_name:string;name:string}[];
+      for(const link of childLinks){const c=columnsOf(link.table_name).find(c=>c.name===link.name);if(c)sources.push(c.part_add_if||"",c.part_show_if||"",c.part_valid_if||"");}
 
       for (const a of db.prepare("SELECT condition_expr,values_json,config_json FROM _actions WHERE table_name=?").all(table) as {condition_expr:string;values_json:string;config_json:string}[]) sources.push(a.condition_expr,...actionConfigExpressions(JSON.parse(a.config_json||"{}")), ...Object.values(JSON.parse(a.values_json)) as string[]);
       for (const s of db.prepare("SELECT filter_expr FROM _slices WHERE table_name=?").all(table) as {filter_expr:string}[]) sources.push(s.filter_expr);

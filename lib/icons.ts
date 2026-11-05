@@ -1,5 +1,7 @@
+import {MODERN_OUTLINE_ICONS,MODERN_SOLID_ICONS} from "./modern-icons";
 // Static, local SVG catalog. No network requests or added packages.
 export const EXTRA_ICONS = [
+  ...MODERN_OUTLINE_ICONS,
   [
     "user",
     "บุคคล",
@@ -832,6 +834,7 @@ export const EXTRA_ICONS = [
   ["radio","วิทยุ","สื่อ","M2 8h20v13H2ZM3 8l16-6M10 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0M14 12h5M14 16h5"]
 ] as const;
 export const SOLID_ICONS = [
+  ...MODERN_SOLID_ICONS,
   [
     "home-solid",
     "บ้าน · Solid",

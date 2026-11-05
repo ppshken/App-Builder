@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import {APPLICATION_CONFIG_TABLES,applicationTable} from './application-context';
-type Reference={app_id:string;table:string;column:string;row_id:string};
-export type MediaEntry={kind:'image'|'file';id:string;name:string;mime:string;size:number;created_at:number|null;user_id:number|null;app_id:string|null;references:Reference[]};
+export type Reference={app_id:string;table:string;column:string;row_id:string};
+export type MediaEntry={kind:'image'|'file';id:string;name:string;mime:string;size:number;created_at:number|null;user_id:number|null;app_id:string|null;references:Reference[];folder?:string;copy_path?:string;pending?:boolean};
 export function mediaReferences(db:Database.Database){
  const refs=new Map<string,Reference[]>(),add=(value:unknown,ref:Reference)=>{if(typeof value!=='string')return;for(const m of value.matchAll(/\/api\/(images|files)\/([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})/gi)){const key=(m[1]==='images'?'image:':'file:')+m[2],list=refs.get(key)||[];if(!list.some(r=>r.app_id===ref.app_id&&r.table===ref.table&&r.column===ref.column&&r.row_id===ref.row_id))list.push(ref);refs.set(key,list);}};
  const tables=db.prepare('SELECT name,owner_app_id FROM _tables').all() as {name:string;owner_app_id:string}[];
@@ -16,11 +16,11 @@ export function mediaReferences(db:Database.Database){
  return refs;
 }
 export function mediaInventory(db:Database.Database,app=''){
- const refs=mediaReferences(db),result:MediaEntry[]=[];
- for(const [kind,table] of [['image','_images'],['file','_files']] as const){for(const row of db.prepare('SELECT id,mime,length(data) size'+(kind==='file'?',name':'')+' FROM '+table).all() as {id:string;mime:string;size:number;name?:string}[]){const meta=db.prepare('SELECT * FROM _media_catalog WHERE kind=? AND id=?').get(kind,row.id) as {app_id:string;created_at:number;user_id:number}|undefined,references=refs.get(kind+':'+row.id)||[];if(app&&meta?.app_id!==app&&!references.some(r=>r.app_id===app))continue;result.push({...row,kind,name:row.name||row.id,created_at:meta?.created_at??null,user_id:meta?.user_id??null,app_id:meta?.app_id??null,references});}}
+ const refs=mediaReferences(db),result:MediaEntry[]=[],catalog=new Map((db.prepare('SELECT * FROM _media_catalog').all() as any[]).map(m=>[m.kind+':'+m.id,m])),stagedImages=new Set((db.prepare('SELECT image_id FROM _image_uploads').all() as {image_id:string}[]).map(r=>r.image_id)),stagedFiles=new Set((db.prepare('SELECT file_id FROM _file_uploads').all() as {file_id:string}[]).map(r=>r.file_id));
+ for(const [kind,table] of [['image','_images'],['file','_files']] as const){for(const row of db.prepare('SELECT id,mime,length(data) size'+(kind==='file'?',name':',storage_path')+' FROM '+table).all() as {id:string;mime:string;size:number;name?:string;storage_path?:string}[]){const meta=catalog.get(kind+':'+row.id) as {app_id:string;created_at:number;user_id:number;folder:string;original_name:string;copy_path:string;published:number}|undefined,references=refs.get(kind+':'+row.id)||[];if(app&&meta?.app_id!==app&&!references.some(r=>r.app_id===app))continue;result.push({...row,kind,name:row.name||meta?.original_name||row.id,folder:meta?.folder||((row.storage_path||'').startsWith('uploads/')?(row.storage_path||'').split('/').slice(1,-1).join('/'):''),copy_path:meta?.copy_path||row.storage_path||'',pending:!meta?.published&&(kind==='image'?stagedImages:stagedFiles).has(row.id),created_at:meta?.created_at??null,user_id:meta?.user_id??null,app_id:meta?.app_id??null,references});}}
  return result;
 }
-export function deleteUnusedMedia(db:Database.Database,kind:string,id:string){
+export function deleteUnusedMedia(db:Database.Database,kind:string,id:string,checked?:Map<string,Reference[]>){
  if(!['image','file'].includes(kind)||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id))throw Error('รหัสไฟล์ไม่ถูกต้อง');
- return db.transaction(()=>{if(mediaReferences(db).get(kind+':'+id)?.length)throw Error('ไฟล์ยังถูกอ้างอิงอยู่ ไม่สามารถลบได้');const table=kind==='image'?'_images':'_files';db.prepare('DELETE FROM '+(kind==='image'?'_image_uploads WHERE image_id=?':'_file_uploads WHERE file_id=?')).run(id);const result=db.prepare('DELETE FROM '+table+' WHERE id=?').run(id);if(!result.changes)throw Error('ไม่พบไฟล์');db.prepare('DELETE FROM _media_catalog WHERE kind=? AND id=?').run(kind,id);return {ok:true};}).immediate();
+ return db.transaction(()=>{if((checked||mediaReferences(db)).get(kind+':'+id)?.length)throw Error('ไฟล์ยังถูกอ้างอิงอยู่ ไม่สามารถลบได้');const table=kind==='image'?'_images':'_files';db.prepare('DELETE FROM '+(kind==='image'?'_image_uploads WHERE image_id=?':'_file_uploads WHERE file_id=?')).run(id);const result=db.prepare('DELETE FROM '+table+' WHERE id=?').run(id);if(!result.changes)throw Error('ไม่พบไฟล์');db.prepare('DELETE FROM _media_catalog WHERE kind=? AND id=?').run(kind,id);return {ok:true};}).immediate();
 }

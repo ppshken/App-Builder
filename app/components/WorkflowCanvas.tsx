@@ -5,7 +5,7 @@ import Icon,{type IconName} from './Icon';
 
 export type WorkflowNode='trigger'|'condition'|number;
 export const WORKFLOW_EVENT_ICONS:Record<Workflow['event'],IconName>={manual:'play',create:'plus',update:'edit',delete:'trash',schedule:'clock',sync_completed:'check',sync_failed:'warning'};
-const STEP_ICONS:Record<WorkflowStep['kind'],IconName>={action:'formula',webhook:'external',pdf:'file',source:'database'};
+const STEP_ICONS:Record<WorkflowStep['kind'],IconName>={action:'formula',webhook:'external',pdf:'file',source:'database',push:'bell'};
 export default function WorkflowCanvas({workflow,selected,onSelect,onAdd,actions,templates,sources=[]}:{
  workflow:Workflow;selected:WorkflowNode;onSelect:(node:WorkflowNode)=>void;onAdd:(kind:WorkflowStep['kind'])=>void;
  sources?:{id:string;label:string}[];
@@ -14,7 +14,7 @@ export default function WorkflowCanvas({workflow,selected,onSelect,onAdd,actions
  const nodes:{id:WorkflowNode;label:string;detail:string;icon:IconName;kind:string}[]=[
   {id:'trigger',label:'เมื่อไหร่',detail:WORKFLOW_EVENTS[workflow.event],icon:WORKFLOW_EVENT_ICONS[workflow.event],kind:'trigger'},
   {id:'condition',label:'ถ้า · เงื่อนไข',detail:workflow.condition_expr||'ยังไม่ได้ใส่เงื่อนไข',icon:'filter',kind:'condition'},
-  ...workflow.steps.map((step,index)=>({id:index,label:WORKFLOW_STEPS[step.kind],detail:step.kind==='action'?actions.find(a=>a.name===step.action_name)?.label||'เลือก Action':step.kind==='pdf'?templates.find(t=>t.name===step.template_name)?.label||'เลือกแม่แบบ PDF':step.kind==='source'?step.operation+' · '+(sources.find(s=>s.id===step.source_id)?.label||'เลือก Data Source'):step.url||'กำหนด URL ปลายทาง',icon:STEP_ICONS[step.kind],kind:step.kind}))
+  ...workflow.steps.map((step,index)=>({id:index,label:WORKFLOW_STEPS[step.kind],detail:step.kind==='action'?actions.find(a=>a.name===step.action_name)?.label||'เลือก Action':step.kind==='pdf'?templates.find(t=>t.name===step.template_name)?.label||'เลือกแม่แบบ PDF':step.kind==='push'?step.title_expr||'กำหนดผู้รับและข้อความ':step.kind==='source'?step.operation+' · '+(sources.find(s=>s.id===step.source_id)?.label||'เลือก Data Source'):step.url||'กำหนด URL ปลายทาง',icon:STEP_ICONS[step.kind],kind:step.kind}))
  ];
  return <section className="workflow-canvas" aria-label="แผนผัง Automation">
   <header className="workflow-canvas-header"><div><strong>ลำดับการทำงาน</strong><small>เลือกโหนดเพื่อตั้งค่า</small></div><span className="badge">{workflow.steps.length}/10 ขั้นตอน</span></header>

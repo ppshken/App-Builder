@@ -1,7 +1,9 @@
+import {InvalidValueError} from "./invalid-value-error";
 import {databaseGeneration} from "./db";
 import { NextResponse } from "next/server";
 export const bad = (error: string, status = 400, errors?:Record<string,string>) => NextResponse.json({ error, ...(errors?{errors}:{}) }, { status });
 export function errorMessage(e: unknown) {
+  if(e instanceof InvalidValueError)return e.message;
   const message = e instanceof Error ? e.message : "";
   if (message.includes("FOREIGN KEY")) return "ข้อมูลนี้ถูกอ้างอิงอยู่ หรือไม่พบแถวที่เลือก กรุณาตรวจข้อมูลอ้างอิง";
   if (message.includes("UNIQUE")) return "ชื่อในระบบซ้ำ กรุณาใช้ชื่ออื่น";

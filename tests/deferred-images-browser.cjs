@@ -39,6 +39,13 @@ async function api(url,method='GET',body){const r=await fetch(base+url,{method,h
   assert.equal(requests.filter(r=>r.url==='/api/images').length,0,'Selecting, replacing and cancelling photos must not upload them');
   assert.equal(requests.filter(r=>r.url==='/api/data/photo_forms'&&r.type.startsWith('multipart/form-data')).length,4,'Only save/retry requests carry photos');
   assert.deepEqual(db.pragma('foreign_key_check'),[]);assert.deepEqual(errors,[]);
+  await api('/api/tables/photo_forms','PATCH',{op:'edit_column',name:'photo',image_path:'CONCATENATE("inspection/", [id])'});
+  await api('/api/tables/photo_children','PATCH',{op:'edit_column',name:'photo',image_path:'[parent]'});
+  await page.reload();await open('Dynamic folders');await select(form);await form.getByRole('button',{name:'เพิ่มรายการลูก',exact:true}).click();await child.getByLabel('Child name *',{exact:true}).fill('Dynamic child');await select(child);await child.getByRole('button',{name:'บันทึกข้อมูล',exact:true}).click();await expect(child).toHaveCount(0);await form.getByRole('button',{name:'บันทึกข้อมูล',exact:true}).click();await expect(form).toHaveCount(0);
+  const dynamic=db.prepare("SELECT * FROM t_photo_forms WHERE name='Dynamic folders'").get(),dynamicChild=db.prepare("SELECT * FROM t_photo_children WHERE name='Dynamic child'").get();
+  for(const [row,expected] of [[dynamic,'inspection/'+dynamic.id],[dynamicChild,String(dynamic.id)]]){const meta=db.prepare("SELECT folder,copy_path FROM _media_catalog WHERE id=?").get(row.photo.split('/').pop());assert.equal(meta.folder,expected);assert.ok(meta.copy_path.startsWith('uploads/'+expected+'/'));assert.ok(fs.existsSync(path.join(folder,meta.copy_path)));}
+  const existingImage=db.prepare('SELECT storage_path FROM _images WHERE id=?').get(first.photo.split('/').pop());assert.equal(existingImage.storage_path,savedImage.storage_path,'Existing images must not move when the formula changes');
+  assert.deepEqual(errors,[]);console.log('PASS Dynamic image folders: API configuration, mobile parent/child form save, generated IDs/Refs, catalog and disk paths, old-image retention');
   console.log('Deferred photos passed: zero image uploads on selection/replace/cancel, local resize, atomic multipart save, server failure and retry, child draft preview/edit/cancel, parent save/cancel, discarded children and mobile.');
  }catch(e){fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/deferred-images-failure.png',fullPage:true});console.error(await page.locator('body').innerText());throw e;}finally{db.close();await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

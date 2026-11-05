@@ -26,7 +26,7 @@ test('auth migration backs up existing data; restore preserves current owner and
  const fs=require('node:fs'),path=require('node:path'),{initializeDatabase}=require('../.test-build/schema.js'),{inspectBackup,restoreBackup}=require('../.test-build/backups.js');
  const folder=fs.mkdtempSync(path.join(process.cwd(),'.test-data','auth-restore-')),file=path.join(folder,'data.db'),sourceFile=path.join(folder,'source.db'),stageFile=path.join(folder,'stage.db');
  const db=new Database(file),source=new Database(sourceFile);try{
- initializeDatabase(db,':memory:');db.exec("DROP TABLE _sessions; DROP TABLE _auth_attempts; DROP TABLE _users");
+ initializeDatabase(db,':memory:');db.exec("DROP TABLE _push_deliveries; DROP TABLE _push_subscriptions; DROP TABLE _sessions; DROP TABLE _auth_attempts; DROP TABLE _users");
  db.prepare("INSERT INTO _tables(name,label) VALUES('items','Items')").run();db.prepare("INSERT INTO _columns(table_name,name,label,type,pos) VALUES('items','name','Name','text',0)").run();db.exec('CREATE TABLE t_items(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT)');db.prepare("INSERT INTO t_items(id,name) VALUES(17,'preserved')").run();
  initializeDatabase(db,file);const files=fs.readdirSync(path.join(folder,'backups'));assert.equal(files.length,1);assert.match(files[0],/before-authentication/);assert.equal(db.prepare('SELECT name FROM t_items WHERE id=17').get().name,'preserved');
  const before=new Database(path.join(folder,'backups',files[0]),{readonly:true});assert.equal(before.prepare("SELECT 1 FROM sqlite_master WHERE name='_users'").get(),undefined);before.close();

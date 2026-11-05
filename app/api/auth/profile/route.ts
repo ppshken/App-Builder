@@ -1,3 +1,4 @@
+import {publishMedia} from '@/lib/media-location';
 import {requiredAccountText,profileAvatar} from '@/lib/account-fields';
 import {db} from '@/lib/db';
 import {requestUser,assertSameOrigin,AuthError,validPassword,verifyPassword,hashPassword,cookieToken,tokenHash} from '@/lib/auth';
@@ -14,5 +15,5 @@ export async function PATCH(req:Request){try{assertSameOrigin(req);const user=re
  }
  if(input.op!=='profile'||typeof input.name!=='string'||!input.name.trim()||input.name.trim().length>100)throw new AuthError('กรุณากรอกชื่อไม่เกิน 100 ตัวอักษร');
  const avatar=profileAvatar(input.avatar),nickname=requiredAccountText(input.nickname,'ชื่อเล่น');
- db.transaction(()=>{db.prepare('UPDATE _users SET name=?,nickname=? WHERE id=? AND active=1').run(input.name.trim(),nickname,user.id);db.prepare('INSERT INTO _user_profiles(user_id,avatar) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET avatar=excluded.avatar').run(user.id,avatar);})();return GET(req);
+ db.transaction(()=>{db.prepare('UPDATE _users SET name=?,nickname=? WHERE id=? AND active=1').run(input.name.trim(),nickname,user.id);db.prepare('INSERT INTO _user_profiles(user_id,avatar) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET avatar=excluded.avatar').run(user.id,avatar);publishMedia(db,{avatar});})();return GET(req);
  }catch(e){return authFailure(e);}}

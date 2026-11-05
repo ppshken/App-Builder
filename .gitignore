@@ -39,3 +39,6 @@ out/
 /.npmrc
 /.netrc
 /compose.runtime.yaml
+
+# Private Web Push keys generated locally
+.env.push

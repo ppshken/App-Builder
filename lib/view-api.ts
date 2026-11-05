@@ -1,3 +1,6 @@
+import {validateViewDisplayName} from "./view-display-name";
+import {readTableDataStyles,saveTableDataStyles,tableDecorationViews} from "./table-decorations";
+import {validateDataStyles} from "./data-decoration";
 import {randomUUID} from "node:crypto";
 import {externalTable} from './external-storage';
 import {validateCustomData} from './custom-page-references';
@@ -30,10 +33,10 @@ async function handleGET(req: Request) {
     if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new Error("อีเมลสำหรับ Preview ไม่ถูกต้อง");
     const now = new Date(), context = { ...expressionContext(now, email.toLowerCase()), now, userEmail: email.toLowerCase() }, errors: string[] = [], hidden: string[] = [];
     const visible = all.filter(v => { try { if(v.kind==="form"&&!tableAccess(currentAccess(),v.table_name).create&&(v.position!=="ref"||!tableAccess(currentAccess(),v.table_name).update)){hidden.push(v.name);return false;} if (viewIsVisible(v.show_if, context)) return true; hidden.push(v.name); } catch(e) { errors.push(`Show_If ของ "${v.label}": ${errorMessage(e)}`); hidden.push(v.name); } return false; });
-    return NextResponse.json({ views: visible.map(v=>runtimeViewName(v as any)), hidden, errors });
+    return NextResponse.json({ views: visible.map(v=>runtimeViewName(v as any,context,message=>errors.push(`Display Name ของ "${v.label}": ${message}`))), hidden, errors });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
-async function handlePOST(req: Request) { return write(req, false); }
+async function handlePOST(req: Request) {const b=await req.clone().json().catch(()=>({}));if(b?.op==='table_decorations'){try{return NextResponse.json(saveTableDataStyles(db,b.table, b.styles,b.base));}catch(e){return bad(errorMessage(e),errorStatus(e));}}return write(req, false); }
 async function handlePUT(req: Request) { return write(req, true); }
 async function write(req: Request, existing: boolean, preview = false) {
   try {
@@ -72,8 +75,14 @@ async function write(req: Request, existing: boolean, preview = false) {
     if (group !== "" && group !== "id" && !names.has(group)) throw new Error("คอลัมน์จัดกลุ่มไม่ถูกต้อง กรุณาเลือกจากตารางหรือ Slice นี้");
     if (!["asc", "desc"].includes(groupDir)) throw new Error("ทิศทางเรียงกลุ่มไม่ถูกต้อง");
     if(b.position==="inline" && cols.find(c=>c.name===group)?.is_virtual)throw new Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง เพื่อดึงข้อมูลทีละหน้า");
-    const display = validateDisplay(b.display === undefined ? JSON.parse(previous?.display_json || "{}") : b.display, cols);
-    if(display.bulk_actions?.enabled){if(b.kind!=='table')throw Error('Bulk Actions require a Table View');for(const name of display.bulk_actions.allowed_action_ids)if(!db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=? AND kind='set'").get(name,b.table_name))throw Error('Bulk Actions must reference existing update Actions in this table');}
+    const rawDisplay=b.display === undefined ? JSON.parse(previous?.display_json || "{}") : b.display;
+    if(!rawDisplay||typeof rawDisplay!=='object'||Array.isArray(rawDisplay))throw Error('รูปแบบหน้าจอไม่ถูกต้อง');
+    const sharedStyles=b.table_name&&!preview?readTableDataStyles(db,b.table_name):{};
+    const sharedScope=b.table_name&&!preview&&tableDecorationViews(db,b.table_name).some(v=>v.display.data_styles_scope==='table');
+    const decorated=Object.keys(sharedStyles).length||sharedScope?{...rawDisplay,data_styles:sharedStyles,...(sharedScope?{data_styles_scope:"table"}:{})}:rawDisplay;
+    const display = validateDisplay({...decorated,data_styles:undefined}, cols);
+    if(decorated?.data_styles!==undefined){validateDataStyles(decorated.data_styles,b.table_name?columnsOf(b.table_name):[]);display.data_styles=decorated.data_styles;}
+    if(display.bulk_actions?.enabled){if(b.kind!=='table')throw Error('Bulk Actions require a Table View');for(const name of display.bulk_actions.allowed_action_ids)if(!db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=? AND kind IN ('set','delete')").get(name,b.table_name))throw Error('Bulk Actions must reference existing update or delete Actions in this table');}
     if(display.group_by?.some(g=>g.column!=="id"&&!names.has(g.column)))throw Error("คอลัมน์จัดกลุ่มไม่อยู่ในตารางหรือ Slice นี้");
     if(b.position==="inline"&&display.group_by?.some(g=>cols.find(c=>c.name===g.column)?.is_virtual))throw Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง");
     if(existing){const parents=db.prepare("SELECT display_json FROM _views WHERE kind='custom' AND name<>?").all(b.name) as {display_json:string}[];for(const parent of parents)for(const node of customNodes(JSON.parse(parent.display_json).custom_page?.children||[]))if(node.view===b.name&&customNodeTargetError(node,b as any))throw Error("View นี้ถูกใช้ในหน้ากำหนดเอง กรุณานำองค์ประกอบอ้างอิงออกก่อนเปลี่ยนรูปแบบ");}
@@ -86,11 +95,12 @@ async function write(req: Request, existing: boolean, preview = false) {
     validateSpecialView(b.kind,{...readAppSettings().display_defaults[b.kind as DisplayKind],...display},db.prepare("SELECT name,kind,position,table_name FROM _views").all() as any[],b.name,b.table_name);
     if(existing&&db.prepare("SELECT 1 FROM _views WHERE kind='map' AND json_extract(display_json,'$.map_data_view')=? AND (table_name<>? OR ? NOT IN ('list','table') OR ?='inline')").get(b.name,b.table_name,b.kind,b.position))throw Error('View นี้ถูกใช้แสดงข้อมูลในแผนที่ กรุณานำออกก่อนเปลี่ยนชนิดหรือตาราง');
     if(existing&&(!["list","table","map","chart","calendar"].includes(b.kind)||b.position==="inline")&&db.prepare("SELECT 1 FROM _views WHERE name<>? AND EXISTS(SELECT 1 FROM json_each(json_extract(display_json,'$.dashboard_views')) WHERE value=?)").get(b.name,b.name))throw Error("View นี้ถูกใช้ในแดชบอร์ดอื่น กรุณานำออกก่อนเปลี่ยนชนิดหรือตำแหน่ง");
+    validateViewDisplayName(display.display_name_expr||"",Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).filter(t=>canRead(t.name)).map(t=>[t.name,columnsOf(t.name)])));
     const showIf = validateViewCondition(b.show_if === undefined ? previous?.show_if ?? "" : b.show_if, Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, columnsOf(t.name)])));
     if (showIf) viewIsVisible(showIf, { ...expressionContext(), userEmail:"" });
     if(display.form_saved_action&&!(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.form_saved_action,b.table_name)))throw Error("กรุณาเลือก Action ของตารางนี้สำหรับหลังบันทึกฟอร์ม");
     if (display.row_click === "action" && !(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.row_action || "", b.table_name))) throw new Error("กรุณาเลือก Action ของตารางนี้สำหรับการคลิกแถว");
-    if(preview)return NextResponse.json({view:runtimeViewName({...b,table_name:b.table_name||"",label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,menu_group:menuGroup,icon,group_column:group,group_dir:groupDir,display,show_if:showIf}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
+    if(preview)return NextResponse.json({view:runtimeViewName({...b,table_name:b.table_name||"",label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,menu_group:menuGroup,icon,group_column:group,group_dir:groupDir,display,show_if:showIf},{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
     const args = [b.label.trim(), b.table_name, b.kind, b.position, b.pos, JSON.stringify([...new Set(b.columns)]), b.sort_column, b.sort_dir, slice?.name || null, icon, group, groupDir, JSON.stringify(display), showIf, inlineRef, menuGroup, b.name];
     if (existing) db.prepare("UPDATE _views SET system_generated=CASE WHEN ? THEN 0 ELSE system_generated END,label=?,table_name=?,kind=?,position=?,pos=?,columns_json=?,sort_column=?,sort_dir=?,slice_name=?,icon=?,group_column=?,group_dir=?,display_json=?,show_if=?,inline_ref=?,menu_group=? WHERE name=?").run(b.system_generated===0 || b.position!==previous?.position ? 1 : 0,...args);
     else db.prepare("INSERT INTO _views(label,table_name,kind,position,pos,columns_json,sort_column,sort_dir,slice_name,icon,group_column,group_dir,display_json,show_if,inline_ref,menu_group,name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(...args);
@@ -101,6 +111,7 @@ async function handleDELETE(req: Request) {
   try {
     const name = new URL(req.url).searchParams.get("name"); assertIdentifier(name);
     if((db.prepare("SELECT home_view FROM _app_settings WHERE id=1").get() as {home_view:string}).home_view===name)return bad("ลบไม่ได้: View นี้เป็นหน้าแรกหลังเข้าสู่ระบบ กรุณาเลือกหน้าแรกอื่นในการตั้งค่าแอพก่อน");
+    const pushParent=db.prepare("SELECT label FROM _automations WHERE EXISTS(SELECT 1 FROM json_each(config_json,'$.steps') WHERE json_extract(value,'$.kind')='push' AND json_extract(value,'$.view_name')=?)").get(name) as {label:string}|undefined;if(pushParent)return bad('ลบไม่ได้: Automation '+pushParent.label+' เปิด View นี้จาก Push Notification');
     const customParents=db.prepare("SELECT name,label,display_json FROM _views WHERE kind='custom' AND name<>?").all(name) as {name:string;label:string;display_json:string}[];
     if(customParents.some(v=>customTargets(JSON.parse(v.display_json).custom_page).includes(name)))return bad("ลบไม่ได้: มีปุ่มในหน้ากำหนดเองเปิด View นี้อยู่ กรุณานำออกก่อน");
     const mapParent=db.prepare("SELECT label FROM _views WHERE kind='map' AND json_extract(display_json,'$.map_data_view')=?").get(name) as {label:string}|undefined;if(mapParent)return bad('ลบไม่ได้: แผนที่ "'+mapParent.label+'" ใช้ View นี้อยู่ กรุณาเปลี่ยน View ข้อมูลแผนที่ก่อน');

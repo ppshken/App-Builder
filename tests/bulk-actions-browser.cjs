@@ -1,3 +1,4 @@
+const {selectChoice}=require('./dropdown-helpers.cjs');
 const {chromium,expect:baseExpect}=require('@playwright/test'),assert=require('node:assert/strict'),fs=require('node:fs');
 const expect=baseExpect.configure({timeout:30000});
 const base=process.env.NOCODE_TEST_URL;if(!process.env.NOCODE_TEST_DB?.includes('integration-'))throw Error('Isolated test runner required');
@@ -10,7 +11,7 @@ async function api(path,method='GET',body,status=200){const r=await fetch(base+p
  const view={name:'bulk_view',label:'Bulk Table',table_name:'bulk_items',kind:'table',position:'primary',pos:0,columns:['title','amount'],sort_column:'id',sort_dir:'asc',display:{table_show_edit:false,table_show_delete:false,table_show_actions:false,bulk_actions:config}};
  await api('/api/views','POST',view);
  await api('/api/actions?name=bulk_increment','DELETE',undefined,400);
- await api('/api/actions','PUT',{name:'bulk_increment',label:'Increment',table_name:'bulk_items',kind:'delete',condition_expr:'TRUE',values:{},confirmation:''},400);
+ await api('/api/actions','PUT',{name:'bulk_increment',label:'Increment',table_name:'bulk_items',kind:'open_url',condition_expr:'TRUE',values:{},confirmation:''},400);
  const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(30000);fs.mkdirSync('artifacts',{recursive:true});
  try{
   await page.goto(base+'/run?view=bulk_view');
@@ -48,6 +49,13 @@ async function api(path,method='GET',body,status=200){const r=await fetch(base+p
   const selected=await api('/api/data/bulk_items?all=1'),staffPayload={dataEpoch,actionId:'bulk_increment',viewName:'bulk_view',rowIds:[1,2],versions:Object.fromEntries(selected.filter(r=>[1,2].includes(r.id)).map(r=>[r.id,r.__version])),idempotencyKey:'bulk_staff_request_0001'};
   const regular=await fetch(base+'/api/actions/bulk-execute',{method:'POST',headers:{'Content-Type':'application/json',cookie:'nocode_session='+token},body:JSON.stringify(staffPayload)}),regularResult=await regular.json();assert.equal(regular.status,200,JSON.stringify(regularResult));assert.equal(regularResult.success,1);assert.equal(regularResult.results.find(r=>r.rowId===2).code,'PERMISSION_DENIED');
   const unauth=await fetch(base+'/api/actions/bulk-execute',{method:'POST',headers:{'Content-Type':'application/json',cookie:''},body:JSON.stringify(staffPayload)});assert.equal(unauth.status,401);const csrf=await fetch(base+'/api/actions/bulk-execute',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://evil.example.test'},body:JSON.stringify(staffPayload)});assert.equal(csrf.status,403);
+
+  await api('/api/actions','POST',{name:'bulk_remove',label:'Delete selected',table_name:'bulk_items',kind:'delete',condition_expr:'TRUE',values:{},confirmation:'Confirm removal of selected records'});
+  const saved=(await api('/api/views')).find(v=>v.name==='bulk_view');await api('/api/views','PUT',{...saved,display:{...saved.display,bulk_actions:{...saved.display.bulk_actions,allowed_action_ids:['bulk_increment','bulk_remove']}}});
+  await page.goto(base+'/run?view=bulk_view');await page.getByRole('checkbox',{name:'เลือกแถว 1',exact:true}).check();await page.getByRole('checkbox',{name:'เลือกแถว 2',exact:true}).check();await expect.poll(async()=>{const r=await api('/api/actions/bulk-execute?view=bulk_view&ids=1,2');return r.actions.some(a=>a.name==='bulk_remove');}).toBe(true);
+  await selectChoice(page.getByRole('combobox',{name:'Action หลายแถว',exact:true}),'bulk_remove');await page.getByRole('button',{name:'ดำเนินการ',exact:true}).click();let removal=page.getByRole('dialog',{name:'ยืนยัน Delete selected',exact:true});await expect(removal).toContainText('ย้อนกลับไม่ได้');await expect(removal).toContainText('Confirm removal of selected records');await removal.getByRole('button',{name:'ยกเลิก',exact:true}).click();assert.equal((await api('/api/data/bulk_items?all=1')).length,26);
+  await page.getByRole('button',{name:'ดำเนินการ',exact:true}).click();removal=page.getByRole('dialog',{name:'ยืนยัน Delete selected',exact:true});const deletionRequest=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/actions/bulk-execute'));await removal.getByRole('button',{name:'ยืนยันดำเนินการ',exact:true}).dblclick();const deletionPayload=(await deletionRequest).postDataJSON();await expect(page.locator('.bulk-actions-summary')).toContainText('สำเร็จ 2 · ล้มเหลว 0 · ข้าม 0');let remaining=await api('/api/data/bulk_items?all=1');assert.equal(remaining.length,24);assert.ok(!remaining.some(r=>[1,2].includes(r.id)));assert.equal((await api('/api/actions/bulk-execute','POST',deletionPayload)).success,2);await page.reload();await expect(page.getByRole('checkbox',{name:'เลือกแถว 1',exact:true})).toHaveCount(0);
+  const auditDb=new DB(process.env.NOCODE_TEST_DB,{readonly:true});try{assert.equal(auditDb.prepare("SELECT count(*) n FROM _audit_log WHERE entity_type='bulk_action' AND operation='delete'").get().n,2);}finally{auditDb.close();}
   console.log('PASS: real HTTP + browser selection across pages, mandatory confirmation, duplicate click, row-context updates, persistence, idempotency, stale conflict, Builder compatibility, search reset, mobile layout and audit.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,3 +1,4 @@
+import {isRemoteImageSource} from "./image-source";
 import {assertInternalTable,createExternalReadView} from './external-storage';
 import {currentApplication} from './application-context';
 import {applicationDatabase} from './db';
@@ -113,7 +114,7 @@ function referenceResolver(database:Database.Database,target:Column,match:"id"|"
  return(value:unknown)=>{const rows=query.all(String(value)) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
 }
 function writeColumn(database:Database.Database,table:string,target:Column,copy:boolean){
- const fields=["auto_number_json","name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json","input_mode","button_limit","ref_allow_add","ref_delete_cascade","related_required",...FORMULA_FIELDS];
+ const fields=["invalid_value_error","auto_number_json","name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json","input_mode","button_limit","ref_allow_add","ref_delete_cascade","related_required",...FORMULA_FIELDS];
  const values=fields.map(field=>field==="auto_number_json"?JSON.stringify(target.auto_number??null):field==="reset_columns_json"?JSON.stringify(target.reset_columns||[]):field==="max_length"?target.max_length??0:field==="list_limit"?target.list_limit??5:field==="is_editable"?target.is_editable===0||target.is_editable===false?0:1:["required","is_virtual","is_key","is_label","is_unique","gps_auto","is_part_of","reset_on_edit","ref_allow_add","ref_delete_cascade","related_required"].includes(field)?(target as any)[field]?1:0:(target as any)[field]??null);
  if(copy)database.prepare(`INSERT INTO _columns(table_name,${fields.join(",")}) VALUES(${["?",...fields.map(()=>"?")].join(",")})`).run(table,...values);
  else database.prepare(`UPDATE _columns SET ${fields.map(field=>field+"=?").join(",")} WHERE table_name=? AND name=?`).run(...values,table,target.name);
@@ -133,7 +134,7 @@ function writeConversion(database:Database.Database,table:string,request:Convers
 }
 function rowProblem(database:Database.Database,cols:Column[],raw:Record<string,unknown>,now:Date,context:ReturnType<typeof expressionContext>){
  try{const state=formState(cols,raw,now,"",context);const error=Object.values(state.errors)[0]||Object.values(state.validation)[0];if(error)return error;
-  for(const c of cols){const value=state.row[c.name];if(c.type==="file"&&value&&!database.prepare("SELECT 1 FROM _files WHERE id=?").get(String(value).slice(11)))return `ไม่พบไฟล์ของ "${c.label}"`;if(["image","signature"].includes(c.type)&&value&&!database.prepare("SELECT 1 FROM _images WHERE id=?").get(String(value).slice(12)))return `ไม่พบรูปภาพของ "${c.label}"`;
+  for(const c of cols){const value=state.row[c.name];if(c.type==="file"&&value&&!database.prepare("SELECT 1 FROM _files WHERE id=?").get(String(value).slice(11)))return `ไม่พบไฟล์ของ "${c.label}"`;if(["image","signature"].includes(c.type)&&value&&!(c.type==='image'&&isRemoteImageSource(value))&&!database.prepare("SELECT 1 FROM _images WHERE id=?").get(String(value).slice(12)))return `ไม่พบรูปภาพของ "${c.label}"`;
    if(c.type==="list"&&c.ref_table){if(database.prepare(`SELECT value FROM json_each(?) WHERE NOT EXISTS(SELECT 1 FROM "t_${c.ref_table}" WHERE CAST(id AS TEXT)=CAST(json_each.value AS TEXT)) LIMIT 1`).get(JSON.stringify(value||[])))return `List "${c.label}" อ้างอิงรหัสที่ไม่มีอยู่`;} }
  }catch(e){return (e as Error).message;}return "";
 }

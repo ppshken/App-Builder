@@ -1,3 +1,4 @@
+import {automaticRoleGrants} from './application-auto-grants';
 import {db} from './db';
 import {currentApplication} from './application-context';
 import {currentAccess} from './permissions';
@@ -12,7 +13,7 @@ export function inspectRolePermissions(views:View[],schemas:Record<string,Column
  const issues:HealthIssue[]=[],skipped:string[]=[];let checked=0;
  if(!currentAccess().owner)return {checked,issues,skipped:['สิทธิ์ผู้ใช้และบทบาท (ตรวจได้โดยเจ้าของระบบ)']};
  const app=currentApplication()?.id||'default',href='/app-access';
- const roles=(db.prepare('SELECT name,label FROM _application_local_roles WHERE app_id=?').all(app) as {name:string;label:string}[]).map(role=>({...role,local:true}));
+ const roles=(db.prepare('SELECT name,label,auto_grant FROM _application_local_roles WHERE app_id=?').all(app) as {name:string;label:string;auto_grant?:number}[]).map(role=>({...role,local:true}));
  // Legacy global roles remain effective until security separation is enabled.
  const separated=securitySeparated(db);
  if(!separated&&currentAccess().owner){
@@ -24,7 +25,7 @@ export function inspectRolePermissions(views:View[],schemas:Record<string,Column
  for(const role of roles){
   const target=role.local?href:'/users';
   const add=(severity:HealthIssue['severity'],message:string)=>issues.push({kind:'permission',name:role.name,label:'สิทธิ์บทบาท '+role.label,severity,message,href:target});
-  const grants=(role.local?db.prepare('SELECT * FROM _application_role_tables WHERE app_id=? AND role_name=?').all(app,role.name):db.prepare('SELECT * FROM _role_tables WHERE role_name=?').all(role.name)) as Grant[];
+  const grants=(role.auto_grant?Object.entries(automaticRoleGrants(db,app,currentAccess().datasets||{}).tables).map(([table_name,r])=>({table_name,can_read:Number(r.read),can_create:Number(r.create),can_update:Number(r.update),can_delete:Number(r.delete),can_export:Number(r.export)})):role.local?db.prepare('SELECT * FROM _application_role_tables WHERE app_id=? AND role_name=?').all(app,role.name):db.prepare('SELECT * FROM _role_tables WHERE role_name=?').all(role.name)) as Grant[];
   const inScope=grants.filter(g=>!!schemas[g.table_name]);
   const readable=new Set(inScope.filter(g=>g.can_read&&(!currentAccess().datasets||currentAccess().datasets?.[g.table_name]?.read)).map(g=>g.table_name));
   checked++;

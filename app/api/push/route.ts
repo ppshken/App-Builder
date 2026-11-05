@@ -1,0 +1,13 @@
+import {NextResponse} from 'next/server';
+import {withAuth} from '@/lib/auth-api';
+import {bad,errorMessage,errorStatus,readBody} from '@/lib/api';
+import {db} from '@/lib/db';
+import {currentUser} from '@/lib/permissions';
+import {currentApplication} from '@/lib/application-context';
+import {cookieToken,tokenHash,AuthError} from '@/lib/auth';
+import {pushConfiguration,registerPush,pushEndpointHash} from '@/lib/push-notifications';
+export const dynamic='force-dynamic';
+const scope=()=>({user:currentUser()!.id,app:currentApplication()?.id||'default'});
+export const GET=withAuth(async()=>{const config=pushConfiguration();return NextResponse.json({configured:!!config,publicKey:config?.publicKey||''});});
+export const POST=withAuth(async(req:Request)=>{try{const b=await readBody(req),{user,app}=scope(),token=cookieToken(req.headers.get('cookie'));if(!token)throw new AuthError('กรุณาเข้าสู่ระบบก่อนเปิดรับ Push',401);const session=tokenHash(token);if(b.op==='state'){if(typeof b.endpoint!=='string'||b.endpoint.length>3000)throw new AuthError('อุปกรณ์ไม่ถูกต้อง');return NextResponse.json({subscribed:!!db.prepare('SELECT 1 FROM _push_subscriptions WHERE app_id=? AND user_id=? AND session_hash=? AND endpoint_hash=?').get(app,user,session,pushEndpointHash(b.endpoint))});}if(!pushConfiguration())throw new AuthError('ยังไม่ได้ตั้งค่า VAPID บนเซิร์ฟเวอร์',503);return NextResponse.json(registerPush(db,app,user,session,b.subscription));}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const DELETE=withAuth(async(req:Request)=>{try{const b=await readBody(req),{user,app}=scope();if(typeof b.endpoint!=='string'||b.endpoint.length>3000)throw new AuthError('อุปกรณ์ไม่ถูกต้อง');db.prepare('DELETE FROM _push_subscriptions WHERE app_id=? AND user_id=? AND endpoint_hash=?').run(app,user,pushEndpointHash(b.endpoint));return NextResponse.json({ok:true});}catch(e){return bad(errorMessage(e),errorStatus(e));}});

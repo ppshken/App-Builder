@@ -1,3 +1,4 @@
+import {PUSH_SCHEMA} from "./push-schema";
 import {SHARED_TABLE_SCHEMA} from './shared-table-schema';
 import {migrateSystemViews} from "./system-views";
 import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
@@ -11,7 +12,7 @@ import {fileFolder} from './file-storage';
 import {WORKFLOW_SCHEMA} from "./workflow-schema";
 import {AUDIT_SCHEMA,registerAuditFunctions} from "./audit-schema";
 import {assertPartColumn} from "./part-of-config";
-import {imageFolder} from "./media-settings";
+import {imagePathSetting} from "./media-settings";
 import {AUTH_SCHEMA,migrateAuthRoles,migrateAccountIdentity} from "./auth-schema";
 import type Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
@@ -28,7 +29,7 @@ export function readColumns(db: Database.Database, table: string): Column[] {
   assertResetConfig(cols);
   for (const c of cols) {
     if(c.input_mode!=null&&!["button","dropdown"].includes(c.input_mode))throw Error("Input mode ไม่ถูกต้อง");if(c.button_limit!=null&&(!Number.isInteger(c.button_limit)||c.button_limit<1||c.button_limit>5))throw Error("จำนวนปุ่มต้องเป็น 1–5 รายการ");
-    assertScanColumn(c);assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imageFolder(c.image_path);if(c.file_path)fileFolder(c.file_path);
+    assertScanColumn(c);assertPartColumn(c);assertIdentifier(c.name);normalizeMaxLength(c.type,c.max_length);if(c.gps_auto!==undefined&&![0,1].includes(Number(c.gps_auto)))throw Error("การตั้งค่า GPS ไม่ถูกต้อง");if(c.gps_auto&&(c.type!=="latlong"||c.is_virtual))throw Error("ตำแหน่งปัจจุบันต้องเป็นช่องพิกัดข้อมูลจริง");if(c.image_path)imagePathSetting(c.image_path);if(c.file_path)fileFolder(c.file_path);
     assertUniqueColumn(c);
     if (!Object.hasOwn(SQLTYPE, c.type)) throw new Error(`ชนิดข้อมูลของ "${c.label}" ไม่รองรับ`);
     if (c.type === "ref" || (["list", "enum", "enumlist"].includes(c.type) && c.ref_table)) assertIdentifier(c.ref_table);
@@ -120,8 +121,9 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needExcelPermission=!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export");
   const needRealtime=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==="realtime_enabled");
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
-  const missing = ["auto_number_json", "scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
+  const missing = ["invalid_value_error", "auto_number_json", "scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
   const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
+  const needUsageError=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_app_usage'").get()&&!(db.pragma('table_info(_app_usage)') as {name:string}[]).some(c=>c.name==='error_detail');
   const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
   const actionFields=new Set((db.pragma("table_info('_actions')") as {name:string}[]).map(c=>c.name));
@@ -129,6 +131,8 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needUserSettings=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_user_setting_defs'").get();
   const needRoles=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_roles'").get();
   const needBuilderSecurity=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_builder_security'").get();
+  const mediaFields=new Set((db.pragma("table_info('_media_catalog')") as {name:string}[]).map(c=>c.name));const needMediaFolders=['folder','original_name','copy_path','published'].some(n=>!mediaFields.has(n));
+  const needRoleAuto=!(db.pragma("table_info('_application_local_roles')") as {name:string}[]).some(c=>c.name==='auto_grant');
   const needApplicationLocalRoles=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_application_local_roles'").get();
   const needApplicationOwners=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==='owner_app_id');
   const needApplicationGrants=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_application_datasets'").get();
@@ -149,6 +153,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needFiles = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_files'").get() || !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_file_uploads'").get();
   const needImages = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_images'").get();
   const needImagePath=!(db.pragma("table_info('_images')") as {name:string}[]).some(c=>c.name==="storage_path");
+  const needPush=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_push_subscriptions'").get();
   const needSettings = !db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_app_settings'").get();
   const settingsFields = new Set((db.pragma("table_info('_app_settings')") as {name:string}[]).map(c=>c.name));
   const settingsOptions = {image_allow_gallery:"INTEGER NOT NULL DEFAULT 1",header_json:"TEXT NOT NULL DEFAULT '{}'",navigation_json:"TEXT NOT NULL DEFAULT '{}'",icon_image:"TEXT NOT NULL DEFAULT ''",home_view:"TEXT NOT NULL DEFAULT ''",image_max_edge:"INTEGER NOT NULL DEFAULT 0",image_quality:"INTEGER NOT NULL DEFAULT 85",image_format:"TEXT NOT NULL DEFAULT 'original'",image_max_mb:"REAL NOT NULL DEFAULT 5",image_storage:"TEXT NOT NULL DEFAULT 'database'",image_folder:"TEXT NOT NULL DEFAULT 'images'", display_defaults_json:"TEXT NOT NULL DEFAULT '{}'", font:"TEXT NOT NULL DEFAULT 'sarabun'", font_weight:"INTEGER NOT NULL DEFAULT 400", font_size:"INTEGER NOT NULL DEFAULT 14", loading_style:"TEXT NOT NULL DEFAULT 'text'", loading_text:"TEXT NOT NULL DEFAULT 'กำลังโหลด…'", custom_color:"TEXT NOT NULL DEFAULT '#2563EB'", list_reference_version:"INTEGER NOT NULL DEFAULT 0" };
@@ -160,7 +165,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needSystemViews || needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (needUsageError || needPush || needMediaFolders || needRoleAuto || needSystemViews || needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
@@ -219,10 +224,13 @@ export function initializeDatabase(db: Database.Database, path: string) {
   db.exec("CREATE TABLE IF NOT EXISTS _app_versions(id TEXT PRIMARY KEY,owner INTEGER NOT NULL,label TEXT NOT NULL,created_at INTEGER NOT NULL,config_json TEXT NOT NULL,before_json TEXT NOT NULL)");
   db.exec("CREATE INDEX IF NOT EXISTS _automation_actor_activity ON _automation_jobs(actor_id,updated_at)");
   db.exec(BULK_ACTION_SCHEMA);
-  db.exec(AUDIT_SCHEMA);
+  db.exec(AUDIT_SCHEMA);if(needUsageError)db.exec("ALTER TABLE _app_usage ADD COLUMN error_detail TEXT NOT NULL DEFAULT ''");db.exec(PUSH_SCHEMA);
+  if(!(db.pragma("table_info('_media_catalog')") as {name:string}[]).some(c=>c.name==='published'))db.exec('ALTER TABLE _media_catalog ADD COLUMN published INTEGER NOT NULL DEFAULT 0 CHECK(published IN(0,1))');
+  for(const name of ['folder','original_name','copy_path'])if(!(db.pragma("table_info('_media_catalog')") as {name:string}[]).some(c=>c.name===name))db.exec('ALTER TABLE _media_catalog ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''");
   db.exec(REALTIME_SCHEMA);
   for(const {name} of tables)installRealtimeTriggers(db,name);
   db.exec(APPLICATION_SCHEMA);
+  if(!(db.pragma("table_info('_application_local_roles')") as {name:string}[]).some(c=>c.name==='auto_grant'))db.exec('ALTER TABLE _application_local_roles ADD COLUMN auto_grant INTEGER NOT NULL DEFAULT 0 CHECK(auto_grant IN (0,1))');
   db.exec(SHARED_TABLE_SCHEMA);
   db.exec("CREATE INDEX IF NOT EXISTS _tables_owner_app ON _tables(owner_app_id)");
   for(const id of applicationIds(db))createApplicationConfig(db,id);

@@ -87,3 +87,32 @@ test('multipart parsing binds each file to its manifest and retains JSON compati
  form.append('unexpected',new Blob([bytes]));await assert.rejects(()=>readFormImageRequest(req()),/ไม่อยู่ในรายการ/);
  const json=await readFormImageRequest(new Request('http://localhost/api/data/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"name":"Plain"}'}));assert.deepEqual(json,{values:{name:'Plain'},images:[]});
 });
+
+
+test('image folder expressions use persisted row values and generated child parent refs',()=>fixture((db,folder)=>{
+ db.prepare("UPDATE _columns SET image_path=? WHERE table_name='photos' AND name='photo'").run('CONCATENATE("inspection/", [id])');
+ db.prepare("UPDATE _columns SET image_path=? WHERE table_name='children' AND name='photo'").run('[parent]');
+ const result=saveFormWithImages('photos',{name:'Dynamic',photo:token(1),__children:[{table:'children',column:'parent',records:[{key:'new',values:{name:'Child',photo:token(2)}}]}]},undefined,null,'',[upload(1),upload(2,'children')],path.join(folder,'data.db'));
+ const parent=db.prepare('SELECT * FROM t_photos').get(),child=db.prepare('SELECT * FROM t_children').get();
+ const meta=id=>db.prepare("SELECT folder,copy_path FROM _media_catalog WHERE id=?").get(id.split('/').pop());
+ assert.equal(meta(parent.photo).folder,'inspection/'+parent.id);assert.equal(meta(child.photo).folder,String(parent.id));
+ assert.match(meta(parent.photo).copy_path,new RegExp('^uploads/inspection/'+parent.id+'/'));
+ assert.ok(fs.existsSync(path.join(folder,meta(child.photo).copy_path)));
+}));
+test('invalid resolved image folder rolls back parent, children and uploads',()=>fixture((db,folder)=>{
+ db.prepare("UPDATE _columns SET image_path=? WHERE table_name='photos' AND name='photo'").run('[name]');
+ assert.throws(()=>saveFormWithImages('photos',{name:'../escape',photo:token(1)},undefined,null,'',[upload(1)],path.join(folder,'data.db')),/Path/);
+ for(const table of ['t_photos','_images','_image_uploads','_media_catalog'])assert.equal(db.prepare('SELECT COUNT(*) n FROM '+table).get().n,0);
+ assert.deepEqual(files(folder),[]);
+}));
+
+
+test('image folder settings preserve literals, validate expressions and reject unsafe evaluated paths',()=>{
+ const {imagePathSetting,resolveImageFolder}=require('../.test-build/media-settings.js');
+ assert.equal(imagePathSetting(' products/photos '),'products/photos');assert.equal(imagePathSetting('[inspection_id]'),'[inspection_id]');
+ assert.equal(resolveImageFolder('[inspection_id]','images',{inspection_id:'INSP-007'}),'INSP-007');
+ assert.equal(resolveImageFolder('CONCATENATE("photos/", [inspection_id])','images',{inspection_id:7}),'photos/7');
+ assert.equal(resolveImageFolder('TRUE','images',{}),'TRUE');assert.equal(resolveImageFolder('','images',{}),'images');assert.equal(resolveImageFolder('products/photos','images',{}),'products/photos');
+ for(const value of ['../escape','/root','C:/temp','bad//path','con',''])assert.throws(()=>resolveImageFolder('[inspection_id]','images',{inspection_id:value}));
+ for(const source of ['[missing]','LIST("a","b")','CONCATENATE('])assert.throws(()=>resolveImageFolder(source,'images',{}));
+});

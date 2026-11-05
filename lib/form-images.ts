@@ -1,3 +1,7 @@
+import {resolveImageFolder,imagePathIsExpression} from "./media-settings";
+import {expressionContext} from "./expression-context";
+import {calculateRow,refTablesOf} from "./columns";
+import {recordMediaLocation} from './media-location';
 import {randomUUID} from 'node:crypto';
 import {db,columnsOf,tableExists,databasePath,platformDatabase} from './db';
 import {saveFormRecord} from './form-save';
@@ -11,7 +15,7 @@ import {copyImageFile} from './image-files';
 import {mediaReferences} from './media-inventory';
 import {FORM_IMAGE_TOKEN,MAX_FORM_IMAGE_BYTES,MAX_FORM_IMAGE_COUNT,type FormImageDescriptor} from './form-image-protocol';
 
-export type FormImageUpload=FormImageDescriptor&{bytes:Buffer};
+export type FormImageUpload=FormImageDescriptor&{bytes:Buffer;originalName?:string};
 export function saveFormWithImages(table:string,values:Record<string,any>,id:number|undefined,view:string|null,email:string,images:FormImageUpload[],storagePath=databasePath){
   if(!images.length)return saveFormRecord(table,values,id,view,email);
   const user=currentUser();if(!user)throw new AuthError('กรุณาเข้าสู่ระบบก่อนบันทึกรูป',401);
@@ -46,7 +50,7 @@ export function saveFormWithImages(table:string,values:Record<string,any>,id:num
     const dimensions=imageDimensions(image.bytes,mime);
     if(dimensions&&dimensions.width*dimensions.height>40000000)throw Error('รูปภาพมีจำนวนพิกเซลมากเกินไป');
     if(settings.image_max_edge>0&&(!dimensions||Math.max(dimensions.width,dimensions.height)>settings.image_max_edge))throw Error('รูปภาพมีด้านยาวเกิน '+settings.image_max_edge+' พิกเซล กรุณาเลือกผ่านฟอร์มเพื่อปรับขนาด');
-    return {...image,mime,id:randomUUID(),folder:column.image_path||settings.image_folder};
+    return {...image,mime,id:randomUUID(),folder:settings.image_folder,folderSetting:column.image_path||""};
   });
   const mapping=Object.fromEntries(prepared.map(image=>[image.token,'/api/images/'+image.id]));
   const copies=new Map<string,ReturnType<typeof copyImageFile>>(),unused=new Set<string>();
@@ -56,7 +60,7 @@ export function saveFormWithImages(table:string,values:Record<string,any>,id:num
     for(const image of prepared){
       db.prepare('INSERT INTO _images(id,mime,data,storage_path) VALUES(?,?,?,?)').run(image.id,image.mime,image.bytes,'');
       db.prepare('INSERT INTO _image_uploads(image_id,user_id) VALUES(?,?)').run(image.id,user.id);
-      db.prepare('INSERT INTO _media_catalog(kind,id,app_id,user_id,created_at) VALUES(?,?,?,?,?)').run('image',image.id,currentApplication()?.id||'default',user.id,Date.now());
+      db.prepare('INSERT INTO _media_catalog(kind,id,app_id,user_id,created_at) VALUES(?,?,?,?,?)').run('image',image.id,currentApplication()?.id||'default',user.id,Date.now());recordMediaLocation(db,'image',image.id,image.folder,image.originalName||image.id);
     }
     const saved=saveFormRecord(table,replace(values),id,view,email);
     // A form-saved Action may remove or replace the image. Only discard a newly
@@ -65,11 +69,21 @@ export function saveFormWithImages(table:string,values:Record<string,any>,id:num
     for(const image of prepared){const used=placements.get(image.token)!.some(p=>db.prepare('SELECT 1 FROM "t_'+p.table+'" WHERE "'+p.column+'"=? LIMIT 1').get(mapping[image.token]));
       if(!used){references??=mediaReferences(platformDatabase());if(!references.has('image:'+image.id)){unused.add(image.id);db.prepare('DELETE FROM _image_uploads WHERE image_id=?').run(image.id);db.prepare('DELETE FROM _media_catalog WHERE kind=\'image\' AND id=?').run(image.id);db.prepare('DELETE FROM _images WHERE id=?').run(image.id);}}
     }
+    for(const image of prepared)if(!unused.has(image.id)){
+      if(!imagePathIsExpression(image.folderSetting)){image.folder=resolveImageFolder(image.folderSetting,settings.image_folder,{});recordMediaLocation(db,'image',image.id,image.folder,image.originalName||image.id);continue;}
+      const placement=placements.get(image.token)!.find(p=>db.prepare('SELECT 1 FROM "t_'+p.table+'" WHERE "'+p.column+'"=? LIMIT 1').get(mapping[image.token]));
+      if(!placement)throw Error('ไม่พบแถวสำหรับคำนวณโฟลเดอร์รูปภาพ');
+      const raw=db.prepare('SELECT * FROM "t_'+placement.table+'" WHERE "'+placement.column+'"=? ORDER BY id LIMIT 1').get(mapping[image.token]) as Record<string,any>;
+      const cols=columnsOf(placement.table),now=new Date(),context=expressionContext(now,email);
+      const row=calculateRow(cols,raw,false,now,false,email,context).row;
+      image.folder=resolveImageFolder(image.folderSetting,settings.image_folder,row,{...context,now,userEmail:email,tableName:placement.table,refTables:refTablesOf(cols)});
+      recordMediaLocation(db,'image',image.id,image.folder,image.originalName||image.id);
+    }
     // Filesystem copies are created only after all row/child validation and
     // form-saved Actions succeed; any copy failure still rolls back the DB.
     if(settings.image_storage==='database_copy')for(const image of prepared)if(!unused.has(image.id)){
       const copy=copyImageFile(storagePath,image.folder,image.id,image.mime,image.bytes);copies.set(image.id,copy);
-      db.prepare('UPDATE _images SET storage_path=? WHERE id=?').run(copy.relative,image.id);
+      db.prepare('UPDATE _images SET storage_path=? WHERE id=?').run(copy.relative,image.id);recordMediaLocation(db,'image',image.id,image.folder,image.originalName||image.id,copy.relative);
     }
     return {...saved,image_urls:mapping};
   }).immediate();

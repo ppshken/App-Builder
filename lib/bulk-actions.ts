@@ -32,8 +32,13 @@ export function parseBulkRequest(value:unknown):BulkRequest{
  return {actionId:b.actionId,viewName:b.viewName,dataEpoch:b.dataEpoch,rowIds:ids,versions:Object.fromEntries(ids.map(id=>[id,b.versions[id]])),idempotencyKey:b.idempotencyKey};
 }
 // Conservative fail-closed boundary: never suppress normal write hooks to make a batch eligible.
-export function bulkEligible(table:string){
- assertIdentifier(table);assertTablePermission(table,'read');assertTablePermission(table,'update');
+export function bulkEligible(table:string,operation:'update'|'delete'='update'){
+ assertIdentifier(table);assertTablePermission(table,'read');assertTablePermission(table,operation);
+ if(operation==='delete'){
+  // Include cascading table metadata and delete hooks in the immutable batch signature.
+  const pending=[table],seen=new Set<string>();while(pending.length){const name=pending.shift()!;if(seen.has(name))continue;if(seen.size>=100)deny('Bulk cascade graph exceeds limit',409);seen.add(name);for(const child of db.prepare("SELECT DISTINCT table_name FROM _columns WHERE ref_table=? AND type='ref' AND is_virtual=0 AND (is_part_of=1 OR ref_delete_cascade=1)").all(name) as {table_name:string}[])pending.push(child.table_name);}
+  return [...seen].sort().map(name=>({table:name,columns:db.prepare('SELECT * FROM _columns WHERE table_name=? ORDER BY pos,name').all(name),hooks:db.prepare("SELECT * FROM _automations WHERE table_name=? AND enabled=1 AND event='delete' ORDER BY name").all(name)}));
+ }
  const hooks=db.prepare("SELECT name,config_json FROM _automations WHERE table_name=? AND enabled=1 AND event='update' ORDER BY name").all(table) as {name:string;config_json:string}[];
  const available=actions(table),cols=columnsOf(table);
  // Only synchronous, same-row, direct update hooks are demonstrably safe. Keep the normal hook runner unchanged.
@@ -48,13 +53,13 @@ function resolve(request:Pick<BulkRequest,'actionId'|'viewName'>){
  const config=validateBulkConfig(JSON.parse(view.display_json||'{}').bulk_actions);
  if(!config.enabled||!config.allowed_action_ids.includes(request.actionId))deny('Action is not enabled for this View',403);
  const action=actions(view.table_name).find(a=>a.name===request.actionId);
- if(!action||action.kind!=='set'||action.config?.actions?.length)deny('Only existing row update Actions are supported',403);
- const hooks=bulkEligible(view.table_name);
+ if(!action||!['set','delete'].includes(action.kind)||action.config?.actions?.length)deny('Only existing row update or delete Actions are supported',403);
+ const operation:'delete'|'update'=action.kind==='delete'?'delete':'update';const hooks=bulkEligible(view.table_name,operation);
  const cols=columnsOf(view.table_name);
- if(cols.some(c=>c.is_key&&c.reset_on_edit))deny('Bulk automatic key resets are not supported',409);
- if(Object.keys(action.values).some(name=>cols.find(c=>c.name===name)?.is_key))deny('Bulk key changes are not supported',409);
+ if(operation==='update'&&cols.some(c=>c.is_key&&c.reset_on_edit))deny('Bulk automatic key resets are not supported',409);
+ if(operation==='update'&&Object.keys(action.values).some(name=>cols.find(c=>c.name===name)?.is_key))deny('Bulk key changes are not supported',409);
  if(!viewIsVisible(view.show_if,{...expressionContext(),userEmail:currentUser()?.email||''}))deny('View unavailable',403);
- return {view,config,action,cols,signature:hash([view,action,cols,hooks])};
+ return {view,config,action,cols,operation,signature:hash([view,action,cols,hooks])};
 }
 function identity(){const user=currentUser();if(!user)deny('Authentication required',401);return {user,app:currentApplication()?.id||'default'};}
 export function bulkSummary(results:BulkResult[],total:number,status='completed'){
@@ -66,8 +71,8 @@ export function bulkOptions(viewName:string,rowIds?:number[]){
  const config=JSON.parse(view.display_json||'{}').bulk_actions;if(!config?.enabled)return [];
  if(rowIds&&(rowIds.length>100||rowIds.some(id=>!Number.isSafeInteger(id)||id<1)))deny('Invalid selected row IDs');
  return (config.allowed_action_ids as string[]).flatMap(actionId=>{try{const r=resolve({viewName,actionId});
-  if(rowIds?.length&&!rowIds.some(id=>{const raw=db.prepare('SELECT * FROM "t_'+r.view.table_name+'" WHERE id=?').get(id) as Record<string,any>|undefined;if(!raw||!rowAllowed(r.view.table_name,raw,'read')||!rowAllowed(r.view.table_name,raw,'update'))return false;const email=currentUser()?.email||'',now=new Date(),context=expressionContext(now,email),row=calculateRow(r.cols,raw,false,now,false,email,context).row,slice=sliceFor(r.view.slice_name,r.view.table_name);return matches(r.action.condition_expr,row,email,r.view.table_name,context)&&(!slice||matches(slice.filter_expr,row,email,r.view.table_name,context));}))return [];
-  return [{name:actionId,label:r.action.label,fields:Object.keys(r.action.values).map(n=>r.cols.find(c=>c.name===n)?.label||n)}];}catch{return [];}});
+  if(rowIds?.length&&!rowIds.some(id=>{const raw=db.prepare('SELECT * FROM "t_'+r.view.table_name+'" WHERE id=?').get(id) as Record<string,any>|undefined;if(!raw||!rowAllowed(r.view.table_name,raw,'read')||!rowAllowed(r.view.table_name,raw,r.operation))return false;const email=currentUser()?.email||'',now=new Date(),context=expressionContext(now,email),row=calculateRow(r.cols,raw,false,now,false,email,context).row,slice=sliceFor(r.view.slice_name,r.view.table_name);return matches(r.action.condition_expr,row,email,r.view.table_name,context)&&(!slice||matches(slice.filter_expr,row,email,r.view.table_name,context));}))return [];
+  return [{name:actionId,label:r.action.label,kind:r.action.kind,confirmation:r.action.confirmation,fields:Object.keys(r.action.values).map(n=>r.cols.find(c=>c.name===n)?.label||n)}];}catch{return [];}});
 }
 export async function executeBulk(input:unknown){
  const request=parseBulkRequest(input),{user,app}=identity();
@@ -94,7 +99,7 @@ export async function executeBulk(input:unknown){
   if(!run||run.lease_token!==token)deny('Operation ownership changed',409);
   if((JSON.parse(run.results_json) as BulkResult[]).some(r=>r.rowId===rowId))continue;
   const store=(result:BulkResult)=>db.transaction(()=>{const current=db.prepare('SELECT * FROM _bulk_action_runs WHERE app_id=? AND actor_id=? AND request_key=?').get(...key) as Ledger;if(!current||current.lease_token!==token)deny('Operation ownership changed',409);const results:BulkResult[]=JSON.parse(current.results_json);if(results.some(r=>r.rowId===rowId))return;results.push(result);db.prepare('UPDATE _bulk_action_runs SET results_json=?,lease_until=?,updated_at=? WHERE app_id=? AND actor_id=? AND request_key=?').run(JSON.stringify(results),Date.now()+60000,Date.now(),...key);
-   const audit=auditContext();db.prepare('INSERT INTO _audit_log(event_id,request_id,occurred_at,actor_id,actor_name,actor_email,actor_role,category,entity_type,entity_key,entity_label,operation,source,changes_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),audit?.requestId||request.idempotencyKey,Date.now(),user.id,user.name,user.email,user.role,'actions','bulk_action',JSON.stringify([app,initial.view.table_name,rowId]),initial.view.table_name+' #'+rowId,'update',audit?.source||'bulk',JSON.stringify([{path:['bulk_action'],before:null,after:{action:request.actionId,...result}}]));
+   const audit=auditContext();db.prepare('INSERT INTO _audit_log(event_id,request_id,occurred_at,actor_id,actor_name,actor_email,actor_role,category,entity_type,entity_key,entity_label,operation,source,changes_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),audit?.requestId||request.idempotencyKey,Date.now(),user.id,user.name,user.email,user.role,'actions','bulk_action',JSON.stringify([app,initial.view.table_name,rowId]),initial.view.table_name+' #'+rowId,initial.operation,audit?.source||'bulk',JSON.stringify([{path:['bulk_action'],before:null,after:{action:request.actionId,...result}}]));
   })();
   try{
    db.transaction(()=>{
@@ -106,7 +111,7 @@ export async function executeBulk(input:unknown){
      const current=resolve(request);if(current.signature!==run.definition_hash){store({rowId,status:'skipped',code:'ACTION_CHANGED'});return;}
      const raw=db.prepare('SELECT * FROM "t_'+current.view.table_name+'" WHERE id=?').get(rowId) as Record<string,any>|undefined;
      if(!raw||!rowAllowed(current.view.table_name,raw,'read')){store({rowId,status:'failed',code:'ROW_NOT_FOUND'});return;}
-     if(!rowAllowed(current.view.table_name,raw,'update'))throw new AuthError('Permission denied',403);
+     if(!rowAllowed(current.view.table_name,raw,current.operation))throw new AuthError('Permission denied',403);
      assertRowVersion(current.view.table_name,current.cols,raw,request.versions[rowId]);
      const now=new Date(),context=expressionContext(now,actor.email),row=calculateRow(current.cols,raw,false,now,false,actor.email,context).row,slice=sliceFor(current.view.slice_name,current.view.table_name);
      if(!matches(current.action.condition_expr,row,actor.email,current.view.table_name,context)||slice&&!matches(slice.filter_expr,row,actor.email,current.view.table_name,context)){store({rowId,status:'skipped',code:'ACTION_NOT_AVAILABLE'});return;}

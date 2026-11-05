@@ -22,3 +22,37 @@
 .custom-grid-presets i {display:block;border-radius:2px;background:var(--line);}
 .custom-grid-presets button[aria-pressed=true] {border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
 .custom-grid-presets button[aria-pressed=true] i {background:var(--accent);}
+
+/* A scrollable canvas world keeps zoomed layout bounds separate from the viewport. */
+.custom-canvas-stage{padding:0;overscroll-behavior:contain;outline-offset:-2px}
+.custom-canvas-world{position:relative;min-width:100%;min-height:100%}
+.custom-canvas-caption{position:absolute;top:20px;left:24px;right:20px;margin:0;pointer-events:none;line-height:1.5}
+.custom-canvas-sizer{position:absolute;contain:layout;overflow:clip;box-shadow:var(--shadow)}
+.custom-canvas-sizer>.custom-canvas-frame{position:absolute;top:0;left:0;margin:0;box-shadow:none}
+.custom-pan-mode{cursor:grab;touch-action:none;user-select:none}
+.custom-panning,.custom-panning *{cursor:grabbing!important;user-select:none}
+.custom-builder-toolbar button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.custom-tree-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.custom-tree-heading h3{margin:0;font-size:12px}.custom-tree-heading h3 small{font-size:10px;color:var(--mute);font-weight:400}
+.custom-tree-heading>div{display:flex;gap:4px}.custom-tree-heading button{font-size:10px;min-height:24px;padding:2px 6px}
+.custom-tree-root{display:flex;align-items:center;gap:6px;width:100%;text-align:left;font-size:12px;min-height:34px;padding:6px 8px;margin-bottom:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.custom-tree-root small{margin-left:auto;font-size:10px;color:var(--mute)}.custom-tree-root[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.custom-tree [role=tree]{max-height:360px;overflow:auto;padding:2px 0}
+.custom-tree-children{margin-left:10px;padding-left:8px;border-left:1px solid var(--line)}
+.custom-tree .custom-tree-item{gap:2px;padding:2px 0;min-width:0}
+.custom-tree .custom-tree-item>.custom-tree-toggle{flex:0 0 20px;width:20px;min-height:30px;padding:0;display:grid;place-items:center;background:transparent;color:var(--mute);font-size:14px}
+.custom-tree-branch{flex:0 0 20px;width:20px}
+.custom-tree .custom-tree-item>.custom-tree-select{flex:1;display:flex;align-items:center;gap:7px;width:auto;min-width:0;padding:6px;border-radius:6px;background:transparent}
+.custom-tree .custom-tree-item>.custom-tree-select[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.custom-tree-symbol{flex:none;display:grid;place-items:center;width:22px;height:24px;border-radius:4px;background:var(--bg);color:var(--accent);font-size:14px}
+.custom-tree-label{flex:1;min-width:0}.custom-tree-label strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;line-height:1.4}.custom-tree-label small{display:block;color:var(--mute);font-size:10px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.custom-canvas-world>.custom-canvas-caption{position:sticky;top:12px;left:16px;right:auto;z-index:2;width:max-content;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+
+/* Keep the hierarchy usable without scrolling the entire component library. */
+.custom-library{display:flex;flex-direction:column;min-height:0}
+.custom-library>.custom-palette{flex:0 1 auto;min-height:130px;max-height:min(360px,42dvh);overflow:auto;align-content:start}
+.custom-library>h3,.custom-library>p{flex:none}
+.custom-library>.custom-tree{display:flex;flex-direction:column;flex:1;min-height:190px;overflow:hidden;margin-top:12px}
+.custom-tree>.custom-tree-heading,.custom-tree>.custom-tree-root,.custom-tree>p{flex:none}
+.custom-tree>[role=tree]{flex:1;min-height:60px;max-height:none}

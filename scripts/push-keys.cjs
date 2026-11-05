@@ -1,0 +1,3 @@
+// Run explicitly; private key values are written to a new file, never to stdout.
+const fs=require('node:fs'),path=require('node:path'),{createECDH}=require('node:crypto');
+const target=path.resolve(process.argv[2]||'.env.push');const ec=createECDH('prime256v1');ec.generateKeys();const keys={publicKey:ec.getPublicKey().toString('base64url'),privateKey:ec.getPrivateKey().toString('base64url')};fs.writeFileSync(target,'NOCODE_PUSH_SUBJECT=mailto:admin@example.com\nNOCODE_PUSH_PUBLIC_KEY='+keys.publicKey+'\nNOCODE_PUSH_PRIVATE_KEY='+keys.privateKey+'\n',{flag:'wx',mode:0o600});console.log('Created Push configuration file. Set a real contact address and keep it private. Existing files are never overwritten.');

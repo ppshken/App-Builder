@@ -24,7 +24,7 @@ import "./runtime-layout.css";
 import ImagePreviewProvider from "./components/ImagePreviewProvider";
 import AppShell from "./components/AppShell";
 import AppSettingsProvider from "./components/AppSettingsProvider";
-export async function generateMetadata(){const id=(await headers()).get('x-nocode-pwa'),brand=id?pwaBrand(id):null;return brand?{title:brand.name,manifest:pwaBase(id!)+ 'manifest.webmanifest',appleWebApp:{capable:true,title:brand.name,statusBarStyle:'default' as const},icons:{apple:pwaBase(id!)+'icon/192'}}:{title:'No-code Builder'};}
+export async function generateMetadata(){const id=(await headers()).get('x-nocode-pwa'),brand=id?pwaBrand(id):null;return brand?{title:brand.name,manifest:pwaBase(id!)+ 'manifest.webmanifest',appleWebApp:{capable:true,title:brand.name,statusBarStyle:'default' as const},icons:{apple:pwaBase(id!)+'icon/192'}}:{title:'App Builder',icons:{icon:'/builder-logo.png',apple:'/builder-logo.png'}};}
 export default async function Root({ children }: { children: React.ReactNode }) {
   const requestHeaders=await headers(),requestCookies=await cookies();
   const pwa=requestHeaders.get("x-nocode-pwa"),path=requestHeaders.get("x-nocode-path") || "/", user=sessionUser(requestCookies.get(SESSION_COOKIE)?.value || ""), needsSetup=!ownerExists();
@@ -40,7 +40,7 @@ export default async function Root({ children }: { children: React.ReactNode }) 
   if(draftId&&user&&access.builder&&page!=="/login"&&page!=="/releases"){try{const draft=scoped(()=>openDraft(draftId,user.id));try{settings=scoped(()=>withDatabase(draft,()=>readAppSettings()));}finally{draft.close();}}catch{}}
   const appearance=usesStandardTheme(page)?STANDARD_SETTINGS:settings;
   const dark=appearance.mode==="dark",colors=themeColors(appearance,dark);
-  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(appearance.font),"--app-font-weight":String(appearance.font_weight),"--font-scale":String(appearance.font_size/14)} as CSSProperties;
+  const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(page==="/login"||page==="/apps"||page==="/"?"noto-sans-thai":appearance.font),"--app-font-weight":String(appearance.font_weight),"--font-scale":String(appearance.font_size/14)} as CSSProperties;
   const palettes=JSON.stringify({light:themeColors(appearance,false),dark:themeColors(appearance,true)}).replace(/</g,"\\u003c");
   const bootstrap=`(()=>{const root=document.documentElement,dark=matchMedia('(prefers-color-scheme:dark)').matches,palette=(${palettes})[dark?'dark':'light'];root.dataset.mode=dark?'dark':'light';for(const [key,value] of Object.entries({'--accent':palette.accent,'--accent-soft':palette.soft,'--brand-color':palette.button,'--brand-contrast':palette.buttonText}))root.style.setProperty(key,value);})();`;
   return (

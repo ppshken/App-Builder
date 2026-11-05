@@ -16,3 +16,19 @@
 .app-operations-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0}.app-operations-controls select,.app-operations-controls input{min-height:36px;max-width:100%}.app-operations-controls .search-box{flex:1;min-width:160px}.app-operations table{font-size:12px}.app-operations td{white-space:nowrap;padding:10px}.app-operations td:first-child{max-width:260px;overflow:hidden;text-overflow:ellipsis}.app-operations details{white-space:normal;max-width:360px}.app-operations-pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:12px 0}.app-operations .page-heading h2{margin:0}@media(max-width:600px){.app-operations-controls>*{flex:1 1 140px}.app-operations-controls .search-box{flex-basis:100%}.app-operations table{font-size:11px}}
 
 .app-operations .app-operations-controls>select,.app-operations .app-operations-controls>input{width:auto;flex:0 1 180px;min-width:0}.app-operations .app-operations-controls>.search-box{width:auto;flex:1 1 240px}.app-operations .app-operations-controls>input[type=date]{flex-basis:145px}@media(max-width:600px){.app-operations .app-operations-controls>select,.app-operations .app-operations-controls>input{flex:1 1 140px}.app-operations .app-operations-controls>.search-box{flex-basis:100%}}
+
+/* Launcher typography */
+.applications-launcher-brand{font-size:18px;font-weight:700}
+.applications-heading h1{font-size:26px;font-weight:700}
+.applications-heading p{font-size:14px;font-weight:500}
+.applications-tabs>a{font-size:15px;font-weight:600}
+.application-card h2{font-size:20px;font-weight:700}
+.application-card>p,.applications-summary,.applications-explanation{font-size:14px;font-weight:500}
+.application-card-actions button,.application-card-actions .button,.applications-heading>button{font-size:14px;font-weight:600}
+.application-state{font-size:13px;font-weight:600}
+@media(max-width:600px){.applications-heading h1{font-size:23px}.applications-tabs>a{font-size:14px}}
+
+.usage-error-details{min-width:160px;max-width:420px;margin-top:6px;font-size:12px}.usage-error-details summary{cursor:pointer;font-weight:600}.usage-error-details p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;color:var(--ink);padding:10px;background:var(--input);border:1px solid var(--line);border-radius:6px}
+
+.application-mark{padding:0;background:transparent;overflow:hidden;flex-shrink:0}
+.application-mark>.app-image-icon{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}

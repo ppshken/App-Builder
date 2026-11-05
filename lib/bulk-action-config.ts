@@ -7,6 +7,6 @@ export function validateBulkConfig(value:unknown):BulkActionConfig{
  return v;
 }
 export type BulkSelection=Record<string,string>;
-export function toggleBulkRows(selected:BulkSelection,rows:{id:number;__version?:string;__permissions?:{update?:boolean}}[],checked:boolean,max:number):BulkSelection{
- const next={...selected};for(const row of rows){if(!checked){delete next[row.id];continue;}if(row.__permissions?.update===false||!Number.isSafeInteger(row.id)||row.id<1||!row.__version||!/^[a-f0-9]{64}$/.test(row.__version))continue;if(Object.hasOwn(next,row.id)||Object.keys(next).length<max)next[row.id]=row.__version;}return next;
+export function toggleBulkRows(selected:BulkSelection,rows:{id:number;__version?:string;__permissions?:{update?:boolean;delete?:boolean}}[],checked:boolean,max:number):BulkSelection{
+ const next={...selected};for(const row of rows){if(!checked){delete next[row.id];continue;}if(row.__permissions?.update===false&&row.__permissions?.delete!==true||!Number.isSafeInteger(row.id)||row.id<1||!row.__version||!/^[a-f0-9]{64}$/.test(row.__version))continue;if(Object.hasOwn(next,row.id)||Object.keys(next).length<max)next[row.id]=row.__version;}return next;
 }

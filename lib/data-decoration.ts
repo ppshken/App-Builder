@@ -15,3 +15,18 @@ export function validateDataStyles(value:unknown,cols:Column[]){if(!value||typeo
 export function dataStyleFor(column:string,row:Record<string,any>,config?:DataStyle,options:ExpressionOptions={}){if(!config)return {appearance:VALUE_STYLE_DEFAULTS,error:""};const {rules,...base}=config;for(const rule of rules||[])try{if(asBoolean(evaluateExpression(rule.condition,{...row,_THIS:row[column]},options)))return {appearance:{...VALUE_STYLE_DEFAULTS,...base,...rule.appearance},error:""};}catch(e){return {appearance:{...VALUE_STYLE_DEFAULTS,...base},error:"เงื่อนไขตกแต่ง: "+(e as Error).message};}return {appearance:{...VALUE_STYLE_DEFAULTS,...base},error:""};}
 export function decorationReferences(styles:Record<string,DataStyle>={}){return [...new Set([...Object.keys(styles),...Object.values(styles).flatMap(s=>(s.rules||[]).flatMap(r=>references(r.condition).filter(n=>n!=="_THIS")))])];}
 export function changeDecorationColumn(styles:Record<string,DataStyle>,old:string,next?:string){return Object.fromEntries(Object.entries(styles).flatMap(([name,style])=>{if(name===old&&!next)return [];return [[name===old?next!:name,{...style,rules:style.rules?.flatMap(r=>!next&&references(r.condition).includes(old)?[]:[{...r,condition:next?renameReference(r.condition,old,next):r.condition}])}]];}));}
+
+// Legacy per-view rules are consolidated in stable view order without counting copies twice.
+export function tableDataStyles(views:{table_name:string;display?:{data_styles?:Record<string,DataStyle>}}[],table:string):Record<string,DataStyle>{
+ const result:Record<string,DataStyle>=Object.create(null);
+ for(const view of views.filter(v=>v.table_name===table))for(const [name,style]of Object.entries(view.display?.data_styles||{})){
+  if(!result[name]){result[name]={...style,...(style.rules?{rules:[...style.rules]}:{})};continue;}
+  if(!style.rules?.length)continue;
+  const rules=result[name].rules??=[],counts=new Map<string,number>(),seen=new Map<string,number>();
+  for(const r of rules){const k=JSON.stringify(r);counts.set(k,(counts.get(k)||0)+1);}
+  for(const rule of style.rules){const k=JSON.stringify(rule),n=(seen.get(k)||0)+1;seen.set(k,n);if(n>(counts.get(k)||0))rules.push(rule);}
+  result[name].rules=rules;
+ }
+ return result;
+}
+export function dataStyleRuleCount(styles:Record<string,DataStyle>={}){return Object.values(styles).reduce((n,s)=>n+(s.rules?.length||0),0);}

@@ -1,3 +1,5 @@
+import {normalizeImageSource} from "./image-source";
+import {InvalidValueError} from "./invalid-value-error";
 import {assertAutoNumberColumn,type AutoNumberConfig} from './auto-number';
 import {normalizeTime,normalizePhone,normalizeEmail,normalizeUrl} from './scalar-fields';
 import { asBoolean, evaluateExpression, isBlank, references, tableReferences, referencePaths, relatedReferences, listSource, ExpressionContext, ExpressionOptions, Value } from "./expression";
@@ -13,6 +15,7 @@ export type FormulaField = typeof FORMULA_FIELDS[number];
 export type Column = {
   table_name?: string;
   auto_number?:AutoNumberConfig|null;
+  invalid_value_error?:string|null;
   name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
   scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
@@ -21,7 +24,7 @@ export const FORMULA_LABELS: Record<FormulaField, string> = {
   editable_if: "แก้ไขเมื่อ (Editable_If)", valid_if: "ค่าต้องผ่านเงื่อนไข (Valid_If)", required_if: "จำเป็นเมื่อ (Required_If)",
 };
 export const blankColumn = (): Column => ({ name: "", label: "", type: "text", options: "", ref_table: "", required: false,
-  scan_enabled:false,related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
+  invalid_value_error:"",scan_enabled:false,related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
 export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");
@@ -108,7 +111,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
     if (typeof items === "string") { try { items = JSON.parse(items); } catch { throw new Error(`"${c.label}" ต้องเป็นรายการตัวเลือก`); } }
     if (!Array.isArray(items) || items.length > 200 || items.some(v => typeof v !== "string")) throw new Error(`"${c.label}" ต้องเป็นรายการตัวเลือก`);
     const allowed = (c.options || "").split(",").map(v => v.trim());
-    if (!c.valid_if?.trim() && !c.ref_table && items.some(v => !allowed.includes(v))) throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
+    if (!c.valid_if?.trim() && !c.ref_table && items.some(v => !allowed.includes(v))) throw c.invalid_value_error?.trim()?new InvalidValueError(c.invalid_value_error.trim()):new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
     return [...new Set(items as string[])];
   }
   if (isBlank(value)) return null;
@@ -135,7 +138,8 @@ export function normalizeValue(c: Column, value: unknown): Value {
   if (c.type === "datetime") {
     try { return normalizeDateTime(value); } catch (e) { throw new Error(`"${c.label}": ${(e as Error).message}`); }
   }
-  if (["image","signature"].includes(c.type) && !/^\/api\/images\/[a-f0-9-]{36}$/.test(value))
+  if(c.type==="image"){try{return normalizeImageSource(value);}catch(e){throw Error(`"${c.label}": ${(e as Error).message}`);}}
+  if (c.type==="signature" && !/^\/api\/images\/[a-f0-9-]{36}$/.test(value))
     throw new Error(`"${c.label}" ต้องเป็นรูปภาพที่อัปโหลด กรุณาเลือกรูปภาพ`);
   if(c.type === "color"){if(!/^#[a-f0-9]{6}$/i.test(value))throw Error('"'+c.label+'" ต้องเป็นโค้ดสี เช่น #2563EB');return value.toUpperCase();}
   if(c.type === "file"&&!/^\/api\/files\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value))throw Error('"'+c.label+'" ต้องเป็นไฟล์ที่อัปโหลด กรุณาเลือกไฟล์');
@@ -146,7 +150,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
     return date;
   }
   if (c.type === "enum" && !!c.options?.trim() && !c.valid_if?.trim() && !c.ref_table && !(c.options || "").split(",").map(o => o.trim()).includes(value))
-    throw new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
+    throw c.invalid_value_error?.trim()?new InvalidValueError(c.invalid_value_error.trim()):new Error(`"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`);
   return value;
 }
 // SELECT still returns the requested values in ordinary expressions, Enum and EnumList.
@@ -174,7 +178,7 @@ export function calculateRow(cols: Column[], raw: Record<string, unknown>, defau
       return row[name] = normalizeValue(c, value);
     } catch (e) {
       errors[name] = (e as Error).message;
-      if (!tolerant) throw new Error(`คอลัมน์ "${c.label}": ${errors[name]}`);
+      if (!tolerant) throw e instanceof InvalidValueError?new InvalidValueError(`คอลัมน์ "${c.label}": ${errors[name]}`):new Error(`คอลัมน์ "${c.label}": ${errors[name]}`);
       return row[name] = null;
     } finally { visiting.delete(name); }
   }
@@ -232,12 +236,12 @@ export function formState(cols: Column[], raw: Record<string, unknown>, now = ne
     required[c.name] = !(c.auto_number && !row.id && isBlank(row[c.name])) && !c.is_virtual && (!!c.is_key || !!c.required || condition("required_if", false));
     if (!c.is_virtual && required[c.name] && isBlank(row[c.name])) validation[c.name] = `กรุณากรอก "${c.label}"${visible[c.name] ? "" : " (ช่องนี้ถูกซ่อน ให้ปรับเงื่อนไขแสดงช่องหรือค่าที่เกี่ยวข้อง)"}`;
     if (!(c.auto_number && !row.id && isBlank(row[c.name])) && c.is_key && typeof row[c.name] === "string" && !(row[c.name] as string).trim()) validation[c.name] = `Key "${c.label}" ต้องไม่ว่าง`;
-    if (!(c.auto_number && !row.id && isBlank(row[c.name])) && !condition("valid_if", true) && !validation[c.name]) validation[c.name] = `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
+    if (!(c.auto_number && !row.id && isBlank(row[c.name])) && !condition("valid_if", true) && !validation[c.name]) validation[c.name] = c.invalid_value_error?.trim() || `"${c.label}" ไม่ผ่านเงื่อนไข Valid_If กรุณาตรวจค่าที่กรอก`;
     // A boolean Valid_If still uses the fixed options; a list Valid_If supplies its own options.
     if (["enum","enumlist"].includes(c.type) && !Object.hasOwn(choices, c.name) && (c.type!=="enum"||!!c.options?.trim()||!!c.ref_table)) {
       const data = c.ref_table ? (context.getTable ? context.getTable(c.ref_table) : context.tables?.[c.ref_table]) : undefined;
       choices[c.name] = c.ref_table ? [...new Set((data?.rows || []).map(r=>r[data!.key]).filter(v=>v!=null).map(String))] : (c.options || "").split(",").map(v => v.trim()).filter(Boolean);
-      if ((c.type==="enum"&&!isBlank(row[c.name])&&!choices[c.name].includes(String(row[c.name])))||(Array.isArray(row[c.name]) && (row[c.name] as string[]).some(v => !choices[c.name].includes(v)))) validation[c.name] = `"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`;
+      if ((c.type==="enum"&&!isBlank(row[c.name])&&!choices[c.name].includes(String(row[c.name])))||(Array.isArray(row[c.name]) && (row[c.name] as string[]).some(v => !choices[c.name].includes(v)))) validation[c.name] = c.invalid_value_error?.trim() || `"${c.label}" ต้องเลือกค่าจากรายการที่กำหนด`;
     }
   }
   return { row, errors, visible, required, validation, choices, editable };
@@ -256,8 +260,8 @@ export function enumListLabel(c: Column, value: string, context: ExpressionConte
 }
 export function validateRow(cols: Column[], row: Record<string, unknown>, now = new Date(), userEmail = "", context: ExpressionContext = {}) {
   const state = formState(cols, row, now, userEmail, context);
-  const error = Object.values(state.errors)[0] || Object.values(state.validation)[0];
-  if (error) throw new Error(error);
+  const entry = [...Object.entries(state.errors),...Object.entries(state.validation)][0];
+  if(entry){const [name,error]=entry;const custom=cols.find(c=>c.name===name)?.invalid_value_error?.trim();throw custom&&error===custom?new InvalidValueError(error):new Error(error);}
   return state.row;
 }
 

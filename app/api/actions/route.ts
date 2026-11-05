@@ -42,7 +42,7 @@ function save(b: Record<string, any>, existing: boolean) {
   if (typeof b.confirmation !== "string" || b.confirmation.length > 1000) throw new Error("ข้อความยืนยันต้องไม่เกิน 1,000 ตัวอักษร");
   if (existing && !db.prepare("SELECT 1 FROM _actions WHERE name=?").get(b.name)) return bad("ไม่พบ Action",404);
   const bulkRefs=db.prepare('SELECT table_name,display_json FROM _views').all() as {table_name:string;display_json:string}[];
-  if(bulkRefs.some(v=>JSON.parse(v.display_json).bulk_actions?.allowed_action_ids?.includes(b.name)&&(v.table_name!==b.table_name||b.kind!=='set')))throw Error('Remove this Action from Bulk configuration before changing its type or table');
+  if(bulkRefs.some(v=>JSON.parse(v.display_json).bulk_actions?.allowed_action_ids?.includes(b.name)&&(v.table_name!==b.table_name||!['set','delete'].includes(b.kind))))throw Error('Remove this Action from Bulk configuration before changing its type or table');
   const used = db.prepare("SELECT label,table_name,display_json FROM _views").all() as {label:string;table_name:string;display_json:string}[];
   if (used.some(v => { const d=JSON.parse(v.display_json); return (d.row_click === "action" && d.row_action === b.name||d.form_saved_action===b.name) && v.table_name !== b.table_name; })) throw new Error("Action นี้ถูกใช้เมื่อคลิกแถวใน View กรุณายกเลิกการใช้งานก่อนเปลี่ยนตาราง");
   if(existing){const old=db.prepare("SELECT table_name FROM _actions WHERE name=?").get(b.name) as {table_name:string};if(old.table_name!==b.table_name&&used.some(v=>customActions(JSON.parse(v.display_json).custom_page).includes(b.name)))throw Error("Action นี้ใช้ในหน้ากำหนดเอง กรุณานำออกก่อนเปลี่ยนตาราง");}

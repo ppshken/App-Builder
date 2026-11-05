@@ -8,7 +8,7 @@ export type TableOverlay={version:1;label:string;snapshot:PhysicalColumn[];overr
 // Call with the raw platform connection so the source name is not SQL-routed to the recipient.
 export function sourceApplicationLabel(database:Database.Database,id:string){return (database.prepare('SELECT name FROM "'+applicationTable(id,'_app_settings')+'" WHERE id=1').get() as {name:string}|undefined)?.name||(database.prepare('SELECT label FROM _applications WHERE id=?').get(id) as {label:string}|undefined)?.label||id;}
 export function physicalColumns(database:Database.Database,table:string){return readColumns(database,table).filter(c=>!c.is_virtual) as PhysicalColumn[];}
-export function physicalHash(columns:PhysicalColumn[]){return createHash('sha256').update(JSON.stringify(columns)).digest('hex');}
+export function physicalHash(columns:PhysicalColumn[]){return createHash('sha256').update(JSON.stringify(columns.map(({invalid_value_error,...column})=>({...column,...(invalid_value_error?.trim()?{invalid_value_error:invalid_value_error.trim()}:{})})))).digest('hex');}
 export function tableOverlay(database:Database.Database,table:string,app=currentApplication()?.id):TableOverlay|undefined{
  if(!app)return;
  const store=applicationTable(app,'_table_overlays');

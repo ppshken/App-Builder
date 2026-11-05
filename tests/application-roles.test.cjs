@@ -24,3 +24,21 @@ test('role editor exposes dataset ceilings and rejects grants exceeding them',()
  });
  assert.equal(database.prepare('SELECT COUNT(*) n FROM _application_local_roles WHERE app_id=?').get(app.id).n,0);
 }));
+
+test('automatic roles include future connected tables and compatible Actions without exceeding app ceilings',()=>fixture(({admin,app,as,database})=>{
+ const r=admin(()=>manageApplicationRoles(app.id,{...role('Automatic'),auto_grant:true,row_rules:{'cars:read':'[email] = USEREMAIL()'}}));
+ admin(()=>manageApplicationRoles(app.id,{op:'app_member',user_id:2,can_use:true,role_name:r.name}));
+ setApplicationDataset(app.id,'hidden',{read:true,create:false,update:false,delete:false,export:false});
+ database.prepare('INSERT INTO '+applicationTable(app.id,'_actions')+'(name,label,table_name,kind,condition_expr,values_json,confirmation) VALUES(?,?,?,?,?,?,?)').run('new_car_action','New action','cars','set','TRUE','{}','');
+ database.prepare('INSERT INTO '+applicationTable(app.id,'_actions')+'(name,label,table_name,kind,condition_expr,values_json,confirmation) VALUES(?,?,?,?,?,?,?)').run('blocked_action','Blocked','hidden','set','TRUE','{}','');
+ as(app.id,staff,()=>{const a=accessFor(staff);assert.equal(tableAccess(a,'hidden').read,true);assert.equal(tableAccess(a,'hidden').update,false);assert.ok(a.actions.includes('new_car_action'));assert.ok(!a.actions.includes('blocked_action'));assert.equal(a.rowRules['cars:read'],'[email] = USEREMAIL()');assert.equal(a.builder,false);});
+ const snapshot=admin(()=>applicationRolesOverview(app.id)).roles.find(x=>x.name===r.name);assert.equal(snapshot.auto_grant,1);assert.equal(snapshot.tables.hidden.read,true);
+ admin(()=>manageApplicationRoles(app.id,{...snapshot,auto_grant:false,op:'app_role_update'}));
+ database.prepare('INSERT INTO '+applicationTable(app.id,'_actions')+'(name,label,table_name,kind,condition_expr,values_json,confirmation) VALUES(?,?,?,?,?,?,?)').run('later_action','Later','cars','set','TRUE','{}','');
+ as(app.id,staff,()=>{assert.ok(accessFor(staff).actions.includes('new_car_action'));assert.ok(!accessFor(staff).actions.includes('later_action'));});
+}));
+test('automatic grant input rejects non-booleans and schema upgrades default existing roles to manual',()=>fixture(({admin,app,database})=>{
+ admin(()=>assert.throws(()=>manageApplicationRoles(app.id,{...role('Bad automatic'),auto_grant:1})));
+ const r=admin(()=>manageApplicationRoles(app.id,role('Manual')));assert.equal(database.prepare('SELECT auto_grant FROM _application_local_roles WHERE app_id=? AND name=?').get(app.id,r.name).auto_grant,0);
+ for(const t of database.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='_application_local_roles'").all())database.exec('DROP TRIGGER "'+t.name.replaceAll('"','""')+'"');database.exec('ALTER TABLE _application_local_roles DROP COLUMN auto_grant');initializeDatabase(database,':memory:');assert.equal(database.prepare('SELECT auto_grant FROM _application_local_roles WHERE app_id=? AND name=?').get(app.id,r.name).auto_grant,0);initializeDatabase(database,':memory:');
+}));

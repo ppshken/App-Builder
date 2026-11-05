@@ -6,6 +6,7 @@ import type {RelatedList} from '@/lib/lists';
 import {detailItemOrder,type ViewDisplay} from '@/lib/view-display';
 import {DETAIL_PRESENTATIONS,type DetailFieldDisplay} from '@/lib/detail-field-config';
 import SearchSelect from './SearchSelect';
+import ColumnDragHandle from './ColumnDragHandle';
 import Icon from './Icon';
 export default function DetailColumnEditor({view,cols,related=[],busy,onChange}:{view:AppView;cols:Column[];related?:RelatedList[];busy:boolean;onChange:(patch:Partial<AppView>)=>void}){
  const [query,setQuery]=useState(''),[open,setOpen]=useState<string|null>(null),d=view.display||{},selectedCols=view.columns.length?view.columns:cols.map(c=>c.name);
@@ -20,10 +21,10 @@ export default function DetailColumnEditor({view,cols,related=[],busy,onChange}:
   {!view.columns.length?<p className="hint">แสดงทุกคอลัมน์ตามโครงสร้างตาราง · เลือกกำหนดเองเพื่อจัดลำดับและตั้งค่ารายช่อง</p>:<>
    <div className="search-box detail-column-search"><Icon name="search"/><input aria-label="ค้นหาคอลัมน์รายละเอียด" placeholder="ค้นหาคอลัมน์ หรือ Related…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
    {query.trim()&&<p className="hint">ค้นหาไม่เปลี่ยนลำดับ · ล้างคำค้นหาเพื่อย้ายลำดับ</p>}
-   <div className="designer-column-list view-column-picker detail-column-picker" role="group" aria-label="เลือกและจัดลำดับคอลัมน์รายละเอียด">{ordered.filter(i=>(i.label+' '+i.name).toLowerCase().includes(query.trim().toLowerCase())).map(item=>{
+   <div className="designer-column-list view-column-picker detail-column-picker" data-column-sort role="group" aria-label="เลือกและจัดลำดับคอลัมน์รายละเอียด">{ordered.filter(i=>(i.label+' '+i.name).toLowerCase().includes(query.trim().toLowerCase())).map(item=>{
     const index=selected.indexOf(item.name),checked=index>=0,f=d.detail_fields?.[item.name]||{},title=item.label;
     const select=(label:string,value:string,options:readonly (readonly [string,string])[],change:(v:string)=>void)=><label>{label}<SearchSelect aria-label={label+' · '+title} value={value} disabled={busy} onChange={e=>change(e.target.value)}>{options.map(([v,text])=><option key={v} value={v}>{text}</option>)}</SearchSelect></label>;
-    return <div key={item.name} className="detail-column-item"><div className="view-column-picker-row"><label title={item.name}><input type="checkbox" aria-label={'แสดง '+item.name} checked={checked} disabled={busy||checked&&!item.related&&selectedCols.length===1} onChange={e=>{
+    return <div key={item.name} className="detail-column-item"><div className="view-column-picker-row" data-column-key={checked?item.name:undefined}><ColumnDragHandle name={item.name} disabled={busy||!checked||!!query.trim()} onMove={target=>{const from=selected.indexOf(item.name),to=selected.indexOf(target);if(from<0||to<0)return;const order=[...selected];order.splice(to,0,...order.splice(from,1));patch({...d,detail_order:order},order.filter(n=>!n.startsWith('related:')));}}/><label title={item.name}><input type="checkbox" aria-label={'แสดง '+item.name} checked={checked} disabled={busy||checked&&!item.related&&selectedCols.length===1} onChange={e=>{
      const order=e.target.checked?[...selected,item.name]:selected.filter(n=>n!==item.name);
      patch({...d,detail_order:order,...(item.related?{related:{...d.related,[item.key]:{...d.related?.[item.key],visible:e.target.checked}}}:{})},order.filter(n=>!n.startsWith('related:')));
     }}/><span title={title}>{checked?index+1+'. ':''}{title}{item.related&&<small> · Related / Inline</small>}</span></label>

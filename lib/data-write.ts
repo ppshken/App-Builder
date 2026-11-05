@@ -1,3 +1,4 @@
+import {publishMedia} from './media-location';
 import {writeColumns} from './shared-table-columns';
 import {allocateAutoNumbers} from './auto-number';
 import {traceAction} from "./action-trace";
@@ -64,7 +65,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
             validateParents();
             recordWorkflowEvent(table,"update",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(id) as Record<string,any>,old);
             traceAction({kind:"mutation",label:"อัปเดตแถวหลังตรวจสอบ",table,row_id:id,before:old,after:{...row,id},status:"update"});
-            return { id, ok: true };
+            publishMedia(db,cols.filter(c=>!c.is_virtual&&['image','file','signature'].includes(c.type)).map(c=>row[c.name]));return { id, ok: true };
         }
         const result = keys.length ? db.prepare(`INSERT INTO "t_${table}"(${keys.map(k => `"${k}"`).join(',')}) VALUES(${keys.map(k => '@' + k).join(',')})`).run(values) : db.prepare(`INSERT INTO "t_${table}" DEFAULT VALUES`).run();
         const newId = Number(result.lastInsertRowid);
@@ -73,6 +74,6 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
         validateParents();
         recordWorkflowEvent(table,"create",db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(newId) as Record<string,any>);
         traceAction({kind:"mutation",label:"เพิ่มแถว",table,row_id:newId,before:null,after:{...row,id:newId},status:"create"});
-        return { id: newId };
+        publishMedia(db,cols.filter(c=>!c.is_virtual&&['image','file','signature'].includes(c.type)).map(c=>row[c.name]));return { id: newId };
     }).immediate();
 }

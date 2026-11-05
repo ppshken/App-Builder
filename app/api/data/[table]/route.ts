@@ -1,3 +1,4 @@
+import {assertRowVersion} from '@/lib/row-version';
 import {refreshExternalTable} from '@/lib/external-sources';
 import {writeColumns} from '@/lib/shared-table-columns';
 import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
@@ -89,7 +90,8 @@ async function handleDELETE(req: Request, { params }: { params: { table: string 
   try {
     if (!tableExists(t) || !id || !/^[1-9]\d*$/.test(id)) return bad("ไม่พบข้อมูล", 404);
     columnsOf(t);
-    const result = deleteRecord(t,Number(id));
+    const version=new URL(req.url).searchParams.get('version');
+    const result = db.transaction(()=>{if(version!==null)assertRowVersion(t,writeColumns(db,t),db.prepare('SELECT * FROM "t_'+t+'" WHERE id=?').get(Number(id)) as Record<string,any>|undefined,version);return deleteRecord(t,Number(id));}).immediate();
     return result.changes ? NextResponse.json({ ok: true }) : bad("ไม่พบข้อมูล", 404);
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }

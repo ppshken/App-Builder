@@ -22,3 +22,16 @@ test('Gallery permission defaults on and remains a strict boolean across partial
 test('navigation height is bounded, optional for legacy settings and resolves density defaults',()=>{const {navigationHeight,validateNavigation,DEFAULT_NAVIGATION}=require('../.test-build/navigation');assert.equal(navigationHeight(DEFAULT_NAVIGATION),60);assert.equal(navigationHeight({...DEFAULT_NAVIGATION,density:'compact'}),56);for(const height of [52,80,100])assert.equal(navigationHeight(validateNavigation({height})),height);assert.equal(validateNavigation({}).height,null);for(const height of [0,51,101,NaN,Infinity,80.5,'80',true])assert.throws(()=>validateNavigation({height}));assert.equal(navigationHeight({...DEFAULT_NAVIGATION,height:undefined}),60);});
 
 test('desktop menu styles accept all presets and preserve the legacy default',()=>{const {DESKTOP_NAVIGATION_STYLES,validateNavigation}=require('../.test-build/navigation');assert.equal(DESKTOP_NAVIGATION_STYLES.length,5);assert.equal(validateNavigation({}).desktop,'sidebar');for(const style of DESKTOP_NAVIGATION_STYLES)assert.equal(validateNavigation({desktop:style.name}).desktop,style.name);for(const desktop of ['unknown',null,1])assert.throws(()=>validateNavigation({desktop}));});
+
+test('circle Action appearance supports label below at every position and preserves legacy styles',()=>{
+ const {appearance}=require('../.test-build/action-config');
+ for(const position of ['primary','prominent','inline','hide']){const a=appearance({style:'circle',position,icon_only:true,color:'#2255AA'});assert.equal(a.style,'circle');assert.equal(a.icon_only,false);}
+ assert.equal(appearance({position:'primary',style:'outline'}).icon_only,true);assert.equal(appearance({style:'text',icon_only:true}).icon_only,true);assert.throws(()=>appearance({style:'invalid'}));
+});
+test('circle Action renders icon background and text below without primary square layout',()=>{
+ const ts=require('typescript'),vm=require('node:vm'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
+ const code=ts.transpileModule(fs.readFileSync('app/components/ActionButton.tsx','utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText;
+ const context={exports:{},require:n=>n==='@/lib/action-config'?require('../.test-build/action-config'):n==='@/lib/app-settings'?require('../.test-build/app-settings'):n==='./Icon'?{__esModule:true,default:()=>React.createElement('svg')}:require(n)};vm.runInNewContext(code,context);
+ const html=renderToStaticMarkup(React.createElement(context.exports.default,{action:{label:'Approve',kind:'set',appearance:{style:'circle',position:'primary',color:'#2255AA'}},onClick(){}}));
+ assert.match(html,/action-circle-icon/);assert.match(html,/action-circle-label/);assert.match(html,/Approve/);assert.doesNotMatch(html,/action-primary-icon|action-icon-only/);assert.match(html,/color:#2255AA/);
+});

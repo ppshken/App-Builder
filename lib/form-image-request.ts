@@ -21,7 +21,7 @@ export async function readFormImageRequest(req:Request):Promise<{values:Record<s
   for(let i=0;i<descriptors.length;i++){const d=descriptors[i],key='file_'+i,file=form.get(key);keys.add(key);
     if(!d||typeof d.token!=='string'||!FORM_IMAGE_TOKEN.test(d.token)||typeof d.table!=='string'||typeof d.column!=='string'||!file||typeof file==='string'||form.getAll(key).length!==1)throw Error('รายการรูปที่แนบไม่ถูกต้อง');
     total+=file.size;if(total>MAX_FORM_IMAGE_BYTES)throw new AuthError('รูปทั้งหมดในฟอร์มรวมกันต้องไม่เกิน 50 MB',413);
-    images.push({...d,bytes:Buffer.from(await file.arrayBuffer())});
+    images.push({...d,originalName:file.name.slice(0,255),bytes:Buffer.from(await file.arrayBuffer())});
   }
   form.forEach((_value,key)=>{if(!keys.has(key))throw Error('มีไฟล์แนบที่ไม่อยู่ในรายการรูปของฟอร์ม');});
   if(generation!==databaseGeneration())throw new AuthError('ฐานข้อมูลถูกกู้คืนระหว่างบันทึก กรุณาโหลดหน้าใหม่',409);
