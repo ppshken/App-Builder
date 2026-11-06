@@ -1,3 +1,5 @@
+import {normalizeDecimalOptions} from './decimal-format';
+import {normalizeBooleanLabels} from './boolean-labels';
 import {normalizeAutoNumber,assertAutoNumberColumn} from './auto-number';
 import {assertScanColumn} from './barcode';
 import {fileFolder} from './file-storage';
@@ -32,7 +34,7 @@ export function normalizeColumns(input: unknown, overrides: FormulaSchema = {}):
     if(raw.invalid_value_error!=null&&(typeof raw.invalid_value_error!=="string"||raw.invalid_value_error.length>1000))throw Error("Invalid value error ต้องเป็นข้อความไม่เกิน 1,000 ตัวอักษร");
     const c: Column = {invalid_value_error:raw.invalid_value_error?.trim()||null,scan_enabled:raw.scan_enabled?1:0,related_required:raw.related_required?1:0,ref_delete_cascade:raw.ref_delete_cascade?1:0,ref_allow_add:raw.ref_allow_add?1:0,input_mode:["enum","enumlist","ref"].includes(raw.type)?raw.input_mode??"dropdown":null,button_limit:["enum","enumlist","ref"].includes(raw.type)?raw.button_limit??5:null,reset_on_edit:raw.reset_on_edit?1:0,reset_columns:raw.reset_columns??[],is_part_of:raw.is_part_of?1:0,part_show_if:raw.part_show_if?.trim()||null,part_add_if:raw.part_add_if?.trim()||null,part_valid_if:raw.part_valid_if?.trim()||null, max_length:normalizeMaxLength(raw.type,raw.max_length), gps_auto:raw.gps_auto?1:0,file_path:raw.type==='file'&&!raw.is_virtual?fileFolder(raw.file_path??''):null,image_path:raw.type==="image"?imagePathSetting(raw.image_path??""):null,name: raw.name, label: typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : raw.name,
       is_unique: raw.is_unique ? 1 : 0, is_editable: raw.is_virtual || raw.is_editable === 0 || raw.is_editable === false ? 0 : 1, type: raw.type, required: raw.required ? 1 : 0, pos, is_virtual: raw.is_virtual ? 1 : 0, is_key: raw.is_key ? 1 : 0, is_label: raw.is_label ? 1 : 0,
-      options: ["enum", "enumlist"].includes(raw.type) && typeof raw.options === "string" ? [...new Set(raw.options.split(",").map((o: string) => o.trim()).filter(Boolean))].join(",") : null,
+      options: raw.type === "decimal" ? normalizeDecimalOptions(raw.options) : raw.type === "yesno" ? normalizeBooleanLabels(raw.options) : ["enum", "enumlist"].includes(raw.type) && typeof raw.options === "string" ? [...new Set(raw.options.split(",").map((o: string) => o.trim()).filter(Boolean))].join(",") : null,
       ref_table: ["ref", "list", "enum", "enumlist"].includes(raw.type) ? raw.ref_table || null : null, list_limit: raw.list_limit ?? 5 };
     if(raw.is_unique!==undefined&&![true,false,0,1].includes(raw.is_unique))throw Error("ห้ามซ้ำต้องเป็นค่าเปิดหรือปิด");
     assertUniqueColumn(c);

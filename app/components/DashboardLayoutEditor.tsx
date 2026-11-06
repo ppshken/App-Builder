@@ -1,0 +1,25 @@
+"use client";
+import SearchSelect from './SearchSelect';
+import ColumnDragHandle from './ColumnDragHandle';
+import type {AppView} from '@/lib/views';
+import {displaySettings,type ViewDisplay} from '@/lib/view-display';
+import {DASHBOARD_PANEL_SIZES} from '@/lib/dashboard-layout';
+export default function DashboardLayoutEditor({view,views,busy,onChange,defaultsMode,defaults}:{view:AppView;views:AppView[];busy:boolean;onChange:(value:ViewDisplay)=>void;defaultsMode:boolean;defaults?:ViewDisplay}){
+ const d=displaySettings(view.display,defaults),patch=(p:Partial<ViewDisplay>)=>onChange({...view.display,...p});
+ const candidates=views.filter(v=>v.name!==view.name&&v.position!=='inline'&&['list','table','map','chart','calendar'].includes(v.kind));
+ const entries=[...d.dashboard_views.map(name=>{const found=candidates.find(v=>v.name===name);return {name,label:found?.label||name,table_name:found?.table_name||''};}),...candidates.filter(v=>!d.dashboard_views.includes(v.name))];
+ const move=(name:string,target:string)=>{const from=d.dashboard_views.indexOf(name),to=d.dashboard_views.indexOf(target);if(busy||from<0||to<0||from===to)return;const next=[...d.dashboard_views];next.splice(to,0,...next.splice(from,1));patch({dashboard_views:next});};
+ const choose=(label:string,key:'dashboard_layout'|'dashboard_columns',options:(readonly [string|number,string])[])=><label className="field">{label}<SearchSelect aria-label={label} disabled={busy} value={String(d[key])} onChange={e=>patch({[key]:key==='dashboard_columns'?Number(e.target.value):e.target.value})}>{options.map(([value,title])=><option key={value} value={value}>{title}</option>)}</SearchSelect></label>;
+ const number=(label:string,key:'dashboard_gap'|'dashboard_height'|'dashboard_min_width',min:number,max:number)=><label className="field">{label}<input aria-label={label} type="number" min={min} max={max} disabled={busy} value={d[key]} onChange={e=>patch({[key]:Number(e.target.value)})}/><small className="hint">{min}–{max} px</small></label>;
+ return <div className="dashboard-layout-settings">{choose('การเรียงหน้าแดชบอร์ด','dashboard_layout',[['auto','อัตโนมัติตามพื้นที่หน้าจอ'],['stack','ต่อกันแนวตั้ง'],['grid','ตารางหลายช่อง'],['tabs','แท็บสลับหน้า']])}
+ {['auto','grid'].includes(d.dashboard_layout)&&choose('จำนวนช่องแดชบอร์ดบนคอมพิวเตอร์','dashboard_columns',[[1,'สูงสุด 1 ช่อง'],[2,'สูงสุด 2 ช่อง'],[3,'สูงสุด 3 ช่อง']])}
+ {d.dashboard_layout==='auto'&&number('ความกว้างขั้นต่ำของช่องแดชบอร์ด','dashboard_min_width',240,640)}
+ <label className="display-check"><input type="checkbox" disabled={busy} checked={d.dashboard_mobile_tabs} onChange={e=>patch({dashboard_mobile_tabs:e.target.checked})}/>ใช้แท็บบนมือถือ</label><p className="hint">คำนวณจากพื้นที่ Dashboard จริง รวมเมื่อเปิด Sidebar หรือ Preview · บนมือถือไม่ขยายช่องตามขนาดใหญ่/กว้าง/สูง</p>
+ {!defaultsMode&&<><p className="hint">เลือกแล้ว {d.dashboard_views.length}/8 View · ลากปุ่มด้านหน้าเพื่อจัดลำดับ และเลือกขนาดด้านขวา</p><div className="dashboard-pick-list dashboard-view-picker" data-column-sort role="group" aria-label="เลือก View และจัดลำดับแดชบอร์ด">{entries.map(v=>{const i=d.dashboard_views.indexOf(v.name),selected=i>=0;return <div className={'dashboard-layout-entry'+(selected?' selected':'')} key={v.name} data-column-key={selected?v.name:undefined}>
+ <ColumnDragHandle name={v.name} disabled={busy||!selected} onMove={target=>move(v.name,target)}/>
+ <label className="dashboard-entry-label"><input type="checkbox" aria-label={'เลือก View '+v.label} disabled={busy||!selected&&d.dashboard_views.length>=8} checked={selected} onChange={e=>{const next=e.target.checked?[...d.dashboard_views,v.name]:d.dashboard_views.filter(n=>n!==v.name);patch({dashboard_views:next,dashboard_panel_sizes:Object.fromEntries(Object.entries(d.dashboard_panel_sizes).filter(([name])=>next.includes(name)))});}}/><span className="dashboard-entry-name"><strong title={v.label}>{selected?i+1+'. ':''}{v.label}</strong><small title={v.table_name}>{v.table_name}</small></span></label>
+ {selected&&<><button type="button" className="dashboard-entry-move" disabled={busy||i===0} aria-label={'เลื่อน View '+v.name+' ขึ้น'} onClick={()=>move(v.name,d.dashboard_views[i-1])}>↑</button><button type="button" className="dashboard-entry-move" disabled={busy||i===d.dashboard_views.length-1} aria-label={'เลื่อน View '+v.name+' ลง'} onClick={()=>move(v.name,d.dashboard_views[i+1])}>↓</button><SearchSelect aria-label={'ขนาดช่อง '+v.label} disabled={busy||!['grid','auto'].includes(d.dashboard_layout)} value={d.dashboard_panel_sizes[v.name]||'small'} onChange={e=>patch({dashboard_panel_sizes:{...d.dashboard_panel_sizes,[v.name]:e.target.value as typeof DASHBOARD_PANEL_SIZES[number][0]}})}>{DASHBOARD_PANEL_SIZES.map(([size,title])=><option key={size} value={size}>{title}</option>)}</SearchSelect></>}
+ </div>;})}</div><p className="hint">ขนาดกว้าง/ใหญ่ใช้ 2 คอลัมน์เมื่อมีพื้นที่ ส่วนสูง/ใหญ่ใช้ความสูง 2 แถว</p></>}
+ {number('ระยะห่างหน้าแดชบอร์ด','dashboard_gap',0,40)}{number('ความสูงแต่ละหน้าแดชบอร์ด','dashboard_height',240,1000)}
+ </div>;
+}

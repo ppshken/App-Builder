@@ -4,6 +4,7 @@ import {writeColumns} from '@/lib/shared-table-columns';
 import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
 import {viewFilterOptions} from '@/lib/view-filter-options';
 import {sqlPageWindow} from '@/lib/sql-page-window';
+import {sliceSql} from '@/lib/slice-sql';
 import {saveFormWithImages} from '@/lib/form-images';
 import {readFormImageRequest} from '@/lib/form-image-request';
 import {deleteRecord} from "@/lib/delete-record";
@@ -45,7 +46,8 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     const requestedSort=cols.find(c=>c.name===u.searchParams.get("sort")),search=u.searchParams.get("q")||"";
     const wanted=u.searchParams.get("id");if(wanted&&(!/^[1-9]\d*$/.test(wanted)||!Number.isSafeInteger(Number(wanted))))return bad("รหัสแถวไม่ถูกต้อง");
     const mapScope=mapViewScope(t,u.searchParams.get("map_scope"));
-    const fast=paged&&!mapScope&&!u.searchParams.get("slice")&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
+    const slice=sliceFor(u.searchParams.get("slice"),t),slicePlan=slice?sliceSql(slice.filter_expr,cols,userEmail):null;
+    const fast=paged&&!mapScope&&(!slice||!!slicePlan)&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
     let page=requested,total=0,rawRows:Row[]|undefined;
     if(wanted)rawRows=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).all(Number(wanted)) as Row[];
     // Ref choices only return 500 rows; limit before calculating every row in the table.
@@ -53,7 +55,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
     }
-    if(fast)db.transaction(()=>{const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
+    if(fast)db.transaction(()=>{const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(slicePlan){where+=' AND ('+slicePlan.where+')';args.push(...slicePlan.args);}if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
       if(hasRowRule(t)){const permitted=visibleRawRows(t,db.prepare(`SELECT * FROM "t_${t}" WHERE ${where}`).all(...args) as Row[]).map(r=>r.id);where+=' AND id IN (SELECT value FROM json_each(?))';args.push(JSON.stringify(permitted));}
       total=(db.prepare('SELECT COUNT(*) AS total FROM "t_'+t+'" WHERE '+where).get(...args) as {total:number}).total;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));const key=requestedSort?.name||"id",direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       const window=sqlPageWindow(total,page,size,direction);
@@ -61,7 +63,6 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       if(window.reverse)rawRows.reverse();
     })();
     let rows = readRows(t, cols, now, userEmail, context,rawRows);
-    const slice = sliceFor(u.searchParams.get("slice"), t);
     if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
     if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
     const wantedId = u.searchParams.get("id");

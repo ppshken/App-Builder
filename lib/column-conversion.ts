@@ -1,3 +1,4 @@
+import {normalizeDecimalOptions} from './decimal-format';
 import {isRemoteImageSource} from "./image-source";
 import {assertInternalTable,createExternalReadView} from './external-storage';
 import {currentApplication} from './application-context';
@@ -96,7 +97,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  if(request.mode==="copy"&&(cols.length>=200||cols.some(c=>c.name===target.name)))throw Error("ชื่อคอลัมน์ใหม่ซ้ำหรือมีครบ 200 คอลัมน์แล้ว กรุณาใช้ชื่ออื่น");
  if(request.mode==="replace"&&target.type===source.type&&(request.target.ref_table||null)===(source.ref_table||null))throw Error("กรุณาเลือกชนิดข้อมูลใหม่ หรือเลือกคัดลอกไปคอลัมน์ใหม่");
  for(const field of ["default_expr","valid_if"] as const)if(Object.hasOwn(request.target,field)){if(request.target[field]!=null&&typeof request.target[field]!=="string")throw Error("สูตรต้องเป็นข้อความ");target[field]=request.target[field]?.trim()||null;}
- target.options=["enum","enumlist"].includes(target.type)?typeof request.target.options==="string"?[...new Set(request.target.options.split(",").map(v=>v.trim()).filter(Boolean))].join(","):"":null;
+ target.options=target.type==='decimal'?normalizeDecimalOptions(request.target.options):["enum","enumlist"].includes(target.type)?typeof request.target.options==="string"?[...new Set(request.target.options.split(",").map(v=>v.trim()).filter(Boolean))].join(","):"":null;
  target.ref_table=["ref","list","enum","enumlist"].includes(target.type)?request.target.ref_table||null:null;
  if(target.ref_table){assertIdentifier(target.ref_table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(target.ref_table))throw Error("ไม่พบตารางอ้างอิงปลายทาง");}
  if(target.type==="ref"&&!target.ref_table)throw Error("กรุณาเลือกตารางอ้างอิงปลายทาง");

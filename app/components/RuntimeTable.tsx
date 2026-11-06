@@ -1,4 +1,7 @@
 "use client";
+import {decimalLabel} from '@/lib/decimal-format';
+import {booleanLabel} from '@/lib/boolean-labels';
+
 import ScannableField from './ScannableField';
 import {scanCode} from '@/lib/barcode';
 import {normalizeValue as normalizeScannedValue} from '@/lib/columns';
@@ -100,7 +103,8 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
   useEffect(()=>{setRefreshVisible(false);if(!rowsLoading)return;const timer=setTimeout(()=>setRefreshVisible(true),180);return()=>clearTimeout(timer);},[rowsLoading]);
   const [expressionTables, setExpressionTables] = useState<Record<string, ExpressionTable>>({});
   const expressionOptions = { ...expressionUser, tableName:table, tables: withDraftExpressionRows(expressionTables,draftExpressionScope), refTables: meta ? refTablesOf(meta.columns) : {} };
-  async function fetchExpressionTables(displayOnly=false) { const r = await fetch(`/api/expression-data?table=${encodeURIComponent(table)}${displayOnly ? "&display=1" : ""}`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+  const scopedExpressions=useRef(false),listExpressionTables=useRef<Record<string,ExpressionTable>>({});
+  async function fetchExpressionTables(displayOnly=false,parentIds:number[]=[form?.id||detail?.id||initialRow||draftValues?.id].filter(Boolean).map(Number)) { const r = await fetch(`/api/expression-data?table=${encodeURIComponent(table)}${displayOnly ? "&display=1" : ""}&related_parent_ids=${encodeURIComponent(JSON.stringify(parentIds))}`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
   const requestedRelated=runtimeView?.position==='inline'?initialValues?.__related_scope as {owner?:string;id?:number;column?:string}|undefined:undefined;
   const relatedScope=requestedRelated&&typeof requestedRelated.owner==='string'&&/^[a-z][a-z0-9_]{0,40}$/.test(requestedRelated.owner)&&typeof requestedRelated.column==='string'&&/^[a-z][a-z0-9_]{0,40}$/.test(requestedRelated.column)&&Number.isSafeInteger(requestedRelated.id)&&requestedRelated.id!>0?requestedRelated:undefined;
   const [dashboardLimit,setDashboardLimit]=useState(200),dashboardSentinel=useRef<HTMLDivElement>(null);
@@ -157,14 +161,14 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     setMeta(null); setForm(null); setLoadErr("");setPage(1);setFilters([]);setQ("");setSearchTerm("");
     (async () => {
       const [all, expressionData, visible, viewRegistry, actions, slices] = await Promise.all([
-        runtimeJSON("/api/tables"), runtimeJSON(`/api/expression-data?table=${encodeURIComponent(table)}&display=1`,previewEmail,15000),
+        runtimeJSON("/api/tables"), runtimeJSON(`/api/expression-data?table=${encodeURIComponent(table)}&display=1&related_parent_ids=${encodeURIComponent(JSON.stringify(initialRow?[Number(initialRow)]:[]))}`,previewEmail,15000),
         runtimeJSON("/api/views?runtime=1",previewEmail,15000), runtimeJSON("/api/views"),
         runtimeView ? runtimeJSON("/api/actions") : [], runtimeView ? runtimeJSON("/api/slices") : []
       ]);
       const m = all.find((t: Table) => t.name === table);
       if (!active) return;
       if (!m) { setMeta(false); return; }
-      setAllTables(all);setExpressionTables(expressionData); setRelatedViews(viewRegistry.map((v:AppView)=>({...v,label:visible.views.find((resolved:AppView)=>resolved.name===v.name)?.label||runtimeViewName(v).label}))); setHiddenInline(visible.hidden);
+      listExpressionTables.current=expressionData;scopedExpressions.current=Object.values(expressionData).some((t:any)=>!!t.related_scope);setAllTables(all);setExpressionTables(expressionData); setRelatedViews(viewRegistry.map((v:AppView)=>({...v,label:visible.views.find((resolved:AppView)=>resolved.name===v.name)?.label||runtimeViewName(v).label}))); setHiddenInline(visible.hidden);
       setRowActions(actions.filter((a:RowAction)=>a.table_name===table));
       setSliceColumns(slices.find((s:Slice)=>s.name===runtimeView?.slice_name)?.columns || []);
       setRefs({}); setMeta({...m,columns:m.columns.map((c:Column)=>c.ref_table&&!tableAccess(access,c.ref_table).read?{...c,is_editable:false}:c)});
@@ -177,7 +181,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     const ticket=++rowRequest.current;setRowsLoading(true);
     try {
       const r = await fetch(`/api/data/${table}?q=${encodeURIComponent(searchTerm)}&sort=${sort}&dir=${dir}${dashboardSearch===undefined&&!nestedMode?`&page=${page}&page_size=${pageSize}`:"&all=1"}&filters=${encodeURIComponent(activeFilters)}${sliceQuery}${forceExternal?"&refresh_source=1":""}${mapScope?"&map_scope="+encodeURIComponent(mapScope):""}`, { signal, headers: requestHeaders }), j = await r.json();
-      if (!r.ok) {if(r.status===403&&ticket===rowRequest.current){setRows([]);setTotal(0);setDetail(null);}throw new Error(j.error);} if(ticket!==rowRequest.current)return;setRows(Array.isArray(j)?j:j.rows);setTotal(Array.isArray(j)?j.length:j.total);setPages(Array.isArray(j)?1:j.pages);if(!nestedMode)setPage(Array.isArray(j)?1:j.page); setLoadErr("");
+      if (!r.ok) {if(r.status===403&&ticket===rowRequest.current){setRows([]);setTotal(0);setDetail(null);}throw new Error(j.error);} if(ticket!==rowRequest.current)return;const loadedRows=Array.isArray(j)?j:j.rows;if(scopedExpressions.current){const data=await fetchExpressionTables(true,loadedRows.map((r:any)=>Number(r.id)));if(signal?.aborted||ticket!==rowRequest.current)return;listExpressionTables.current=data;setExpressionTables(data);}setRows(loadedRows);setTotal(Array.isArray(j)?j.length:j.total);setPages(Array.isArray(j)?1:j.pages);if(!nestedMode)setPage(Array.isArray(j)?1:j.page); setLoadErr("");
     } catch (e) { if (!signal?.aborted&&ticket===rowRequest.current) setLoadErr(e instanceof Error ? e.message : "โหลดข้อมูลไม่ได้ กรุณาลองใหม่"); }
     finally {if(ticket===rowRequest.current)setRowsLoading(false);}
   }, [mapScope,table, searchTerm, sort, dir, previewEmail, sliceQuery,nestedMode?1:page,nestedMode?0:pageSize,activeFilters,dashboardSearch===undefined,nestedMode]);
@@ -196,7 +200,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     if (!meta) return;
     const out: Record<string, any[]> = {};
     await Promise.all(meta.columns.filter(c=>c.type === "ref" && c.ref_table && tableAccess(access,c.ref_table).read).map(async c=>{
-      out[c.name] = await runtimeJSON(`/api/data/${c.ref_table}?sort=id&dir=asc`,previewEmail,15000);
+      const response=await fetch(`/api/data/${c.ref_table}?sort=id&dir=asc`,{headers:requestHeaders,cache:"no-store"}),data=await response.json();if(!response.ok)throw Error(data.error);out[c.name]=data;
       const linked=relatedForm&&c.name===parentLink?draftValues?.[c.name]:undefined;if(linked&&!out[c.name].some(row=>String(row.id)===String(linked))){const response=await fetch('/api/data/'+c.ref_table+'?id='+encodeURIComponent(linked),{headers:requestHeaders});const selected=await response.json();if(response.ok&&Array.isArray(selected))out[c.name]=[...out[c.name],...selected];}
     }));
     setRefs(out);
@@ -208,7 +212,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     editOrigin.current = null;leaving.current=false;
     setBusy(true); setErr(""); setAttempted(false);
     try {
-      const [defaults,expressionData] = await Promise.all([draftValues?.id ? Promise.resolve({values:{}}) : fetch(`/api/data/${table}?defaults=1`, { headers: requestHeaders }).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.error);return j;}),fetchExpressionTables(),loadFormRefs()]);
+      const [defaults,expressionData] = await Promise.all([draftValues?.id ? Promise.resolve({values:{}}) : fetch(`/api/data/${table}?defaults=1`, { headers: requestHeaders }).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.error);return j;}),fetchExpressionTables(false,draftValues?.id?[Number(draftValues.id)]:[]),loadFormRefs()]);
       const j=defaults;setExpressionTables(expressionData);
       const supplied={...Object.fromEntries(Object.entries(initialValues||{}).filter(([name])=>meta&&meta.columns.some(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0))),...(draftValues||{})},now=new Date();const opened=draftValues?.id?{...j.values,...supplied}:contextualFormDefaults(meta.columns,j.values,supplied,now,previewEmail,{...expressionUser,tables:withDraftExpressionRows(expressionData,draftExpressionScope)});setFormTime(now); setForm(opened); setInitialForm(JSON.stringify(opened));setReopenPending(false);setSaveConflict(false); setSaved("");return true;
     } catch (e) { setErr((reopening?"บันทึกข้อมูลแล้ว แต่เปิดฟอร์มใหม่ไม่ได้ · ":"")+(e instanceof Error ? e.message : "เปิดฟอร์มไม่ได้ กรุณาตรวจสูตรค่าเริ่มต้น"));return false; }
@@ -265,7 +269,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     if(reopenPending){setReopenPending(false);setForm(null);setErr("");onReturn?.("บันทึกข้อมูลแล้ว");return;}
     if (!leaving.current && (JSON.stringify(form) !== initialForm || Object.values(signaturePending).some(Boolean))) { setDiscard(true); return; }
     if((onDraftSaved||runtimeView?.kind==="form"&&!editOrigin.current)&&onReturn){leaving.current=true;onReturn();return;}
-    setForm(null); setErr(""); if (editOrigin.current) { setDetail(editOrigin.current); editOrigin.current = null; } else if (runtimeView?.kind === "form") onReturn?.();
+    setForm(null);setExpressionTables(listExpressionTables.current); setErr(""); if (editOrigin.current) { setDetail(editOrigin.current); editOrigin.current = null; } else if (runtimeView?.kind === "form") onReturn?.();
   };
   const editRow = async (row: any) => {
     if (!meta) return;
@@ -273,13 +277,13 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     if (onNavigate && formView && runtimeView?.kind !== "form") { onNavigate(formView, row.id); return; }
     editOrigin.current = detail;leaving.current=false;
     setBusy(true); setErr("");
-    try { const [expressionData]=await Promise.all([fetchExpressionTables(),loadFormRefs()]);setExpressionTables(expressionData);
+    try { const [expressionData]=await Promise.all([fetchExpressionTables(false,[Number(row.id)]),loadFormRefs()]);setExpressionTables(expressionData);
     const value = Object.fromEntries(["id", "__version", ...meta.columns.filter(c => !c.is_virtual).map(c => c.name)].map(k => [k, row[k]]));
     setSaveConflict(false);setErr(""); setAttempted(false); setFormTime(new Date()); setForm(value); setInitialForm(JSON.stringify(value)); setDetail(null); setSaved("");
     } catch(e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   useEffect(() => { if (runtimeView) { setSort(runtimeView.sort_column); setDir(runtimeView.sort_dir); } }, [runtimeView?.name, runtimeView?.sort_column, runtimeView?.sort_dir]);
-  useEffect(()=>{if(!realtimeRevision||form)return;let active=true;fetchExpressionTables(true).then(data=>{if(active)setExpressionTables(data);}).catch(()=>{});return()=>{active=false;};},[realtimeRevision]);
+  useEffect(()=>{if(!realtimeRevision||form)return;let active=true;fetchExpressionTables(true,detail?.id?[Number(detail.id)]:rows.map((r:any)=>Number(r.id))).then(data=>{if(active)setExpressionTables(data);}).catch(()=>{});return()=>{active=false;};},[realtimeRevision]);
   useEffect(()=>{if(!realtimeRevision||!detail?.id||form||leaving.current||runtimeView?.kind==='detail'&&initialRow)return;const controller=new AbortController();fetch('/api/data/'+table+'?id='+detail.id+sliceQuery,{signal:controller.signal,headers:requestHeaders}).then(async r=>{const fresh=await r.json();if(!r.ok){if(r.status===403)setDetail(null);return;}if(!controller.signal.aborted)setDetail(fresh[0]||null);}).catch(()=>{});return()=>controller.abort();},[realtimeRevision]);
   useEffect(() => {
     if (!initialRow || !meta || leaving.current) return;
@@ -295,7 +299,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
   useEffect(() => { if (runtimeView?.kind === "detail" && !initialRow && rows.length && !initialDetailOpened.current) { initialDetailOpened.current = true; setDetail(rows[0]); } }, [runtimeView?.kind, initialRow, rows]);
   const ready=meta===false||!!meta&&(runtimeView?.kind==="form"?!!form||!!err||!!loadErr:initialRow||runtimeView?.kind==="detail"?!!detail||!!loadErr||(!initialRow&&!rowsLoading&&rows.length===0):!rowsLoading);
   useEffect(()=>{if(ready)onReady?.();},[ready,onReady]);
-  const closeDetail = () => { if (busy) return; if(runtimeView?.kind==="detail"&&onReturn){onReturn();return;}setDetail(null); };
+  const closeDetail = () => { if (busy) return; if(runtimeView?.kind==="detail"&&onReturn){onReturn();return;}setDetail(null);setExpressionTables(listExpressionTables.current); };
   // A child editor never renders the table list while metadata/defaults load.
   if (onDraftSaved && !form && !loadErr && !err && meta!==false) return <div className="runtime-navigation-loading"><AppLoading compact/></div>;
   if (onDraftSaved && !form) return <RuntimeScreen className="runtime-child-screen" title={runtimeView?.label||"รายการลูก"} busy={busy} onClose={()=>onReturn?.()}>
@@ -318,13 +322,13 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
   const formCols = [...configuredFormCols, ...meta.columns.filter(c => state && state.visible[c.name] && (state.required[c.name] || state.validation[c.name] || state.errors[c.name]) && !configuredFormCols.some(f => f.name === c.name))];
   const relatedDisplay = displaySettings((runtimeView ? detailView : relatedViews.find(v=>v.table_name===table && v.kind==="detail" && v.position==="ref"))?.display).related;
   const formRelatedDisplay = {...relatedDisplay,...formDisplay.related};
-  async function refreshParentDetail(){if(!detail?.id)return;try{const response=await fetch('/api/data/'+table+'?id='+detail.id,{headers:requestHeaders}),rows=await response.json();if(!response.ok)throw Error(rows.error);if(rows.length)setDetail(rows[0]);else setDetail(null);}catch(e){setErr('บันทึกแล้ว แต่โหลดรายละเอียดล่าสุดไม่ได้ · '+(e as Error).message);}}
+  async function refreshParentDetail(){if(!detail?.id)return;try{const response=await fetch('/api/data/'+table+'?id='+detail.id,{headers:requestHeaders}),rows=await response.json();if(!response.ok)throw Error(rows.error);if(rows.length){if(scopedExpressions.current)setExpressionTables(await fetchExpressionTables(true,[Number(detail.id)]));setDetail(rows[0]);}else setDetail(null);}catch(e){setErr('บันทึกแล้ว แต่โหลดรายละเอียดล่าสุดไม่ได้ · '+(e as Error).message);}}
   const addRelated=(r:RelatedList)=>{if(!detail)return;const column=allTables.find(t=>t.name===r.table)?.columns.find(c=>c.name===r.column);if(!column||!tableAccess(access,r.table).create||column.is_part_of&&(!rights.update||detail.__permissions?.update===false))return;try{if(column.is_part_of&&column.part_add_if?.trim()&&!asBoolean(evaluateExpression(column.part_add_if,detail,{...expressionOptions,userEmail:previewEmail})))return;}catch{return;}return ()=>setChildAdd({table:r.table,column:r.column,id:detail.id,part:!!column.is_part_of});};
   const coverColumn = detailDisplay.detail_cover_column === "__auto__" ? detailCols.find(c=>c.type==="image") : sourceCols.find(c=>c.type==="image" && c.name===detailDisplay.detail_cover_column);
   const coverSrc = detailDisplay.detail_image_mode === "cover" && coverColumn && detail?.[coverColumn.name] && !detail.__errors?.[coverColumn.name] ? detail[coverColumn.name] : "";
   const renderedDetailCols = detailCols.filter(c=>!(coverSrc && c.name===coverColumn?.name) && !((detailDisplay.detail_fields[c.name]?.hide_empty??detailDisplay.detail_hide_empty) && !detail?.__errors?.[c.name] && detailEmpty(detail?.[c.name])));
   const detailPageStyle = { "--detail-padding": `${detailDisplay.detail_padding}px`, "--detail-spacing": `${detailDisplay.detail_row_spacing}px`, "--detail-line-height": detailDisplay.detail_line_height, "--detail-cover-height": `${detailDisplay.detail_cover_height}px`, "--detail-image-radius": `${detailDisplay.detail_image_radius}px` } as React.CSSProperties;
-  const show = (c: Column, row: any) => ["price","percent","rating"].includes(c.type) ? valueLabel(c.type,row[c.name]) : c.type === "date" ? dateLabel(row[c.name]) : c.type === "datetime" ? dateTimeLabel(row[c.name]) : c.type === "image" ? row[c.name] ? "รูปภาพ" : "" : c.type === "list" ? `${row[`${c.name}__labels`]?.join(" · ") || (row[c.name] || []).slice(0,c.list_limit || undefined).join(" · ")}${(c.list_limit && row[c.name]?.length > c.list_limit) ? ` · อีก ${row[c.name].length-c.list_limit} รายการ` : ""}` : c.type === "enumlist" ? (row[c.name] || []).map((v: string) => enumListLabel(c, v, expressionOptions)).join(" · ") : c.type === "ref" ? row[`${c.name}__label`] ?? refs[c.name]?.find(r => r.id === row[c.name])?.__label ?? "" : c.type === "yesno" ? row[c.name] == null ? "" : row[c.name] ? "ใช่" : "ไม่ใช่" : row[c.name] ?? "";
+  const show = (c: Column, row: any) => c.type === "decimal" ? decimalLabel(c,row[c.name]) : ["price","percent","rating"].includes(c.type) ? valueLabel(c.type,row[c.name]) : c.type === "date" ? dateLabel(row[c.name]) : c.type === "datetime" ? dateTimeLabel(row[c.name]) : c.type === "image" ? row[c.name] ? "รูปภาพ" : "" : c.type === "list" ? `${row[`${c.name}__labels`]?.join(" · ") || (row[c.name] || []).slice(0,c.list_limit || undefined).join(" · ")}${(c.list_limit && row[c.name]?.length > c.list_limit) ? ` · อีก ${row[c.name].length-c.list_limit} รายการ` : ""}` : c.type === "enumlist" ? (row[c.name] || []).map((v: string) => enumListLabel(c, v, expressionOptions)).join(" · ") : c.type === "ref" ? row[`${c.name}__label`] ?? refs[c.name]?.find(r => r.id === row[c.name])?.__label ?? "" : c.type === "yesno" ? booleanLabel(c,row[c.name]) : row[c.name] ?? "";
   const baseDisplay = (c: Column, row: any) => { const value = show(c, row); if(["user","price","percent","rating","color","signature","file","phone","email","url"].includes(c.type))return <AttachmentValue column={c} value={row[c.name]}/>; if (c.type === "longtext") return <span className="longtext-value">{c.name===labelTextColumn(meta.columns)?<RecordLabel text={value||"—"} image={row.__image}/>:value || "—"}</span>; if (c.type === "image" && row[c.name]) return <PreviewImage className="data-image" src={row[c.name]} alt={c.label} loading="lazy"/>; if(c.type==="ref")return <RecordLabel text={value||"—"} image={row[`${c.name}__image`]}/>;if(c.type==="enum"&&c.ref_table)return <RecordLabel text={enumListLabel(c,String(row[c.name]??""),expressionOptions)||"—"} image={enumListImage(c,String(row[c.name]??""),expressionOptions)}/>;if(c.type==="list"&&!c.ref_table)return <span className="row-label-list enumlist-value-list">{(Array.isArray(row[c.name])?row[c.name]:[]).map((v:unknown,i:number)=><RecordLabel key={i} text={String(v)}/>)}</span>;if(c.type==="enumlist")return <span className="row-label-list enumlist-value-list">{(row[c.name]||[]).map((v:string)=><RecordLabel key={v} text={enumListLabel(c,v,expressionOptions)} image={enumListImage(c,v,expressionOptions)}/>)}</span>;if(c.name===labelTextColumn(meta.columns)&&c.type!=="image")return <RecordLabel text={value===""?"—":value} image={row.__image}/>;return value === "" ? "—" : value; };
   const nestedTree=nestedMode?groupTree(rows,nestedLevels,(row,col)=>row[col],(row,col)=>{const c=meta.columns.find(c=>c.name===col);return String(c?show(c,row):row[col]??'ไม่ระบุ');},col=>meta.columns.find(c=>c.name===col)?.type!=='ref'):[];
   const activeGroup=groupAtPath(nestedTree,groupPath),validGroupPath=activeGroup?groupPath:[];
@@ -386,7 +390,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
       return scannable(<ChoiceInput onCreate={c.type==="ref"&&c.ref_allow_add&&c.ref_table&&!common.disabled&&tableAccess(access,c.ref_table).create&&relatedViews.some(v=>v.table_name===c.ref_table&&v.kind==="form"&&v.position==="ref"&&!hiddenInline.includes(v.name))?()=>{createdReference.current=null;setRefCreate(c);}:undefined} id={id} label={c.label} options={options} selected={selected} multiple={c.type==="enumlist"} mode={c.input_mode||"dropdown"} limit={c.button_limit??5} disabled={common.disabled} describedBy={common["aria-describedby"]} invalid={common["aria-invalid"]} required={common["aria-required"]} onChange={values=>set(c.type==="enumlist"?values:values[0]??null)}/>);
     }
     if(c.type==="duration")return <input {...common} type="text" inputMode="text" placeholder="HH:MM:SS เช่น 01:30:00" value={value??""} onChange={e=>set(e.target.value)}/>;
-    if (c.type === "yesno") return <input {...common} type="checkbox" checked={!!value} onChange={e => set(e.target.checked)} />;
+    if (c.type === "yesno") return <label className="row"><input {...common} type="checkbox" checked={!!value} onChange={e => set(e.target.checked)} /><span>{booleanLabel(c,!!value)}</span></label>;
     if (c.type === "longtext" || (runtimeView && c.type === "text" && formDisplay.form_fields[c.name]?.multiline)) return <textarea {...common} maxLength={c.max_length || undefined} rows={4} placeholder={formDisplay.form_fields[c.name]?.placeholder} value={value ?? ""} onChange={e => set(e.target.value)}/>;
     return scannable(<input {...common} maxLength={["text","longtext"].includes(c.type)?c.max_length || undefined:({phone:64,email:254,url:2048} as Record<string,number>)[c.type]} placeholder={c.auto_number ? "สร้างเลขอัตโนมัติเมื่อบันทึก" : runtimeView ? formDisplay.form_fields[c.name]?.placeholder : undefined} type={["number", "decimal"].includes(c.type) ? "number" : c.type === "phone" ? "tel" : c.type === "email" ? "email" : c.type === "url" ? "url" : c.type === "time" ? "time" : c.type === "date" ? "date" : c.type === "datetime" ? "datetime-local" : "text"} autoCapitalize={["phone","email","url"].includes(c.type)?"none":undefined} spellCheck={["phone","email","url"].includes(c.type)?false:undefined} inputMode={c.type === "decimal" ? "decimal" : c.type === "phone" ? "tel" : c.type === "email" ? "email" : c.type === "url" ? "url" : undefined} step={c.type === "time" ? "1" : ["number", "decimal"].includes(c.type) || c.type === "datetime" ? "any" : undefined} value={c.type === "datetime" ? dateTimeInput(value) : value ?? ""} onChange={e => set(e.target.value)} />);
   };
@@ -422,7 +426,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
   const actionButtons=(row:any,position:"primary"|"prominent"|"inline"="inline")=><div className={"runtime-row-actions action-position-"+position}>{rowActions.filter(a=>(a.appearance?.position||"inline")===position&&actionAllowed(a,row)).map(a=><ActionButton key={a.name} action={a} disabled={busy} onClick={()=>triggerAction(a,row)}/>)}</div>;
   return <div className={runtimeView ? `runtime-content runtime-kind-${runtimeView.kind} table-density-${listDisplay.table_density} ${listDisplay.table_wrap ? "table-wrap" : ""}` : "builder-data-content"}>
     <div hidden={!!runtimeView && !!(form || detail)}>
-    {excelOpen&&<ExcelTransfer table={table} rights={rights} columns={[{name:"id",label:"รหัสภายใน"},...meta.columns]} onClose={()=>setExcelOpen(false)} onImported={message=>{setExcelOpen(false);setSaved(message);clearRuntimeCache("data");load();onDataChange?.();}}/>}<div className="page-heading"><div><div className="eyebrow">{runtimeView ? "แอปของฉัน" : "ข้อมูลตาราง"}</div><h1>{runtimeView?.label || meta.label}</h1><p>ดูข้อมูล ค้นหา และเพิ่มรายการได้จากหน้านี้</p></div>{!runtimeView&&(access.builder||access.owner)&&rights.delete&&<button className="clear-data-button" disabled={busy} onClick={()=>{setClearOpen(true);setClearConfirmation("");setClearError("");}}><Icon name="trash"/>เคลียร์ข้อมูลทั้งหมด</button>}{rights.create&&<button className={runtimeView ? "primary runtime-add" : "primary"} aria-label="เพิ่มข้อมูล" disabled={busy} onClick={()=>add()}><Icon name="plus"/><span>เพิ่มข้อมูล</span></button>}</div>
+    {excelOpen&&<ExcelTransfer table={table} rights={rights} columns={[{name:"id",label:"รหัสภายใน"},...sourceCols]} scope={new URLSearchParams({...(runtimeView?.slice_name?{slice:runtimeView.slice_name}:{}),q:searchTerm,filters:activeFilters,...(mapScope?{map_scope:mapScope}:{})}).toString()} onClose={()=>setExcelOpen(false)} onImported={message=>{setExcelOpen(false);setSaved(message);clearRuntimeCache("data");load();onDataChange?.();}}/>}<div className="page-heading"><div><div className="eyebrow">{runtimeView ? "แอปของฉัน" : "ข้อมูลตาราง"}</div><h1>{runtimeView?.label || meta.label}</h1><p>ดูข้อมูล ค้นหา และเพิ่มรายการได้จากหน้านี้</p></div>{!runtimeView&&(access.builder||access.owner)&&rights.delete&&<button className="clear-data-button" disabled={busy} onClick={()=>{setClearOpen(true);setClearConfirmation("");setClearError("");}}><Icon name="trash"/>เคลียร์ข้อมูลทั้งหมด</button>}{rights.create&&<button className={runtimeView ? "primary runtime-add" : "primary"} aria-label="เพิ่มข้อมูล" disabled={busy} onClick={()=>add()}><Icon name="plus"/><span>เพิ่มข้อมูล</span></button>}</div>
     
     {!runtimeView && <TableTabs table={table} selected="data"/>}
     {busy && !rowsLoading && !form && !detail && !pendingAction && deletion===null && <AppLoading compact/>}

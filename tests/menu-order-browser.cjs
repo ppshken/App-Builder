@@ -1,0 +1,19 @@
+const {chromium,expect}=require('@playwright/test'),assert=require('node:assert/strict');const base=process.env.NOCODE_TEST_URL;
+if(!base||!process.env.NOCODE_TEST_DB?.includes('integration-'))throw Error('Isolated runner required');
+async function api(p,m='GET',b,status=200){const r=await fetch(base+p,{method:m,headers:{'Content-Type':'application/json'},body:b===undefined?undefined:JSON.stringify(b)}),j=await r.json();assert.equal(r.status,status,JSON.stringify(j));return j;}
+(async()=>{
+ await api('/api/tables','POST',{name:'menu_records',label:'Menu records',columns:[{name:'title',label:'Title',type:'text'}]});
+ for(const [name,label,group,pos] of [['menu_one','Menu One','Operations',10],['menu_two','Menu Two','Operations',20],['menu_three','Menu Three','Settings',30]])await api('/api/views','POST',{name,label,table_name:'menu_records',kind:'table',position:'menu',menu_group:group,pos,columns:[],sort_column:'id',sort_dir:'desc'});
+ const browser=await chromium.launch({channel:process.env.NOCODE_BROWSER_CHANNEL||'msedge',headless:true});try{const page=await browser.newPage({viewport:{width:1440,height:1000}});await page.goto(base+'/views?view=menu_one');await page.getByRole('button',{name:'จัดลำดับ Menu Navigation',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'จัดลำดับ เมนูของแอป',exact:true});await expect(dialog).toBeVisible();await expect(dialog.getByRole('heading',{name:'Operations',exact:true})).toBeVisible();
+ const from=dialog.locator('[data-column-key="menu_one"] .column-drag-handle'),to=dialog.locator('[data-column-key="menu_two"]');const a=await from.boundingBox(),b=await to.boundingBox();assert.ok(a&&b);await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(b.x+30,b.y+b.height-2,{steps:15});await page.mouse.up();
+ await expect.poll(()=>dialog.locator('[data-column-key]').evaluateAll(nodes=>nodes.map(n=>n.dataset.columnKey))).toEqual(['menu_two','menu_one','menu_three']);
+ await dialog.getByRole('button',{name:'บันทึกลำดับ',exact:true}).click();await expect(dialog).not.toBeVisible();let views=await api('/api/views');assert.deepEqual(views.filter(v=>v.position==='menu').map(v=>[v.name,v.pos]),[['menu_two',1],['menu_one',2],['menu_three',3]]);
+ await expect(page.locator('#view-order')).toHaveValue('2');await expect(page.locator('.designer-menu-subgroup h3').filter({hasText:'Operations'})).toBeVisible();
+ await page.getByRole('button',{name:'จัดลำดับ Menu Navigation',exact:true}).click();await dialog.getByRole('button',{name:'เลื่อนกลุ่ม Settings ขึ้น',exact:true}).click();await dialog.getByRole('button',{name:'ยกเลิก',exact:true}).click();assert.deepEqual((await api('/api/views')).filter(v=>v.position==='menu').map(v=>v.name),['menu_two','menu_one','menu_three']);
+ await api('/api/views','PUT',{...views.find(v=>v.name==='menu_three'),pos:50});await api('/api/views','POST',{op:'reorder',position:'menu',names:['menu_three','menu_one','menu_two'],base:views.filter(v=>v.position==='menu')},409);
+ await page.reload();await page.getByRole('button',{name:'จัดลำดับ Menu Navigation',exact:true}).click();await dialog.getByRole('button',{name:'เลื่อนกลุ่ม Settings ขึ้น',exact:true}).click();await dialog.getByRole('button',{name:'บันทึกลำดับ',exact:true}).click();await expect(dialog).not.toBeVisible();views=await api('/api/views');assert.deepEqual(views.filter(v=>v.position==='menu').map(v=>[v.name,v.pos]),[['menu_three',1],['menu_two',2],['menu_one',3]]);
+ await page.goto(base+'/run?view=menu_one');await expect(page.locator('.runtime-menu-group h3').filter({hasText:'Operations'})).toBeAttached();
+ console.log('PASS menu ordering: pointer drag, group movement, position sync, cancel, persisted reload, stale conflict and group headings');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -156,3 +156,119 @@ test('SELECT projected rows still enforce row and table permissions',()=>inspect
  });
  runAuthorized(user,{owner:false,builder:false,tables:{},actions:[]},()=>assert.throws(()=>evaluateExpression(inspectionCount,{inspection_id:7},expressionContext(now,'',db)),/สิทธิ์/));
 }));
+
+test('Related reads only current-parent children in large tables while retaining per-parent and unscoped limits',()=>fixture(db=>{
+ db.exec("CREATE INDEX _ref_product_image_product_id ON t_product_image(product_id);WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
+ const ctx=expressionContext(now,'',db),opts={...ctx,tableName:'products'};
+ assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:7},opts),1);
+ assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:999},opts),0);
+ assert.equal(evaluateExpression('COUNT([Related_product_image])',{},opts),0);
+ assert.throws(()=>evaluateExpression('COUNT([Related_product_image])',{id:8},opts),/10,000/);
+ assert.throws(()=>ctx.getTable('product_image'),/10,000/);
+ const plan=db.prepare('EXPLAIN QUERY PLAN SELECT * FROM t_product_image WHERE product_id=? ORDER BY id LIMIT 10001').all(7);assert.ok(plan.some(x=>x.detail.includes('_ref_product_image_product_id')));
+}));
+
+test('Scoped Related snapshots preserve permission filtering, empty parents and reject use outside their coverage',()=>fixture(db=>{
+ db.exec("WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
+ const cols=readColumns(db,'products'),snapshot=expressionContext(now,'',db).snapshot(['COUNT([Related_product_image])'],cols,false,{ownerTable:'products',parentIds:[7]});
+ assert.equal(snapshot.product_image.rows.length,1);assert.deepEqual(snapshot.product_image.related_scope,{ownerTable:'products',parentIds:[7],refColumns:['product_id']});
+ assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:7},{tableName:'products',tables:snapshot}),1);
+ assert.throws(()=>evaluateExpression('COUNT([Related_product_image])',{id:8},{tableName:'products',tables:snapshot}),/ครอบคลุม/);
+ const empty=expressionContext(now,'',db).snapshot(['COUNT([Related_product_image])'],cols,false,{ownerTable:'products',parentIds:[]});assert.equal(empty.product_image.rows.length,0);assert.equal(evaluateExpression('COUNT([Related_product_image])',{}, {tableName:'products',tables:empty}),0);
+ db.exec("INSERT INTO _roles(name,label,builder) VALUES('scoped_staff','Staff',0);INSERT INTO _role_row_rules VALUES('scoped_staff','product_image','read','[id] = 2')");
+ const rights={read:true,create:false,update:false,delete:false},user={id:2,name:'Staff',email:'staff@example.test',role:'scoped_staff'};
+ runAuthorized(user,{owner:false,builder:false,tables:{products:rights,product_image:rights},actions:[]},()=>{const snap=expressionContext(now,'',db).snapshot(['COUNT([Related_product_image])'],cols,false,{ownerTable:'products',parentIds:[7]});assert.equal(snap.product_image.rows.length,0);});
+}));
+
+test('Related ORDERBY loads scoped sort fields and mixed whole-table snapshots never silently truncate',()=>fixture(db=>{
+ const cols=readColumns(db,'products'),scope={ownerTable:'products',parentIds:[7]},formula='ORDERBY([Related_product_image], [image], TRUE)';
+ const snap=expressionContext(now,'',db).snapshot([formula],cols,false,scope);
+ assert.ok(snap.product_image.columns.includes('image'));assert.equal(snap.product_image.rows.length,1);assert.deepEqual(evaluateExpression(formula,{id:7},{tableName:'products',tables:snap}),['1']);
+ assert.throws(()=>evaluateExpression('COUNT(SELECT(product_image[id], TRUE))',{id:7},{tableName:'products',tables:snap}),/เฉพาะ Related/);
+ const mixed=expressionContext(now,'',db).snapshot(['[Related_product_image][image]','product_image[parent_name]'],cols,false,scope);assert.equal(mixed.product_image.rows.length,2);assert.equal(mixed.product_image.related_scope,undefined);assert.ok(mixed.product_image.columns.includes('image'));assert.ok(mixed.product_image.columns.includes('parent_name'));
+ db.exec("WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");assert.deepEqual(evaluateExpression(formula,{id:7},{...expressionContext(now,'',db),tableName:'products'}),['1']);
+}));
+
+test('Scoped Related cache is request-local and bounded across many parent rows',()=>fixture(db=>{
+ const original=db.prepare;let reads=0;db.prepare=function(sql){if(sql.includes('json_each(?)'))reads++;return original.call(this,sql);};
+ try{const ctx={...expressionContext(now,'',db),tableName:'products'},formula='COUNT([Related_product_image])';assert.equal(evaluateExpression(formula,{id:7},ctx),1);const first=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,first);for(let id=100;id<400;id++)assert.equal(evaluateExpression(formula,{id},ctx),0);const before=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,before+1);}finally{db.prepare=original;}
+}));
+
+test('SQL-scoped Related retains explicit Ref disambiguation and separates caches for each link',()=>fixture(db=>{
+ db.exec("ALTER TABLE t_product_image ADD COLUMN other_id INTEGER;INSERT INTO _columns(table_name,name,label,type,ref_table) VALUES('product_image','other_id','Other','ref','products');UPDATE t_product_image SET other_id=CASE id WHEN 1 THEN 8 ELSE 7 END");
+ const ctx={...expressionContext(now,'',db),tableName:'products'};assert.throws(()=>evaluateExpression('[Related_product_image]',{id:7},ctx),/หลายช่อง/);assert.deepEqual(evaluateExpression('[Related_product_image:product_id]',{id:7},ctx),['1']);assert.deepEqual(evaluateExpression('[Related_product_image:other_id]',{id:7},ctx),['2']);
+ const snap=expressionContext(now,'',db).snapshot(['[Related_product_image:product_id]','[Related_product_image:other_id]'],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});assert.equal(snap.product_image.rows.length,2);assert.deepEqual(evaluateExpression('[Related_product_image:other_id]',{id:7},{tables:snap,tableName:'products'}),['2']);
+}));
+
+test('SELECT accepts Related projections, scopes child conditions, outer row, distinct and nested owners',()=>{
+ const opts={...context,tables:{...context.tables,products:{columns:['id'],key:'id',labels:{},rows:[{id:7},{id:8}]}}};
+ assert.equal(evaluateExpression('SUM(SELECT([Related_product_image][amount], [amount] > 3))',{id:7},opts),4);
+ assert.deepEqual(evaluateExpression('SELECT([Related_product_image], [amount] >= 4)',{id:7},opts),['2']);
+ assert.deepEqual(evaluateExpression('SELECT([Related_product_image][amount], [product_id] = [_THISROW].[id])',{id:7},opts),['3','4']);
+ assert.deepEqual(evaluateExpression('SELECT([Related_product_image][amount], TRUE)',{},opts),[]);
+ assert.deepEqual(evaluateExpression('SELECT(products[id], COUNT(SELECT([Related_product_image][amount], [amount] > 3)) > 0)',{},opts),['7','8']);
+ const source='SELECT([Related_product_image][amount], [amount] > [_THISROW].[minimum])';assert.deepEqual(new Set(references(source)),new Set(['id','minimum']));assert.ok(tableReferences(source).some(r=>r.table==='product_image'&&r.column==='amount'));assert.equal(renameReference(source,'amount','score','product_image'),'SELECT([Related_product_image][score], [score] > [_THISROW].[minimum])');
+ assert.deepEqual(evaluateExpression('SELECT([Related_product_image][amount], TRUE, TRUE)',{id:7},opts),['3','4']);assert.deepEqual(evaluateExpression('SELECT([Related_product_image][amount], TRUE)',{id:7},{...opts,referenceListTable:'product_image'}),['1','2']);
+});
+
+test('Related SELECT and parent-bound table SELECT read only current children in large tables',()=>fixture(db=>{
+ db.exec("CREATE INDEX _ref_product_image_product_id ON t_product_image(product_id);WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
+ const opts={...expressionContext(now,'',db),tableName:'products'},formula='COUNT(SELECT(product_image[id], AND([product_id] = [_THISROW].[id], [id] = 1)))';
+ assert.equal(evaluateExpression('COUNT(SELECT([Related_product_image], [id] = 1))',{id:7},opts),1);
+ assert.equal(evaluateExpression(formula,{id:7},opts),1);
+ const snap=expressionContext(now,'',db).snapshot([formula],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});assert.equal(snap.product_image.rows.length,1);assert.equal(evaluateExpression(formula,{id:7},{tableName:'products',tables:snap}),1);
+ assert.throws(()=>evaluateExpression('COUNT(SELECT(product_image[id], OR([product_id] = [_THISROW].[id], TRUE)))',{id:7},opts),/10,000/);
+}));
+
+test('SELECT Related condition completions, schema validation and saved formula dependencies use child columns',()=>fixture(db=>{
+ const source='SELECT([Related_product_image][image], [product_id] = [_THISROW].[id])',cols=readColumns(db,'products'),schema={products:cols,product_image:readColumns(db,'product_image')};
+ assert.deepEqual(formulaErrors([...cols,{name:'filtered',label:'Filtered',type:'list',is_virtual:1,virtual_expr:source}],schema,'products'),{});
+ const prefix='SELECT([Related_product_image][image], [prod',items=formulaCompletions(prefix,prefix.length,cols,[{name:'product_image',columns:schema.product_image}]).items;assert.ok(items.some(i=>i.label==='product_id'));assert.ok(!items.some(i=>i.label==='cover'));
+ assert.equal(evaluateExpression('COUNT(SELECT([Related_product_image], FALSE))',{id:7},{...expressionContext(now,'',db),tableName:'products'}),0);
+}));
+
+test('Parent SELECT keeps blank/orphan semantics and snapshot completeness separate from Related',()=>fixture(db=>{
+ db.exec("INSERT INTO t_product_image(id,product_id,image) VALUES(3,NULL,'orphan');WITH RECURSIVE n(x) AS (SELECT 4 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
+ const formula='SELECT(product_image[id], [product_id] = [_THISROW].[id])',opts={...expressionContext(now,'',db),tableName:'products'};assert.deepEqual(evaluateExpression(formula,{id:null},opts),['3']);assert.deepEqual(evaluateExpression('SELECT([Related_product_image], TRUE)',{},opts),[]);
+ const snap=expressionContext(now,'',db).snapshot([formula],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[]});assert.equal(snap.product_image.rows.length,1);assert.deepEqual(evaluateExpression(formula,{id:null}, {tables:snap,tableName:'products'}),['3']);assert.deepEqual(snap.product_image.related_scope.blankRefColumns,['product_id']);
+ const deferred=expressionContext(now,'',db).snapshot([formula],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[],deferBlank:true});assert.equal(deferred.product_image.rows.length,0);assert.throws(()=>evaluateExpression(formula,{id:null}, {tables:deferred,tableName:'products'}),/เฉพาะ Related/);
+}));
+
+test('Parent SELECT does not push OR/NOT predicates, non-Ref fields or nested outer scopes and preserves residual filters',()=>fixture(db=>{
+ const opts={...expressionContext(now,'',db),tableName:'products'};
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], AND([product_id] = [_THISROW].[id], OR([id] = 1, [id] = 2)))',{id:7},opts),['1']);
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], [product_id] = [_THISROW].[id])',{id:'7'},opts),[]);
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], OR([product_id] = [_THISROW].[id], [id] = 2))',{id:7},opts),['1','2']);
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], [id] = [_THISROW].[id])',{id:1},opts),['1']);
+}));
+
+test('Scoped cache also bounds retained row count for dense parents',()=>fixture(db=>{
+ db.exec("WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<=21002) INSERT INTO t_product_image(id,product_id,image) SELECT x,10+CAST((x-3)/7000 AS INTEGER),NULL FROM n");
+ const original=db.prepare;let reads=0;db.prepare=function(sql){if(sql.includes('json_each(?)'))reads++;return original.call(this,sql);};try{const opts={...expressionContext(now,'',db),tableName:'products'};for(const id of [10,11,12])assert.equal(evaluateExpression('COUNT([Related_product_image])',{id},opts),7000);const before=reads;assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:10},opts),7000);assert.equal(reads,before+1);}finally{db.prepare=original;}
+}));
+
+test('SELECT optimization preserves short-circuit errors and refuses partial snapshots for another Ref',()=>fixture(db=>{
+ const opts={...expressionContext(now,'',db),tableName:'products'};
+ assert.throws(()=>evaluateExpression('SELECT(product_image[id], AND(1 / 0 = 1, [product_id] = [_THISROW].[id]))',{id:999},opts),/ศูนย์/);
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], AND([product_id] = [_THISROW].[id], 1 / 0 = 1))',{id:999},opts),[]);
+ db.exec("ALTER TABLE t_product_image ADD COLUMN other_id INTEGER;INSERT INTO _columns(table_name,name,label,type,ref_table) VALUES('product_image','other_id','Other','ref','products');UPDATE t_product_image SET other_id=7");
+ const snap=expressionContext(now,'',db).snapshot(['[Related_product_image:product_id]'],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});
+ assert.throws(()=>evaluateExpression('SELECT([Related_product_image:other_id], TRUE)',{id:7},{tables:snap,tableName:'products'}),/คอลัมน์ Ref/);
+ assert.throws(()=>evaluateExpression('SELECT(product_image[id], [other_id] = [_THISROW].[id])',{id:7},{tables:snap,tableName:'products'}),/เฉพาะ Related/);
+ assert.deepEqual(evaluateExpression('SELECT(product_image[id], [product_id] = [_THISROW].[id])',{id:'7) OR 1=1 --'},opts),[]);
+}));
+
+test('Related SELECT keeps duplicate values unless distinct is requested and composes with parent SELECT ORDERBY',()=>fixture(db=>{
+ const opts={...context,tables:{product_image:{...data,rows:data.rows.map(r=>r.product_id===7?{...r,amount:4}:r)}}};assert.equal(evaluateExpression('SUM(SELECT([Related_product_image][amount], TRUE))',{id:7},opts),8);assert.equal(evaluateExpression('SUM(SELECT([Related_product_image][amount], TRUE, TRUE))',{id:7},opts),4);
+ db.exec("WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
+ const source='ORDERBY(SELECT(product_image[id], [product_id] = [_THISROW].[id]), [image], TRUE)',ctx={...expressionContext(now,'',db),tableName:'products'};assert.deepEqual(evaluateExpression(source,{id:7},ctx),['1']);
+ const snap=expressionContext(now,'',db).snapshot([source],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});assert.deepEqual(evaluateExpression(source,{id:7},{tables:snap,tableName:'products'}),['1']);
+}));
+
+test('SELECT Related respects pending child edits, additions, deletions and cancellation',()=>fixture(db=>{
+ const {withDraftExpressionRows}=require('../.test-build/draft-expression');db.exec("ALTER TABLE t_product_image ADD COLUMN amount REAL;INSERT INTO _columns(table_name,name,label,type) VALUES('product_image','amount','Amount','number');UPDATE t_product_image SET amount=3");
+ const formula='SUM(SELECT([Related_product_image][amount], [amount] >= 4))',snap=expressionContext(now,'',db).snapshot([formula],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});
+ const scope={table:'product_image',column:'product_id',parentId:7,editingKey:'',records:[{key:'edit',id:1,values:{amount:4}},{key:'new',values:{amount:5}}]};
+ assert.equal(evaluateExpression(formula,{id:7},{tables:withDraftExpressionRows(snap,scope),tableName:'products'}),9);
+ scope.records[0].deleted=true;assert.equal(evaluateExpression(formula,{id:7},{tables:withDraftExpressionRows(snap,scope),tableName:'products'}),5);assert.equal(evaluateExpression(formula,{id:7},{tables:snap,tableName:'products'}),0);
+}));

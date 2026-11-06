@@ -15,7 +15,7 @@ async function handleGET(req: Request, { params }: {
     };
 }) { try {
     if(new URL(req.url).searchParams.get('template')!=='1')await refreshExternalTable(params.table);
-    const result = await exportExcel(params.table, new URL(req.url).searchParams.get('template') === '1',new URL(req.url).searchParams.get('references')||'ids',new URL(req.url).searchParams.has('columns')?new URL(req.url).searchParams.get('columns')!.split(','):undefined);
+    const result = await exportExcel(params.table, new URL(req.url).searchParams.get('template') === '1',new URL(req.url).searchParams.get('references')||'ids',new URL(req.url).searchParams.has('columns')?new URL(req.url).searchParams.get('columns')!.split(','):undefined,new URL(req.url).searchParams);
     return new Response(new Uint8Array(result.bytes), { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="' + params.table + '.xlsx"', 'X-Exported-Rows': String(result.total) } });
 }
 catch (e) {

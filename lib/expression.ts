@@ -204,7 +204,7 @@ export function parseExpression(source: string): Node {
       if (args.length < low || args.length > high || (token.text === "IFS" && args.length % 2))
         fail(`${token.text} ต้องรับ ${token.text === "IFS" ? "เงื่อนไขและผลลัพธ์เป็นคู่" : low === high ? `${low} ค่า` : `${low}–${high} ค่า`}`, token.start);
       node = { kind: "call", name: token.text, args };
-      if (token.text === "SELECT" && args[0].kind !== "table") fail("SELECT ช่องแรกต้องเป็น ตาราง[คอลัมน์] เช่น SELECT(permission[permission_key], TRUE)", token.start);
+      if (token.text === "SELECT" && !["table","related"].includes(args[0].kind)) fail("SELECT ช่องแรกต้องเป็น ตาราง[คอลัมน์] หรือ [Related_ตาราง][คอลัมน์]", token.start);
       }
     } else fail("คาดว่าจะเป็นค่า ชื่อคอลัมน์ หรือฟังก์ชัน", token.start);
     while (Object.hasOwn(precedence, tokens[p].text) && precedence[tokens[p].text] >= min) {
@@ -237,7 +237,7 @@ function scopedVisit(node: Node, fn: (node: Node, table?: string) => void, table
   fn(node, table);
   if (node.kind === "unary") scopedVisit(node.value, fn, table);
   if (node.kind === "binary") { scopedVisit(node.left, fn, table); scopedVisit(node.right, fn, table); }
-  if (node.kind === "call") node.args.forEach((arg, i) => scopedVisit(arg, fn, node.name === "SELECT" && i === 1 && node.args[0].kind === "table" ? node.args[0].table : node.name==="ORDERBY"&&i%2===1?listSourceNode(node.args[0])?.table||table:table));
+  if (node.kind === "call") node.args.forEach((arg, i) => scopedVisit(arg, fn, node.name === "SELECT" && i === 1 && (node.args[0].kind === "table" || node.args[0].kind === "related") ? node.args[0].table : node.name==="ORDERBY"&&i%2===1?listSourceNode(node.args[0])?.table||table:table));
 }
 export function references(source: string): string[] {
   const names = new Set<string>();
@@ -256,6 +256,16 @@ export function tableReferences(source: string, includeRelated = true): { table:
   });
   return result;
 }
+// A leading equality preserves AND short-circuit/error behavior on unrelated parents.
+function parentRefTerms(node:Node):string[]{
+ if(node.kind==='call'&&node.name==='AND')return parentRefTerms(node.args[0]);
+ if(node.kind!=='binary'||!['=','=='].includes(node.op))return [];
+ for(const [column,outer]of [[node.left,node.right],[node.right,node.left]])if(column.kind==='column'&&outer.kind==='outer'&&outer.name==='id')return [column.name];
+ return [];
+}
+export function parentSelectReferences(source:string):{table:string;column:string;refColumns:string[];ownerTable?:string;sourceStart:number}[]{const out:{table:string;column:string;refColumns:string[];ownerTable?:string;sourceStart:number}[]=[];scopedVisit(parseExpression(source),(n,ownerTable)=>{if(n.kind==='call'&&n.name==='SELECT'&&n.args[0].kind==='table'){const refColumns=parentRefTerms(n.args[1]);if(refColumns.length)out.push({table:n.args[0].table,column:n.args[0].name,refColumns,ownerTable,sourceStart:n.args[0].start});}});return out;}
+export function unboundedTableReferences(source:string):{table:string;column:string}[]{const bounded=new Set(parentSelectReferences(source).filter(r=>!r.ownerTable).map(r=>r.sourceStart)),out:{table:string;column:string}[]=[];scopedVisit(parseExpression(source),n=>{if(n.kind==='table'&&!bounded.has(n.start))out.push({table:n.table,column:n.name});});return out;}
+export function directTableReferences(source:string):{table:string;column:string}[]{const out:{table:string;column:string}[]=[];scopedVisit(parseExpression(source),n=>{if(n.kind==='table')out.push({table:n.table,column:n.name});});return out;}
 export function relatedReferences(source: string): {table: string; column: string; refColumn?: string; ownerTable?: string}[] {
   const result: {table: string; column: string; refColumn?: string; ownerTable?: string}[] = [];
   scopedVisit(parseExpression(source), (n, ownerTable) => {
@@ -317,9 +327,10 @@ export function renameReference(source: string, oldName: string, newName: string
 const parsedCache = new Map<string, Node>();
 // Formatting rules are fixed; values are still evaluated with this call's clock.
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
-export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string> };
+export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
-export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string) => ExpressionTable; refTables?: Record<string, string> };
+export type RelatedReadScope = {ownerTable?:string;parentIds:(string|number)[];refColumn?:string;columns?:string[];includeBlank?:boolean};
+export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -344,9 +355,10 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     for(const node of nodes)scopedVisit(node,(n,scope)=>{if(scope===table){if(n.kind==='column'&&n.name!=='_THIS')columns.add(n.name);else if(n.kind==='deref')columns.add(n.column);}},table);
     return [...columns];
   }
-  function dataset(name: string, columns?:string[]): ExpressionTable {
+  function dataset(name: string, columns?:string[],allowScoped=false): ExpressionTable {
     const data = options.getTable ? options.getTable(name,columns) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
     if (!data) fail(`ไม่พบข้อมูลตาราง ${name} กรุณาตรวจชื่อในระบบหรือโหลดข้อมูลใหม่`);
+    if(data.related_scope&&!allowScoped)fail("ข้อมูลนี้มีเฉพาะ Related ของแถวแม่ ไม่ใช่ข้อมูลทั้งตาราง กรุณาโหลดสูตรใหม่");
     if (data.rows.length > 10000) fail("ตารางตัวเลือกมีข้อมูลเกิน 10,000 แถว กรุณาลดจำนวนรายการ");
     return data;
   }
@@ -357,7 +369,32 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     if (typeof value !== "string" && typeof value !== "number") fail("คอลัมน์ตัวเลือกต้องเป็นข้อความหรือตัวเลข");
     return String(value);
   }
-  function run(n: Node, scope?: { row: Record<string, Value>; refs: Record<string, string>; table?: string }, referenceResult = false): Value {
+  type Scope={row:Record<string,Value>;refs:Record<string,string>;table?:string};
+  function relatedDataset(n:Extract<Node,{kind:'related'}>,columns:string[],scope?:Scope){
+    const owner=scope?.table||options.tableName,id=scope?scope.row.id:options.resolve?options.resolve('id'):row.id;
+    const data=options.getRelatedTable?options.getRelatedTable(n.table,n.name,{ownerTable:owner,parentIds:typeof id==='number'||typeof id==='string'?[id]:[],refColumn:n.refColumn,columns}):dataset(n.table,columns,true);
+    if(data.related_scope&&owner&&owner!==data.related_scope.ownerTable)fail('ข้อมูล Related ไม่ตรงตารางแม่ กรุณาโหลดข้อมูลใหม่');
+    if(data.related_scope&&!isBlank(id)&&!data.related_scope.parentIds.includes(Number(id)))fail('ข้อมูล Related ไม่ครอบคลุมแถวแม่ กรุณาโหลดข้อมูลใหม่');
+    if(data.rows.length>10000)fail('ตาราง Related มีข้อมูลเกิน 10,000 แถว');
+    if(!data.columns.includes(n.name))fail('ไม่พบคอลัมน์ ['+n.name+'] ในตาราง '+n.table);
+    const links=Object.entries(data.relatedRefs??data.refs??{}).filter(([name,target])=>(!n.refColumn||name===n.refColumn)&&(!owner||target===owner));
+    if(links.length!==1)fail(links.length?'ตาราง '+n.table+' มี Ref ไปตารางแม่หลายช่อง กรุณาระบุ [Related_'+n.table+':ชื่อคอลัมน์Ref]['+n.name+']':'ไม่พบ Ref จากตาราง '+n.table+' ไปตารางแม่ปัจจุบัน');
+    if(data.related_scope?.refColumns&&!data.related_scope.refColumns.includes(links[0][0]))fail('ข้อมูล Related ไม่ครอบคลุมคอลัมน์ Ref กรุณาโหลดข้อมูลใหม่');
+    return {data,ref:links[0][0],id};
+  }
+  function parentSelectedData(source:Extract<Node,{kind:'table'}>,columns:string[],condition:Node,scope?:Scope){
+    const id=options.resolve?options.resolve('id'):row.id;
+    const blank=isBlank(id);
+    if(!options.resolve&&!Object.hasOwn(row,'id'))return;
+    if(scope||!options.tableName||!blank&&(!Number.isSafeInteger(Number(id))||Number(id)<1))return;
+    for(const refColumn of parentRefTerms(condition)){
+      const query={ownerTable:options.tableName,parentIds:blank?[]:[Number(id)],refColumn,columns,includeBlank:blank};
+      const selected=options.getSelectTable?.(source.table,columns,query);if(selected)return selected;
+      const data=options.tables?.[source.table],coverage=data?.related_scope;
+      if(data&&coverage?.ownerTable===options.tableName&&(blank?coverage.blankRefColumns?.includes(refColumn):coverage.parentIds.includes(Number(id))&&coverage.refColumns?.includes(refColumn))&&(data.relatedRefs||{})[refColumn]===options.tableName)return data;
+    }
+  }
+  function run(n: Node, scope?: Scope, referenceResult = false): Value {
     if (++steps > (options.tables || options.getTable ? 100000 : 2000)) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
     let result: Value;
     if (n.kind === "literal") result = n.value;
@@ -367,19 +404,13 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       if (referenceResult && n.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
       result = data.rows.map(r => {const value=tableValue(data,n.name,r);return value===null ? null : referenceResult ? String(r.id) : value;}).filter((v): v is string => v !== null);
     } else if (n.kind === "related") {
-      const data = options.getRelatedTable ? options.getRelatedTable(n.table, n.name) : dataset(n.table,[n.name]);
-      if (data.rows.length > 10000) fail("ตาราง Related มีข้อมูลเกิน 10,000 แถว");
-      if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${n.table}`);
-      const owner = scope?.table || options.tableName;
-      const links = Object.entries(data.relatedRefs ?? data.refs ?? {}).filter(([name, target]) => (!n.refColumn || name === n.refColumn) && (!owner || target === owner));
-      if (links.length !== 1) fail(links.length ? `ตาราง ${n.table} มี Ref ไปตารางแม่หลายช่อง กรุณาระบุ [Related_${n.table}:ชื่อคอลัมน์Ref][${n.name}]` : `ไม่พบ Ref จากตาราง ${n.table} ไปตารางแม่ปัจจุบัน`);
-      if (referenceResult && n.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
-      const id = scope ? scope.row.id : options.resolve ? options.resolve("id") : row.id;
+      const {data,ref,id}=relatedDataset(n,[n.name],scope);
+      if(referenceResult&&n.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
       const values: string[] = [];
       // An unsaved parent must never match orphan rows with an empty Ref.
       if (!isBlank(id)) for (const candidate of data.rows) {
         if (++steps > 100000) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
-        if (!listEquivalent(candidate[links[0][0]], id ?? null)) continue;
+        if (!listEquivalent(candidate[ref], id ?? null)) continue;
         const value = tableValue(data, n.name, candidate);
         if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
       }
@@ -433,7 +464,9 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       switch (n.name) {
         case "ORDERBY": {
           const source=listSourceNode(n.args[0]);if(!source)fail('ORDERBY ช่องแรกต้องเป็น ตาราง[id] หรือ SELECT(ตาราง[id], เงื่อนไข)');
-          const data=dataset(source.table,[source.column,...scopedColumns(n.args.filter((_,i)=>i%2===1),source.table)]);if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
+          let origin=n.args[0],selector:Extract<Node,{kind:'call'}>|undefined;while(origin.kind==='call'&&['ORDERBY','SELECT'].includes(origin.name)){if(origin.name==='SELECT'&&origin.args[0].kind==='table')selector=origin;origin=origin.args[0];}
+          const requested=[source.column,...scopedColumns(n.args.filter((_,i)=>i%2===1),source.table)],parentId=scope?scope.row.id:options.resolve?options.resolve('id'):row.id;
+          const data=origin.kind==='related'&&options.getRelatedTable?options.getRelatedTable(source.table,source.column,{ownerTable:scope?.table||options.tableName,parentIds:typeof parentId==='number'||typeof parentId==='string'?[parentId]:[],refColumn:origin.refColumn,columns:requested}):(selector&&selector.args[0].kind==='table'?parentSelectedData(selector.args[0],requested,selector.args[1],scope):undefined)||dataset(source.table,requested,origin.kind==='related');if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
           if(referenceResult&&source.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
           const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');if(keys.length>10000)fail('ORDERBY รับได้ไม่เกิน 10,000 แถว');
           const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
@@ -443,12 +476,15 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           decorated.sort((a,b)=>{for(let i=0;i<sorters.length;i++){const compared=compare(a.sorts[i],b.sorts[i]);if(compared)return compared*(sorters[i].descending?-1:1);}return a.index-b.index;});result=decorated.map(item=>item.key);break;
         }
         case "SELECT": {
-          const source = n.args[0]; if (source.kind !== "table") fail("SELECT ต้องระบุตาราง[คอลัมน์]");
-          const data = dataset(source.table,[source.name,...scopedColumns([n.args[1]],source.table)]), distinct = n.args.length === 3 ? asBoolean(arg(2)) : false;
+          const source=n.args[0];if(source.kind!=='table'&&source.kind!=='related')fail('SELECT ต้องระบุตาราง[คอลัมน์] หรือ Related');
+          const requested=[source.name,...scopedColumns([n.args[1]],source.table)],related=source.kind==='related'?relatedDataset(source,requested,scope):null;
+          const data=related?related.data:source.kind==='table'?(parentSelectedData(source,requested,n.args[1],scope)||dataset(source.table,requested)):dataset(source.table,requested),distinct=n.args.length===3?asBoolean(arg(2)):false;
+          if(data.rows.length>10000)fail('SELECT มีข้อมูลเกิน 10,000 แถว');
           if (referenceResult && source.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
           if (!data.columns.includes(source.name)) fail(`ไม่พบคอลัมน์ [${source.name}] ในตาราง ${source.table}`);
           const values: string[] = [];
           for (const candidate of data.rows) {
+            if(related&&(isBlank(related.id)||!listEquivalent(candidate[related.ref],related.id??null)))continue;
             if (!asBoolean(run(n.args[1], { row: candidate, refs: data.refs || {}, table: source.table }))) continue;
             const value = tableValue(data, source.name, candidate); if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
           }

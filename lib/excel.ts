@@ -1,3 +1,9 @@
+import {decimalPlaces} from './decimal-format';
+import {sliceFor,matches} from './automation';
+import {sliceSql} from './slice-sql';
+import {readRows,withReferenceLabels} from './view-records';
+import {parseFilters,matchesFilters} from './data-filters';
+import {mapViewScope,scopedMapRows} from './map-view-scope';
 import {userFieldOptions} from './user-fields';
 import {listSource,references} from "./expression";
 import {loadReferenceLabels} from "./reference-labels";
@@ -120,23 +126,28 @@ catch (e) {
     if (e !== rollback)
         throw e;
 } return report; }
-export async function exportExcel(table:string,template=false,referenceMode:string='ids',selectedColumns?:unknown) {
+export async function exportExcel(table:string,template=false,referenceMode:string='ids',selectedColumns?:unknown,scope?:URLSearchParams) {
  assertTablePermission(table,'read');if(!template)assertExcelExport(table);
  if(!['ids','labels','both'].includes(referenceMode))throw Error('รูปแบบข้อมูลอ้างอิงไม่ถูกต้อง');if(template)referenceMode='ids';
  if(!tableExists(table))throw Error('ไม่พบตาราง');
- const cols=columnsOf(table),available=['id',...cols.map(c=>c.name)];
+ const cols=columnsOf(table),slice=!template?sliceFor(scope?.get('slice')||null,table):null,available=['id',...cols.filter(c=>!slice?.columns.length||slice.columns.includes(c.name)).map(c=>c.name)];
  if(selectedColumns!==undefined&&(!Array.isArray(selectedColumns)||!selectedColumns.length||selectedColumns.length>available.length||new Set(selectedColumns).size!==selectedColumns.length||selectedColumns.some(n=>typeof n!=='string'||!available.includes(n))))throw Error('กรุณาเลือกคอลัมน์ที่ส่งออกอย่างน้อย 1 คอลัมน์ และเลือกเฉพาะคอลัมน์ของตารางนี้');
  const headers=!template&&Array.isArray(selectedColumns)?available.filter(n=>selectedColumns.includes(n)):available,exportCols=cols.filter(c=>headers.includes(c.name)),referenceCols=exportCols.filter(c=>['ref','user'].includes(c.type)||['enum','enumlist','list'].includes(c.type)&&!!(c.ref_table||listSource(c.valid_if||"")));
  const companion=new Map<string,string>(),used=new Set(headers);if(referenceMode==='both')for(const c of referenceCols){let name=c.name+'__label',i=2;while(used.has(name))name=c.name+'__label_'+i++;used.add(name);companion.set(c.name,name);}
  const displayedHeaders=new Set<string>();const outputHeaders=headers.flatMap(n=>companion.has(n)?[n,companion.get(n)!]:[n]).map(n=>{if(referenceMode!=='labels')return n;const label=n==='id'?'รหัสภายใน':cols.find(c=>c.name===n)?.label||n;let heading=label,index=2;while(displayedHeaders.has(heading))heading=label+' ('+(index++)+')';displayedHeaders.add(heading);return heading;});
  const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('ข้อมูล');sheet.addRow(outputHeaders);sheet.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};sheet.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2563EB'}};sheet.views=[{state:'frozen',ySplit:1}];for(const column of sheet.columns)column.width=22;
- let total=0;if(!template){const raw=visibleRawRows(table,db.prepare('SELECT * FROM "t_'+table+'" ORDER BY id').all() as any[]);if(raw.length>10000)throw Error('ส่งออกได้ไม่เกิน 10,000 แถวต่อไฟล์ กรุณาแบ่งข้อมูลก่อน');
+ let total=0;if(!template){
+ const now=new Date(),email=currentUser()?.email||'',ctx=expressionContext(now,email),plan=slice?sliceSql(slice.filter_expr,cols,email):null;
+ let raw=visibleRawRows(table,db.prepare('SELECT * FROM "t_'+table+'"'+(plan?' WHERE '+plan.where:'')+' ORDER BY id').all(...(plan?.args||[])) as any[]),scopedRows:Record<string,any>[]|undefined;
+ const filters=parseFilters(scope?.get('filters')||null,cols),q=(scope?.get('q')||'').toLocaleLowerCase(),map=mapViewScope(table,scope?.get('map_scope')||null);
+ if(slice||filters.length||q||map){scopedRows=readRows(table,cols,now,email,ctx,raw);if(slice)scopedRows=scopedRows.filter(row=>matches(slice.filter_expr,row,email,table,ctx));if(map)scopedRows=scopedMapRows(table,scopedRows,map,email,ctx);scopedRows=withReferenceLabels(table,cols,scopedRows,now,email,ctx).filter(row=>matchesFilters(row,filters,cols)&&(!q||cols.some(c=>String(c.type==='ref'?row[c.name+'__label']??'':row[c.name]??'').toLocaleLowerCase().includes(q))));const ids=new Set(scopedRows.map(row=>row.id));raw=raw.filter(row=>ids.has(row.id));}
+ if(raw.length>10000)throw Error('ส่งออกได้ไม่เกิน 10,000 แถวต่อไฟล์ กรุณาแบ่งข้อมูลก่อน');
  const needed=new Set(headers),queue=[...headers];for(let i=0;i<queue.length;i++){const c=cols.find(c=>c.name===queue[i]);if(c?.is_virtual&&c.virtual_expr)for(const name of references(c.virtual_expr))if(!needed.has(name)){needed.add(name);queue.push(name);}}
- const calculation=cols.filter(c=>needed.has(c.name));const now=new Date(),email=currentUser()?.email||'',ctx=expressionContext(now,email),rows=raw.map(record=>calculateRow(calculation,record,false,now,false,email,ctx).row);
+ const calculation=cols.filter(c=>needed.has(c.name));const rows=raw.map(record=>calculateRow(calculation,record,false,now,false,email,ctx).row);
  const labels=referenceMode!=='ids'?loadReferenceLabels(exportCols,rows,now,email,ctx):new Map();
  const userLabels=new Map(exportCols.some(c=>c.type==='user')&&referenceMode!=='ids'?userFieldOptions().map(u=>[u.id,u.nickname||u.name]):[]);
  const cell=(v:unknown)=>Array.isArray(v)?JSON.stringify(v):v??null;
- for(const row of rows){const labelFor=(name:string)=>{const c=referenceCols.find(c=>c.name===name);if(!c)return row[name];const value=row[name];if(value==null||value==='')return null;if(c.type==='user')return userLabels.get(Number(value))||'ผู้ใช้ไม่พร้อมใช้งาน (#'+String(value)+')';if(c.type==='ref')return labels.get(c.ref_table!)?.get(Number(value))?.label??null;return Array.isArray(value)?value.map(v=>enumListLabel(c,String(v),ctx)):enumListLabel(c,String(value),ctx);};sheet.addRow(headers.flatMap(n=>referenceMode==='both'&&companion.has(n)?[cell(row[n]),cell(labelFor(n))]:[cell(referenceMode==='labels'?labelFor(n):row[n])]));for(const c of exportCols){const index=headers.flatMap(n=>companion.has(n)?[n,companion.get(n)!]:[n]).indexOf(c.name)+1;if(c.type==='percent')sheet.getRow(sheet.rowCount).getCell(index).numFmt='0.00%';if(c.type==='price')sheet.getRow(sheet.rowCount).getCell(index).numFmt='฿#,##0.00';}total++;}
+ for(const row of rows){const labelFor=(name:string)=>{const c=referenceCols.find(c=>c.name===name);if(!c)return row[name];const value=row[name];if(value==null||value==='')return null;if(c.type==='user')return userLabels.get(Number(value))||'ผู้ใช้ไม่พร้อมใช้งาน (#'+String(value)+')';if(c.type==='ref')return labels.get(c.ref_table!)?.get(Number(value))?.label??null;return Array.isArray(value)?value.map(v=>enumListLabel(c,String(v),ctx)):enumListLabel(c,String(value),ctx);};sheet.addRow(headers.flatMap(n=>referenceMode==='both'&&companion.has(n)?[cell(row[n]),cell(labelFor(n))]:[cell(referenceMode==='labels'?labelFor(n):row[n])]));for(const c of exportCols){const index=headers.flatMap(n=>companion.has(n)?[n,companion.get(n)!]:[n]).indexOf(c.name)+1;if(c.type==='decimal'&&decimalPlaces(c)!==null){const places=decimalPlaces(c)!;sheet.getRow(sheet.rowCount).getCell(index).numFmt=places?'0.'+'0'.repeat(places):'0';}if(c.type==='percent')sheet.getRow(sheet.rowCount).getCell(index).numFmt='0.00%';if(c.type==='price')sheet.getRow(sheet.rowCount).getCell(index).numFmt='฿#,##0.00';}total++;}
  }
  const guide=workbook.addWorksheet('คู่มือคอลัมน์');guide.addRow(['ชื่อในระบบ','ชื่อที่แสดง','ประเภท','คำแนะนำ']);if(headers.includes('id'))guide.addRow(['id','รหัสภายใน','number','สร้างอัตโนมัติเมื่อเพิ่มข้อมูล ใช้ id เดิมเมื่อแก้ไข ห้ามเปลี่ยน']);
  for(const c of exportCols){guide.addRow([c.name,c.label,c.type,c.is_virtual?'คำนวณอัตโนมัติ ไม่นำกลับเข้า':c.ref_table?'ใช้ ID/Key จากตาราง '+c.ref_table:['list','enumlist'].includes(c.type)?'รายการ JSON เช่น ["ค่าแรก","ค่าที่สอง"]':c.type==='user'?'ID ผู้ใช้ที่เปิดใช้งานและมีสิทธิ์เข้าแอป':c.type==='percent'?'ค่า 0–1 หรือข้อความ เช่น 25%':c.type==='price'?'จำนวนเงิน THB':c.type==='rating'?'จำนวนเต็ม 0–5':c.type==='time'?'HH:mm:ss (00:00:00–23:59:59)':c.type==='phone'?'เก็บเป็นข้อความ เพื่อรักษาเลขศูนย์นำหน้า':c.type==='email'?'name@example.com':c.type==='url'?'https://example.com':c.type==='date'?'YYYY-MM-DD':c.type==='datetime'?'YYYY-MM-DDTHH:mm:ss+07:00':'']);if(companion.has(c.name))guide.addRow([companion.get(c.name),c.label+' (ชื่อ)','text','ชื่อสำหรับอ่านรายงาน ไม่ใช้เป็นรหัสนำเข้า']);}

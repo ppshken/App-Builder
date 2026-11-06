@@ -11,7 +11,7 @@ export function formulaCompletions(source:string,caret:number,columns:Column[],t
  const bracket=/\[([^\]\n]*)$/.exec(before);
  if(bracket){
   const prefix=before.slice(0,bracket.index),owner=/([a-z][a-z0-9_]*)\s*$/i.exec(prefix)?.[1];
-  const select=/SELECT\s*\(\s*([a-z][a-z0-9_]*)\s*\[[^\]]*\]\s*,[^)]*$/i.exec(prefix)?.[1];
+  const selection=/SELECT\s*\(\s*(?:([a-z][a-z0-9_]*)\s*\[[^\]]*\]|\[Related_([a-z][a-z0-9_]{0,40})(?::[a-z][a-z0-9_]{0,40})?\](?:\s*\[[^\]]*\])?)\s*,[^)]*$/i.exec(prefix),select=selection?.[1]||selection?.[2];
   let cols=owner?tables.find(t=>t.name===owner)?.columns:select?tables.find(t=>t.name===select)?.columns:columns;
   const deref=/\[([^\]]+)\]\.\s*$/.exec(prefix);
   if(deref){const ref=columns.find(c=>c.name===deref[1]);cols=deref[1]==="_THISROW"?columns:tables.find(t=>t.name===ref?.ref_table)?.columns;}

@@ -1,3 +1,4 @@
+import {reorderViews} from './view-order';
 import {validateViewDisplayName} from "./view-display-name";
 import {readTableDataStyles,saveTableDataStyles,tableDecorationViews} from "./table-decorations";
 import {validateDataStyles} from "./data-decoration";
@@ -36,7 +37,7 @@ async function handleGET(req: Request) {
     return NextResponse.json({ views: visible.map(v=>runtimeViewName(v as any,context,message=>errors.push(`Display Name ของ "${v.label}": ${message}`))), hidden, errors });
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
-async function handlePOST(req: Request) {const b=await req.clone().json().catch(()=>({}));if(b?.op==='table_decorations'){try{return NextResponse.json(saveTableDataStyles(db,b.table, b.styles,b.base));}catch(e){return bad(errorMessage(e),errorStatus(e));}}return write(req, false); }
+async function handlePOST(req: Request) {const b=await req.clone().json().catch(()=>({}));if(b?.op==='reorder'){try{return NextResponse.json(reorderViews(db,await readBody(req)));}catch(e){return bad(errorMessage(e),errorStatus(e));}}if(b?.op==='table_decorations'){try{return NextResponse.json(saveTableDataStyles(db,b.table, b.styles,b.base));}catch(e){return bad(errorMessage(e),errorStatus(e));}}return write(req, false); }
 async function handlePUT(req: Request) { return write(req, true); }
 async function write(req: Request, existing: boolean, preview = false) {
   try {

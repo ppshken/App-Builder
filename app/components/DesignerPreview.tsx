@@ -2,7 +2,7 @@
 import SearchSelect from "@/app/components/SearchSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {RowAction} from "@/lib/automation";
-import { AppView } from "@/lib/views";
+import { withViewDraft, AppView } from "@/lib/views";
 import Icon, { IconName } from "./Icon";
 export default function DesignerPreview({ showViewPicker=true,actionDraft=null,draft, dirty, views, selected, revision, onSelect, onOpenSettings }: { showViewPicker?:boolean; actionDraft?:RowAction|null; draft:AppView|null; dirty:boolean; views: AppView[]; selected: string; revision: number; onOpenSettings: (name: string) => void; onSelect: (name: string) => void }) {
   const [device, setDevice] = useState("mobile"), [refresh, setRefresh] = useState(0), [size, setSize] = useState({ width: 340, height: 550 }), [active, setActive] = useState(selected);
@@ -29,7 +29,7 @@ export default function DesignerPreview({ showViewPicker=true,actionDraft=null,d
   // Selecting a View navigates inside the existing app; only refresh/save remounts it.
   const sourceUrl = useMemo(()=>source,[revision,refresh,!!selected]);
   useEffect(()=>{frame.current?.contentWindow?.postMessage({type:"nocode:preview-navigate",name:selected},location.origin);},[selected]);
-  const previewViews=draft&&dirty?[...views.filter(v=>v.name!==draft.name),draft]:views;
+  const previewViews=withViewDraft(views,dirty?draft:null);
   const current = previewViews.find(v => v.name === active);
   return <aside className={`designer-preview preview-device-${device} ${device === "desktop" ? "preview-fullscreen" : ""}`} aria-label="ตัวอย่างแอป">
     <div className="designer-preview-toolbar"><div className="device-switch" role="group" aria-label="ขนาดหน้าจอ Preview">{([["mobile", "มือถือ", "phone"], ["tablet", "แท็บเล็ต", "tablet"], ["desktop", "คอมพิวเตอร์", "monitor"]] as [string, string, IconName][]).map(([value, label, icon]) => <button key={value} className="icon-button" title={label} aria-label={label} aria-pressed={device === value} onClick={() => setDevice(value)}><Icon name={icon}/></button>)}</div><button className="icon-button" title="โหลดตัวอย่างใหม่" aria-label="โหลดตัวอย่างใหม่" onClick={() => { setReload({ selected, revision, url: activeUrl }); setRefresh(n => n + 1); }}><Icon name="refresh"/></button><a className="icon-button button" href={activeUrl} target="_blank" rel="noreferrer" aria-label="เปิดแอปในแท็บใหม่" title="เปิดแอปในแท็บใหม่"><Icon name="external"/></a></div>

@@ -1,3 +1,5 @@
+import {assertTablePermission} from "@/lib/permissions";
+import {visibleRawRows} from "@/lib/row-access";
 import {actionConfigExpressions} from "@/lib/action-config";
 import {errorStatus} from "@/lib/api";
 import {withAuth} from "@/lib/auth-api";
@@ -21,17 +23,33 @@ async function handleGET(req: Request) {
       for (const a of db.prepare("SELECT condition_expr,values_json,config_json FROM _actions WHERE table_name=?").all(table) as {condition_expr:string;values_json:string;config_json:string}[]) sources.push(a.condition_expr,...actionConfigExpressions(JSON.parse(a.config_json||"{}")), ...Object.values(JSON.parse(a.values_json)) as string[]);
       for (const s of db.prepare("SELECT filter_expr FROM _slices WHERE table_name=?").all(table) as {filter_expr:string}[]) sources.push(s.filter_expr);
     }
-    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot(sources, table ? columnsOf(table) : [],source===null));
+    let relatedScope:{ownerTable:string;parentIds:number[];deferBlank?:boolean}|undefined;
+    const parentIds=u.searchParams.get('related_parent_ids');
+    if(parentIds!==null){
+      const ids=JSON.parse(parentIds);if(!table||!Array.isArray(ids)||ids.length>500||ids.some(id=>!Number.isSafeInteger(id)||id<1))return bad('Related ต้องระบุรหัสแถวแม่ไม่เกิน 500 รายการ');
+      const raw=db.prepare('SELECT * FROM "t_'+table+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)) as Record<string,any>[];
+      relatedScope={ownerTable:table,parentIds:visibleRawRows(table,raw).map(r=>Number(r.id)),deferBlank:ids.length>0||u.searchParams.get("display")==="1"};
+    }
+    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot(sources, table ? columnsOf(table) : [],source===null,relatedScope));
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 async function handlePOST(req: Request) {
   try {
-    const { source, columns } = await readBody(req);
+    const { source, columns, table, rowId } = await readBody(req);
     const userEmail = req.headers.get("x-nocode-preview-email") || "";
     if (typeof source !== "string" || !Array.isArray(columns) || columns.length > 200 || typeof userEmail !== "string" || (userEmail && (userEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)))) return bad("ข้อมูลทดสอบสูตรไม่ถูกต้อง");
     // Column information describes unsaved editor fields; SQL still uses checked database metadata only.
     const safe = columns.map(c => ({ name: c.name, label: c.name, type: c.type, ref_table: c.ref_table }));
-    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot([source], safe));
+    let scope:{ownerTable:string;parentIds:number[]}|undefined;
+    if(table!==undefined){
+      if(typeof table!=='string'||!tableExists(table))return bad('ไม่พบตารางที่ใช้ทดสอบสูตร',404);
+      assertTablePermission(table,'read');
+      if(rowId!==null&&rowId!==undefined&&(!Number.isSafeInteger(rowId)||rowId<1))return bad('รหัสแถวที่ใช้ทดสอบต้องเป็นจำนวนเต็มบวก');
+      const raw=rowId==null?[]:db.prepare('SELECT * FROM "t_'+table+'" WHERE id=?').all(rowId) as Record<string,any>[];
+      if(rowId!=null&&!visibleRawRows(table,raw).length)return bad('ไม่พบแถวที่ใช้ทดสอบ หรือไม่มีสิทธิ์อ่าน',403);
+      scope={ownerTable:table,parentIds:rowId==null?[]:[rowId]};
+    }
+    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot([source], safe,false,scope));
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 

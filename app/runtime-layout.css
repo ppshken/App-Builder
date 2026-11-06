@@ -2,7 +2,7 @@
  --runtime-header-height:52px;
  --runtime-sidebar-collapsed-width:64px;
  --runtime-sidebar-expanded-width:260px;
- --runtime-bottom-nav-padding:10px;
+ --runtime-bottom-nav-padding:16px;
  --runtime-default-nav-height:calc(60px + var(--runtime-bottom-nav-padding) + env(safe-area-inset-bottom,0px));
  --runtime-pagination-height:40px;
  --runtime-enter-duration:220ms;
