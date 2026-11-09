@@ -1,4 +1,5 @@
 import {createUuid} from "./uuid";
+import {isSystemFormulaTable} from './formula-system-schema';
 import {normalizeDateTime} from "./datetime";
 import {distanceKilometers} from "./location";
 import {durationMilliseconds,formatDuration,normalizeDuration,isDuration,temporalKind,temporalMilliseconds} from "./duration";
@@ -184,7 +185,7 @@ export function parseExpression(source: string): Node {
     } else if (token.kind === "word") {
       if (tokens[p].kind === "column") {
         const table = source.slice(token.start, token.end), col = tokens[p++];
-        if (!/^[a-z][a-z0-9_]{0,40}$/.test(table) || table === "id" || col.text.startsWith("_")) fail("ใช้ชื่อตารางและคอลัมน์ในระบบ เช่น permission[permission_key]", token.start);
+        if ((!/^[a-z][a-z0-9_]{0,40}$/.test(table)&&!isSystemFormulaTable(table)) || table === "id" || col.text.startsWith("_")) fail("ใช้ชื่อตารางและคอลัมน์ในระบบ เช่น permission[permission_key]", token.start);
         node = { kind: "table", table, name: col.text, start: col.start, end: col.end };
       } else {
       if (!Object.hasOwn(arities, token.text)) fail(`ไม่รองรับฟังก์ชัน ${token.text} ในรุ่นนี้`, token.start);

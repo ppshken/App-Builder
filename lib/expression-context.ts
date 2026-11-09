@@ -1,4 +1,6 @@
 import {visibleRawRows} from "./row-access";
+import {isSystemFormulaTable,systemFormulaColumns} from './formula-system-schema';
+import {formulaSystemData} from './formula-system-data';
 import {expressionUser} from "./user-settings";
 import {assertTablePermission,canRead,currentUser} from "./permissions";
 import { db } from "./db";
@@ -12,12 +14,15 @@ import { ExpressionContext, ExpressionTable, RelatedReadScope, directTableRefere
 export function expressionContext(now = new Date(), userEmail = "", database:Database.Database=db) {
   // Request-local metadata only: never share permissions or snapshots between users.
   const metadata=new Map<string,Column[]>();
-  const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=effectiveColumns(database,name);metadata.set(name,cols);}return cols;};
-  const tableExists=(name:string)=>IDENT.test(name)&&name!=="id"&&!!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(name);
+  const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=systemFormulaColumns(name)||effectiveColumns(database,name);metadata.set(name,cols);}return cols;};
+  const tableExists=(name:string)=>isSystemFormulaTable(name)||IDENT.test(name)&&name!=="id"&&!!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(name);
   const tables: Record<string, ExpressionTable> = Object.create(null), loading = new Set<string>();
   const fullTables = new Map<string, ExpressionTable>(), projections = new Map<string, ExpressionTable>(), relatedProjections = new Map<string, ExpressionTable>();
   let relatedCachedRows=0;
+  let systemData:Record<string,ExpressionTable>|undefined;
+  const systemTable=(name:string,requested?:string[])=>{systemData??=formulaSystemData(database);const data=systemData[name];for(const column of requested||[])if(!data.columns.includes(column))throw Error(`ไม่พบคอลัมน์ [${column}] ในตาราง ${name}`);return tables[name]=data;};
   const project=(name:string,requested:string[],related=false,scope?:RelatedReadScope):ExpressionTable=>{
+    if(isSystemFormulaTable(name)){if(related||scope)throw Error('ตารางระบบไม่รองรับ Related');return systemTable(name,requested);}
     assertTablePermission(name,"read");
     if (!scope&&fullTables.has(name)) return fullTables.get(name)!;
     const cacheKey = `${name}:${[...new Set(requested)].sort().join(",")}:${related?"related":"table"}:${scope?JSON.stringify(scope):"all"}`;
@@ -61,10 +66,12 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
   };
   const context: ExpressionContext = { ...expressionUser(currentUser()||null,database), getRelatedTable(name,column,scope){return project(name,[column,...(scope?.columns||[])],true,scope);},
     getSelectTable(name,requested,scope){
+      if(isSystemFormulaTable(name))return;
       assertTablePermission(name,'read');
       if(!scope.ownerTable||!scope.refColumn||!columnsOf(name).some(c=>c.name===scope.refColumn&&c.type==='ref'&&!c.is_virtual&&c.ref_table===scope.ownerTable))return;
       return project(name,requested,true,scope);
     }, getTable(name,columns) {
+    if(isSystemFormulaTable(name))return systemTable(name,columns);
     if(columns?.length)return project(name,columns);
     assertTablePermission(name,"read");
     if (fullTables.has(name)) return fullTables.get(name)!;
@@ -98,7 +105,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       for(const target of tableReferences(source,false))need(target.table,target.column);
       const directSources=new Set(directTableReferences(source).map(r=>r.table));
       for (const related of relatedReferences(source)) {
-        if(skipDenied&&!canRead(related.table))continue;
+        if(skipDenied&&!isSystemFormulaTable(related.table)&&!canRead(related.table))continue;
         if(relatedScope&&!related.ownerTable){
           const data=context.getRelatedTable!(related.table,related.column,{...relatedScope,refColumn:related.refColumn,columns:[...(targets.get(related.table)||[])]});
           if(!directSources.has(related.table))targets.delete(related.table);
@@ -108,7 +115,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       const plans=parentSelectReferences(source),unbounded=new Set(unboundedTableReferences(source).map(r=>r.table));
       for(const plan of plans){
         if(!relatedScope||plan.ownerTable){unbounded.add(plan.table);continue;}
-        if(skipDenied&&!canRead(plan.table))continue;
+        if(skipDenied&&!isSystemFormulaTable(plan.table)&&!canRead(plan.table))continue;
         let optimized=false;
         for(const refColumn of plan.refColumns){const data=context.getSelectTable!(plan.table,[...(targets.get(plan.table)||[plan.column])],{...relatedScope,refColumn,includeBlank:!relatedScope.parentIds.length&&!relatedScope.deferBlank});if(data){mergeScoped(plan.table,data,[refColumn],!relatedScope.parentIds.length&&!relatedScope.deferBlank);optimized=true;break;}}
         if(!optimized)unbounded.add(plan.table);
@@ -120,7 +127,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
         need(ref.ref_table,path.property);
       }
       for (const [table,needed] of targets) {
-        if(skipDenied&&!canRead(table))continue;
+        if(skipDenied&&!isSystemFormulaTable(table)&&!canRead(table))continue;
         const key=table+":"+[...needed].sort().join(",");if(loaded.has(key))continue;loaded.add(key);
         const data=context.getTable!(table,[...needed]),columns=columnsOf(table);
         for(const c of columns)if(data.columns.includes(c.name)&&c.is_virtual&&c.virtual_expr)queue.push({source:c.virtual_expr,columns});

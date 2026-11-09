@@ -15,7 +15,11 @@ export function relatedTitle(label:string,custom?:string){return custom?.trim()|
 
 export function menuViewGroups(views:AppView[]){
   const groups=new Map<string,AppView[]>();
+  // Desktop primary navigation must precede every menu group.
+  const primary=views.filter(view=>view.position==="primary");
+  if(primary.length)groups.set("",primary);
   for(const view of views){
+    if(view.position==="primary")continue;
     const name=view.position==="menu"?view.menu_group?.trim()||"":"";
     const items=groups.get(name);
     if(items)items.push(view);else groups.set(name,[view]);

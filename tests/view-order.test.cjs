@@ -18,3 +18,12 @@ test('menu reorder writes contiguous positions atomically and rejects stale, dup
  assert.equal(db.prepare("SELECT menu_group FROM _views WHERE name='first'").get().menu_group,'A');
  }finally{db.close();}
 });
+
+test('desktop menu always places primary navigation before named and ungrouped menu views',()=>{
+ const {menuViewGroups}=require('../.test-build/views');
+ const views=[{name:'named',position:'menu',menu_group:'Work',pos:1},{name:'plain',position:'menu',pos:2},{name:'primaryA',position:'primary',pos:10},{name:'primaryB',position:'primary',pos:20},{name:'named2',position:'menu',menu_group:'Work',pos:30}];
+ const original=JSON.stringify(views);
+ assert.deepEqual(menuViewGroups(views).flatMap(g=>g.views.map(v=>v.name)),['primaryA','primaryB','plain','named','named2']);
+ assert.deepEqual(menuViewGroups(views.filter(v=>v.position==='menu')).map(g=>({name:g.name,ids:g.views.map(v=>v.name)})),[{name:'Work',ids:['named','named2']},{name:'',ids:['plain']}]);
+ assert.equal(JSON.stringify(views),original);
+});

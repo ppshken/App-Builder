@@ -9292,6 +9292,12 @@ button.clear-data-button:hover {
 .formula-token-operator {
   color: var(--mute);
 }
+.formula-code-paint .formula-bracket-match {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--primary, #2563eb) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary, #2563eb) 65%, transparent);
+  border-radius: 2px;
+}
 .formula-code-disabled {
   opacity: 0.6;
 }

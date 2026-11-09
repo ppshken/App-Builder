@@ -1,3 +1,4 @@
+import {isSystemFormulaTable,systemFormulaColumns} from "./formula-system-schema";
 import type {Column} from './columns';
 import {traceAction} from "./action-trace";
 import {enqueueManual} from "./workflows";
@@ -17,8 +18,8 @@ export function checkFormula(table: string, source: unknown, extra:Column[] = []
   const names = new Set(["id", ...columnsOf(table).map(c => c.name),...extra.map(c=>c.name)]);
   for (const name of references(source)) if (!names.has(name)) throw new Error(`ไม่พบคอลัมน์ [${name}] กรุณาเลือกคอลัมน์จากตารางนี้`);
   for (const ref of tableReferences(source)) {
-    if (!tableExists(ref.table)) throw new Error(`ไม่พบตาราง ${ref.table}`);
-    if (ref.column !== "id" && !columnsOf(ref.table).some(c => c.name === ref.column)) throw new Error(`ไม่พบคอลัมน์ [${ref.column}] ในตาราง ${ref.table}`);
+    if (!isSystemFormulaTable(ref.table)&&!tableExists(ref.table)) throw new Error(`ไม่พบตาราง ${ref.table}`);
+    if (ref.column !== "id" && !(systemFormulaColumns(ref.table)||columnsOf(ref.table)).some(c => c.name === ref.column)) throw new Error(`ไม่พบคอลัมน์ [${ref.column}] ในตาราง ${ref.table}`);
   }
   const schema = Object.fromEntries((db.prepare("SELECT name FROM _tables").all() as {name:string}[]).map(t => [t.name, columnsOf(t.name)]));
   assertFormulas([...columnsOf(table),...extra, { name: "expression_check", label: "สูตร", type: "text", show_if: source }], schema);

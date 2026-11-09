@@ -1,3 +1,4 @@
+import {systemFormulaSchema} from "./formula-system-schema";
 import {normalizeImageSource} from "./image-source";
 import {InvalidValueError} from "./invalid-value-error";
 import {assertAutoNumberColumn,type AutoNumberConfig} from './auto-number';
@@ -32,6 +33,7 @@ export function assertIdentifier(name: unknown): asserts name is string {
 export type FormulaSchema = Record<string, { name: string; type: string; ref_table?: string | null; is_virtual?: number | boolean; table_name?: string }[]>;
 export const refTablesOf = (cols: Column[]): Record<string, string> => Object.fromEntries(cols.filter(c => c.type === "ref" && c.ref_table).map(c => [c.name, c.ref_table!]));
 export function formulaErrors(cols: Column[], schema?: FormulaSchema, ownerTable?: string): Record<string, string> {
+  if(schema)schema={...schema,...systemFormulaSchema()};
   const errors: Record<string, string> = {}, names = new Set(["id", ...cols.map(c => c.name)]);
   ownerTable ||= cols.find(c => c.table_name)?.table_name || (schema ? Object.keys(schema).find(name => schema[name] === cols) : undefined);
   const graphs: Record<string, string[]> = Object.create(null);
@@ -327,4 +329,12 @@ export function applyEditResets(cols:Column[],before:Record<string,unknown>,afte
     catch(e){throw Error('คำนวณใหม่ของ "'+c.label+'" ไม่ได้: '+(e as Error).message);}
   }
   return {row,reset};
+}
+
+// Form transitions must also detect B -> A when A equals the opening snapshot.
+// Retain the snapshot pass so preview still follows the existing save-time rules.
+export function applyFormEditResets(cols:Column[],original:Record<string,unknown>,before:Record<string,unknown>,after:Record<string,unknown>,now=new Date(),email='',context:ExpressionContext={}){
+  const transition=applyEditResets(cols,before,after,now,email,context);
+  const snapshot=applyEditResets(cols,original,transition.row,now,email,context);
+  return {row:snapshot.row,reset:new Set([...transition.reset,...snapshot.reset])};
 }

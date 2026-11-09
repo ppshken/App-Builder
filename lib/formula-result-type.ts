@@ -1,3 +1,4 @@
+import {systemFormulaColumns} from "./formula-system-schema";
 import {parseExpression,type Value} from './expression';
 import {normalizeValue,type Column,type FormulaField} from './columns';
 type Node=ReturnType<typeof parseExpression>;
@@ -7,13 +8,13 @@ function columnKind(type:string){return ['number','decimal','price','percent','r
 function fieldKind(column?:Column){return !column?'unknown':column.type==='list'&&column.ref_table?'list:number':column.type==='enumlist'?'list:text':columnKind(column.type);}
 function label(type:string):string{return type.startsWith('list:')?'รายการ (List / EnumList)'+(type==='list:unknown'?'':' ของ'+label(type.slice(5))):names[type]||type;}
 export function formulaResultTypes(source:string,columns:Column[],tables:Tables=[]):string[]{
- const schema=(table:string)=>tables.find(t=>t.name===table)?.columns||[];
+ const schema=(table:string)=>systemFormulaColumns(table)||tables.find(t=>t.name===table)?.columns||[];
  const kinds=(node:Node):string[]=>{
   switch(node.kind){
    case 'literal':return [node.value===null?'null':Array.isArray(node.value)?'list:unknown':typeof node.value==='boolean'?'boolean':typeof node.value==='number'?'number':'text'];
    case 'column':case 'outer':return [node.name==='id'?'number':fieldKind(columns.find(c=>c.name===node.name))];
    case 'deref':{const ref=columns.find(c=>c.name===node.column),target=ref?.ref_table?schema(ref.ref_table).find(c=>c.name===node.name):undefined;return [node.name==='id'?'number':fieldKind(target)];}
-   case 'table':case 'related':{const target=schema(node.table).find(c=>c.name===node.name);return ['list:'+(node.name==='id'?'number':fieldKind(target))];}
+   case 'table':case 'related':{const target=schema(node.table).find(c=>c.name===node.name);return ['list:'+(node.name==='id'&&!systemFormulaColumns(node.table)?'number':fieldKind(target))];}
    case 'unary':return kinds(node.value).includes('duration')?['duration']:['number'];
    case 'binary':{
     if(['=','==','<>','!=','<','>','<=','>='].includes(node.op))return ['boolean'];if(node.op==='&')return ['text'];

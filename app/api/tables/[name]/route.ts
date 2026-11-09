@@ -1,4 +1,5 @@
 import {assertInternalTable} from '@/lib/external-storage';
+import {dataColumnOrder} from '@/lib/data-column-order';
 import {customTargets} from '@/lib/custom-page';
 import {pruneApplicationActionGrants} from '@/lib/application-role-grants';
 import {workflowDependency} from "@/lib/workflow-dependencies";
@@ -41,12 +42,13 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
       }
       case "add_column": {
         const all = normalizeColumns([...cols.map(c => ({ ...c, ...(b.column?.is_key ? { is_key: 0 } : {}), ...(b.column?.is_label && (c.type==="image")===(b.column.type==="image") ? { is_label: 0 } : {}) })), b.column],{[t]:[]}), c = all[all.length - 1];
-        c.pos = Math.max(-1, ...cols.map(c => c.pos ?? 0)) + 1;
+        c.pos = c.is_virtual ? Math.max(-1, ...cols.map(c => c.pos ?? 0)) + 1 : all.filter(column=>!column.is_virtual).length-1;
         backupBeforeSchema();
         db.transaction(() => {
           if (!c.is_virtual) db.prepare(`ALTER TABLE "t_${t}" ADD COLUMN ${columnDefinition(c)}`).run();
           insertColumn(t, c);
           all.slice(0, -1).forEach(c => saveColumn(t, c));
+          if(!c.is_virtual){const position=db.prepare('UPDATE _columns SET pos=? WHERE table_name=? AND name=?');dataColumnOrder(all).forEach((column,index)=>position.run(index,t,column.name));}
           assertKeyData(t, all); syncKeyIndex(db, t); createInlineViews(db,t);
         })();
         break;
