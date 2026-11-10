@@ -92,14 +92,14 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
   } };
   return { ...context, snapshot(sources: string[], columns: Column[] = [], skipDenied=false,relatedScope?:{ownerTable:string;parentIds:number[];deferBlank?:boolean}) {
     const scopedSnapshots:Record<string,ExpressionTable>=Object.create(null);
-    const mergeScoped=(name:string,data:ExpressionTable,refColumns:string[],includeBlank=false)=>{
+    const mergeScoped=(name:string,data:ExpressionTable,refColumns:string[],includeBlank=false,scope=relatedScope!)=>{
       const prior=scopedSnapshots[name],rows=new Map((prior?.rows||[]).map(r=>[r.id,r]));for(const r of data.rows)rows.set(r.id,{...rows.get(r.id),...r});
       if(rows.size>10000)throw Error('ข้อมูล Related ที่ส่งให้ฟอร์มเกิน 10,000 แถว กรุณาลดจำนวนแถวแม่');
-      scopedSnapshots[name]={...prior,...data,columns:[...new Set([...(prior?.columns||[]),...data.columns])],rows:[...rows.values()],related_scope:{ownerTable:relatedScope!.ownerTable,parentIds:relatedScope!.parentIds,...(includeBlank||prior?.related_scope?.blankRefColumns?{blankRefColumns:[...new Set([...(prior?.related_scope?.blankRefColumns||[]),...(includeBlank?refColumns:[])])]}:{}),refColumns:[...new Set([...(prior?.related_scope?.refColumns||[]),...refColumns])]}};
+      scopedSnapshots[name]={...prior,...data,columns:[...new Set([...(prior?.columns||[]),...data.columns])],rows:[...rows.values()],related_scope:{ownerTable:scope.ownerTable,parentIds:[...new Set([...(prior?.related_scope?.parentIds||[]),...scope.parentIds])],...(includeBlank||prior?.related_scope?.blankRefColumns?{blankRefColumns:[...new Set([...(prior?.related_scope?.blankRefColumns||[]),...(includeBlank?refColumns:[])])]}:{}),refColumns:[...new Set([...(prior?.related_scope?.refColumns||[]),...refColumns])]}};
     };
-    const queue = sources.map(source => ({ source, columns })), loaded = new Set<string>();
+    const queue = sources.map(source => ({ source, columns, relatedScope })), loaded = new Set<string>();
     while (queue.length) {
-      const { source, columns } = queue.shift()!; if (!source.trim()) continue;
+      const { source, columns, relatedScope } = queue.shift()!; if (!source.trim()) continue;
       const targets=new Map<string,Set<string>>();
       const need=(table:string,column:string)=>{let selected=targets.get(table);if(!selected)targets.set(table,selected=new Set());selected.add(column);};
       for(const target of tableReferences(source,false))need(target.table,target.column);
@@ -109,7 +109,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
         if(relatedScope&&!related.ownerTable){
           const data=context.getRelatedTable!(related.table,related.column,{...relatedScope,refColumn:related.refColumn,columns:[...(targets.get(related.table)||[])]});
           if(!directSources.has(related.table))targets.delete(related.table);
-          mergeScoped(related.table,data,Object.entries(data.relatedRefs||{}).filter(([name,target])=>target===relatedScope.ownerTable&&(!related.refColumn||name===related.refColumn)).map(([name])=>name));
+          mergeScoped(related.table,data,Object.entries(data.relatedRefs||{}).filter(([name,target])=>target===relatedScope.ownerTable&&(!related.refColumn||name===related.refColumn)).map(([name])=>name),false,relatedScope);
         }else context.getRelatedTable!(related.table,related.column);
       }
       const plans=parentSelectReferences(source),unbounded=new Set(unboundedTableReferences(source).map(r=>r.table));
@@ -117,7 +117,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
         if(!relatedScope||plan.ownerTable){unbounded.add(plan.table);continue;}
         if(skipDenied&&!isSystemFormulaTable(plan.table)&&!canRead(plan.table))continue;
         let optimized=false;
-        for(const refColumn of plan.refColumns){const data=context.getSelectTable!(plan.table,[...(targets.get(plan.table)||[plan.column])],{...relatedScope,refColumn,includeBlank:!relatedScope.parentIds.length&&!relatedScope.deferBlank});if(data){mergeScoped(plan.table,data,[refColumn],!relatedScope.parentIds.length&&!relatedScope.deferBlank);optimized=true;break;}}
+        for(const refColumn of plan.refColumns){const data=context.getSelectTable!(plan.table,[...(targets.get(plan.table)||[plan.column])],{...relatedScope,refColumn,includeBlank:!relatedScope.parentIds.length&&!relatedScope.deferBlank});if(data){mergeScoped(plan.table,data,[refColumn],!relatedScope.parentIds.length&&!relatedScope.deferBlank,relatedScope);optimized=true;break;}}
         if(!optimized)unbounded.add(plan.table);
       }
       for(const plan of plans)if(!unbounded.has(plan.table)&&scopedSnapshots[plan.table])targets.delete(plan.table);
@@ -130,7 +130,11 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
         if(skipDenied&&!isSystemFormulaTable(table)&&!canRead(table))continue;
         const key=table+":"+[...needed].sort().join(",");if(loaded.has(key))continue;loaded.add(key);
         const data=context.getTable!(table,[...needed]),columns=columnsOf(table);
-        for(const c of columns)if(data.columns.includes(c.name)&&c.is_virtual&&c.virtual_expr)queue.push({source:c.virtual_expr,columns});
+        for(const c of columns)if(data.columns.includes(c.name)&&c.is_virtual&&c.virtual_expr){
+          // Nested virtuals belong to the dereferenced table, not the original screen.
+          if(relatedScope){const ids=data.rows.map(r=>Number(r.id)).filter(id=>Number.isSafeInteger(id)&&id>0);for(let i=0;i<Math.max(ids.length,1);i+=500)queue.push({source:c.virtual_expr,columns,relatedScope:{ownerTable:table,parentIds:ids.slice(i,i+500)}});}
+          else queue.push({source:c.virtual_expr,columns,relatedScope:undefined});
+        }
       }
     }
     for(const [name,data] of Object.entries(scopedSnapshots))if(tables[name])context.getTable!(name,[...new Set([...tables[name].columns,...data.columns])]);
