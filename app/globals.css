@@ -17513,3 +17513,8 @@ input:is(
 
 /* Computed fields remain identifiable while reordering View columns. */
 .view-column-title{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}.view-column-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.view-column-title>small{flex-shrink:0}.computed-column-tag{display:inline-block;flex:none;padding:2px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:10px;line-height:1.4;font-weight:500;white-space:nowrap}
+
+/* Let the active Dashboard use the viewport instead of reserving form-footer space. */
+.runtime-app > main:has(> .dashboard-view),
+.runtime-app > main:has(.runtime-route:not([hidden]) > .dashboard-view),
+.runtime-app > main:has(.runtime-background > .dashboard-view){padding-bottom:12px}
