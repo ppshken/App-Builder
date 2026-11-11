@@ -18,14 +18,14 @@ export type Column = {
   auto_number?:AutoNumberConfig|null;
   invalid_value_error?:string|null;
   name: string; label: string; type: string; input_mode?: "button" | "dropdown" | null; button_limit?: number | null; reset_on_edit?:number|boolean; reset_columns?:string[]; max_length?:number; gps_auto?:number|boolean; image_path?:string|null; file_path?:string|null; options?: string | null; ref_table?: string | null;
-  scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
+  scan_enabled?:number|boolean;related_required?:number|boolean;ref_delete_cascade?:number|boolean;ref_allow_add?:number|boolean;is_part_of?:number|boolean;part_show_if?:string|null;part_add_if?:string|null;part_valid_if?:string|null;part_invalid_value_error?:string|null; required?: number | boolean; pos?: number; is_virtual?: number | boolean; is_key?: number | boolean; is_label?: number | boolean; list_limit?: number; is_unique?: number | boolean; is_editable?: number | boolean;
 } & Partial<Record<FormulaField, string | null>>;
 export const FORMULA_LABELS: Record<FormulaField, string> = {
   virtual_expr: "สูตรคำนวณ", default_expr: "ค่าเริ่มต้น", show_if: "แสดงเมื่อ (Show_If)",
   editable_if: "แก้ไขเมื่อ (Editable_If)", valid_if: "ค่าต้องผ่านเงื่อนไข (Valid_If)", required_if: "จำเป็นเมื่อ (Required_If)",
 };
 export const blankColumn = (): Column => ({ name: "", label: "", type: "text", options: "", ref_table: "", required: false,
-  invalid_value_error:"",scan_enabled:false,related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
+  invalid_value_error:"",scan_enabled:false,related_required:false,ref_delete_cascade:false,ref_allow_add:false,reset_on_edit:false,reset_columns:[],is_part_of:false,part_show_if:"",part_add_if:"",part_valid_if:"",part_invalid_value_error:"",max_length: 0, gps_auto: false, is_unique: false, is_editable: true, editable_if: "", is_virtual: false, virtual_expr: "", default_expr: "", show_if: "", valid_if: "", required_if: "" });
 export function assertIdentifier(name: unknown): asserts name is string {
   if (typeof name !== "string" || !IDENT.test(name) || name === "id")
     throw new Error("ชื่อในระบบต้องขึ้นต้นด้วยอังกฤษพิมพ์เล็ก ตามด้วยอังกฤษพิมพ์เล็ก ตัวเลข หรือ _ ไม่เกิน 41 ตัว และห้ามใช้ id");

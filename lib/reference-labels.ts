@@ -7,7 +7,7 @@ import {canRead} from "./permissions";
 import {references} from "./expression";
 type Row = Record<string, any>;
 
-function referenceLabelColumns(cols: Column[], names: string[]): Column[] {
+export function referenceLabelColumns(cols: Column[], names: string[]): Column[] {
   const needed = new Set(names), queue = [...names], byName = new Map(cols.map(c => [c.name, c]));
   for (let i = 0; i < queue.length; i++) {
     const c = byName.get(queue[i]);

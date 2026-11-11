@@ -2,6 +2,7 @@ import { assertFormulas, type Column } from "./columns";
 
 export const PART_FORMULA_FIELDS = ["part_show_if", "part_add_if", "part_valid_if"] as const;
 export function assertPartColumn(c: Column) {
+  if(c.part_invalid_value_error!=null&&(typeof c.part_invalid_value_error!=="string"||c.part_invalid_value_error.length>1000))throw Error("Invalid value error ของรายการลูกต้องเป็นข้อความไม่เกิน 1,000 ตัวอักษร");
   if(c.related_required!==undefined&&![false,true,0,1].includes(c.related_required))throw Error("การบังคับรายการลูกต้องเป็นค่าเปิดหรือปิด");
   if(c.related_required&&(c.type!=="ref"||c.is_virtual||!c.ref_table))throw Error("บังคับรายการลูกใช้กับคอลัมน์ Ref จริงที่เลือกตารางแม่เท่านั้น");
   if(c.ref_delete_cascade!==undefined&&![false,true,0,1].includes(c.ref_delete_cascade))throw Error("ลบลูกตามแม่ต้องเป็นค่าเปิดหรือปิด");

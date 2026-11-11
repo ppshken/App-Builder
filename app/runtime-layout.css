@@ -156,3 +156,15 @@
 .navigation-live-sample>.app-navigation .app-nav-item[data-featured="true"] .nav-icon{width:32px;height:32px;transform:translateY(-4px);}
 
 .pwa-update{position:fixed;z-index:1500;top:calc(env(safe-area-inset-top,0px) + 64px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);width:max-content;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow);font-size:12px;flex-wrap:wrap}.pwa-update button{font-size:12px;min-height:32px;padding:4px 10px}
+
+/* Share the same desktop split boundary for content and viewport-fixed controls. */
+@media(min-width:1024px){
+ .runtime-app.runtime-desktop{--runtime-detail-width:calc((100vw - var(--runtime-sidebar-width,0px)) * 0.3)}
+ .runtime-app.runtime-desktop.runtime-responsive .runtime-screen,
+ .runtime-app.runtime-desktop.runtime-responsive .runtime-screen:has(.data-form),
+ .runtime-app.runtime-desktop.runtime-responsive .runtime-screen.runtime-child-screen,
+ .runtime-app.runtime-desktop.runtime-responsive .runtime-screen.runtime-child-screen:has(.data-form){width:var(--runtime-detail-width);left:auto;right:0}
+ .runtime-app.runtime-desktop.runtime-responsive .desktop-detail-backdrop{width:calc(100% - var(--runtime-detail-width));min-width:0;max-width:100%;isolation:isolate}
+ .runtime-app.runtime-desktop.runtime-responsive .desktop-detail-backdrop .data-pagination{left:var(--runtime-sidebar-width,0px);width:calc(100vw - var(--runtime-sidebar-width,0px) - var(--runtime-detail-width))}
+ .runtime-app.runtime-desktop.runtime-responsive .desktop-detail-backdrop .runtime-add{right:calc(var(--runtime-detail-width) + 24px)}
+}

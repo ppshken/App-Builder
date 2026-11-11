@@ -1,0 +1,3 @@
+"use client";
+export type RemoteChoices={loading:boolean;error:string;hasMore:boolean;onQueryChange:(query:string)=>void;onMore:()=>void;onRetry:()=>void};
+export default function RemoteChoiceStatus({remote}:{remote?:RemoteChoices}){if(!remote)return null;return <div aria-live="polite">{remote.loading?<span role="status">กำลังค้นหา…</span>:remote.error?<><span role="alert" className="err">{remote.error}</span><button type="button" data-select-create onClick={remote.onRetry}>ลองใหม่</button></>:remote.hasMore?<button type="button" data-select-create onClick={remote.onMore}>โหลดเพิ่มเติม</button>:null}</div>;}

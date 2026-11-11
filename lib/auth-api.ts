@@ -38,6 +38,7 @@ export function withAuth(handler:(...args:any[])=>Promise<Response>){return asyn
    else if(path.startsWith("/api/images/"))assertImageAccess(context?.params?.id);
    else if(path==="/api/images"){if(!access.builder&&!Object.values(access.tables).some(t=>t.read&&(t.create||t.update)))throw new AuthError("ไม่มีสิทธิ์อัปโหลดรูปภาพ",403);}
    else if(path==="/api/expression-data"){const table=url.searchParams.get("table");if(table)assertTablePermission(table,"read");if(!read&&!access.builder)throw new AuthError("ไม่มีสิทธิ์ทดสอบสูตรของแอป",403);}
+   else if(path.startsWith("/api/ref-options/")){assertTablePermission(context?.params?.table,"read");}
    else if(path.startsWith("/api/scan/")){assertTablePermission(context?.params?.table,"read");}
    else if(path==='/api/app-management'){if(!access.owner)throw new AuthError('เฉพาะเจ้าของ Builder',403);}
    else if(path==='/api/push'){} // Each device operation is restricted to the authenticated user and app.

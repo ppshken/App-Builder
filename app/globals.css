@@ -6333,6 +6333,14 @@ html[data-mode="dark"] .success-banner {
   outline: 0;
   min-width: 0;
 }
+/* The shared search container owns the focus ring, including its icon. */
+.search-select-search input:focus,
+.search-select-search input:focus-visible {
+  outline: 0;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
 .search-select-options {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -7478,6 +7486,9 @@ textarea.formula-source::placeholder,
   background: var(--panel);
   min-width: 0;
   overflow: hidden;
+  padding-left: 12px;
+  padding-right: 12px;
+  padding-top: 12px;
 }
 .dashboard-panel > header {
   flex-shrink: 0;
@@ -15042,8 +15053,8 @@ textarea::placeholder {
 
 /* Dashboard panels blend into the page; the application header identifies it. */
 .dashboard-view .dashboard-panel {
-  border: 0;
-  border-radius: 0;
+  /* border: 0; */
+  /* border-radius: 0; */
   box-shadow: none;
 }
 .dashboard-view .dashboard-panel-body {
@@ -17518,3 +17529,8 @@ input:is(
 .runtime-app > main:has(> .dashboard-view),
 .runtime-app > main:has(.runtime-route:not([hidden]) > .dashboard-view),
 .runtime-app > main:has(.runtime-background > .dashboard-view){padding-bottom:12px}
+
+/* Data rows share the natural tallest height; table/group headers remain independent. */
+.record-table table[data-uniform-rows] > tbody > tr:not(.record-group-row) {
+  height: var(--uniform-data-row-height, auto);
+}

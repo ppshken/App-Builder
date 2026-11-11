@@ -1,3 +1,4 @@
+import {realtimeReadVersions} from '@/lib/realtime-read-version';
 import {assertRowVersion} from '@/lib/row-version';
 import {refreshExternalTable} from '@/lib/external-sources';
 import {writeColumns} from '@/lib/shared-table-columns';
@@ -41,6 +42,8 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       if (firstError) throw new Error(`ค่าเริ่มต้นของ "${firstError.label}": ${errors[firstError.name]}`);
       return NextResponse.json({ values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
     }
+    // Capture before synchronous reads: a later write must never be marked as covered.
+    const realtimeHeaders={'X-Nocode-Realtime-Versions':JSON.stringify(realtimeReadVersions())};
     const filters=parseFilters(u.searchParams.get("filters"),cols),paged=u.searchParams.has("page"),size=Number(u.searchParams.get("page_size")||25),requested=Number(u.searchParams.get("page")||1);
     if(paged&&(!Number.isSafeInteger(requested)||requested<1||![10,25,50,100].includes(size)))return bad("หน้าหรือจำนวนรายการต่อหน้าไม่ถูกต้อง");
     const requestedSort=cols.find(c=>c.name===u.searchParams.get("sort")),search=u.searchParams.get("q")||"";
@@ -62,6 +65,9 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+where+' ORDER BY "'+key+'" '+window.direction+',id '+window.direction+' LIMIT ? OFFSET ?').all(...args,window.limit,window.offset) as Row[];
       if(window.reverse)rawRows.reverse();
     })();
+    // Unpaged Dashboard, Ref-label search and virtual sorting also benefit from
+    // safe Slice pushdown; permissions and the interpreter checks still run below.
+    if(slicePlan&&rawRows===undefined)rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+slicePlan.where).all(...slicePlan.args) as Row[];
     let rows = readRows(t, cols, now, userEmail, context,rawRows);
     if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
     if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
@@ -80,8 +86,8 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const comparison = left == null ? right == null ? 0 : -1 : right == null ? 1 : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "th");
       return direction * (comparison || a.id - b.id);
     });
-    if(paged){if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows,total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size))});}
-    return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500));
+    if(paged){if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows,total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size))},{headers:realtimeHeaders});}
+    return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500),{headers:realtimeHeaders});
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }
 async function handlePOST(req:Request,{params}:{params:{table:string}}){try{const submission=await readFormImageRequest(req);return NextResponse.json(saveFormWithImages(params.table,submission.values,undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req),submission.images));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}

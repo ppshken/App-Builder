@@ -1,3 +1,4 @@
+import {InvalidValueError} from "./invalid-value-error";
 import {assertRowVersion} from "./row-version";
 import {saveFormRecord} from './form-save';
 import {AuthError} from "./auth";
@@ -24,6 +25,6 @@ export function assertParentParts(parent:string,id:number) {
  for(const item of links){const c=columnsOf(item.table_name).find(c=>c.name===item.name)!;
  const records=db.prepare('SELECT id FROM "t_'+item.table_name+'" WHERE "'+c.name+'"=?').all(id) as {id:number}[];
  if(c.related_required&&!records.length)throw Error("รายการที่เกี่ยวข้อง "+item.table_name+" · "+c.label+" ต้องมีข้อมูลอย่างน้อย 1 รายการก่อนบันทึก");
- if(c.is_part_of&&c.part_valid_if?.trim()&&!asBoolean(evaluateExpression(c.part_valid_if!,{...row,_THIS:records.map(r=>String(r.id))},{...ctx,refTables:refTablesOf(cols),userEmail:email})))throw Error('รายการลูก '+item.table_name+' ไม่ผ่าน Valid_If กรุณาตรวจจำนวนรายการหรือเงื่อนไขที่กำหนด');
+ if(c.is_part_of&&c.part_valid_if?.trim()&&!asBoolean(evaluateExpression(c.part_valid_if!,{...row,_THIS:records.map(r=>String(r.id))},{...ctx,refTables:refTablesOf(cols),userEmail:email})))throw c.part_invalid_value_error?.trim()?new InvalidValueError(c.part_invalid_value_error.trim()):new Error('รายการลูก '+item.table_name+' ไม่ผ่าน Valid_If กรุณาตรวจจำนวนรายการหรือเงื่อนไขที่กำหนด');
  }
 }
