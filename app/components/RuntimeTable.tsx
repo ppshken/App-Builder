@@ -200,7 +200,7 @@ function RuntimeTableContent({ mapScope, dashboardSearch, draftExpressionScope, 
     if (!meta) return;
     const out: Record<string, any[]> = {};
     await Promise.all(meta.columns.filter(c=>c.type === "ref" && c.ref_table && tableAccess(access,c.ref_table).read).map(async c=>{
-      const response=await fetch(`/api/data/${c.ref_table}?sort=id&dir=asc`,{headers:requestHeaders,cache:"no-store"}),data=await response.json();if(!response.ok)throw Error(data.error);out[c.name]=data;
+      const response=await fetch(`/api/data/${c.ref_table}?all=1&sort=id&dir=asc`,{headers:requestHeaders,cache:"no-store"}),data=await response.json();if(!response.ok)throw Error(data.error);out[c.name]=data;
       const linked=relatedForm&&c.name===parentLink?draftValues?.[c.name]:undefined;if(linked&&!out[c.name].some(row=>String(row.id)===String(linked))){const response=await fetch('/api/data/'+c.ref_table+'?id='+encodeURIComponent(linked),{headers:requestHeaders});const selected=await response.json();if(response.ok&&Array.isArray(selected))out[c.name]=[...out[c.name],...selected];}
     }));
     setRefs(out);
