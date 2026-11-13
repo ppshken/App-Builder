@@ -25,5 +25,7 @@ export function createApplicationConfig(database:Database.Database,id:string,lab
  // Forward-compatible additions follow the default schema on future upgrades.
  const columns=database.pragma('table_info("'+target+'")') as {name:string}[],known=new Set(columns.map(c=>c.name));for(const c of database.pragma('table_info("'+table+'")') as {name:string;type:string;notnull:number;dflt_value:string|null}[]){if(!known.has(c.name))database.exec('ALTER TABLE "'+target+'" ADD COLUMN "'+c.name+'" '+c.type+(c.notnull?' NOT NULL':'')+(c.dflt_value===null?'':' DEFAULT '+c.dflt_value));}}
  database.prepare('INSERT OR IGNORE INTO "'+applicationTable(id,'_app_settings')+'"(id,name,icon,color,mode,list_reference_version) VALUES(1,?,?,?,?,1)').run(label||'แอปใหม่','grid','blue','auto');
+ installReleaseTrackingFor(database,applicationTable(id,'_user_setting_values'));installReleaseTrackingFor(database,applicationTable(id,'_user_setting_defs'));
  const jobs=applicationTable(id,'_automation_jobs');database.exec('CREATE INDEX IF NOT EXISTS "'+jobs+'_queue" ON "'+jobs+'"(status,created_at)');
 }
+import {installReleaseTrackingFor} from './release-data-revisions';

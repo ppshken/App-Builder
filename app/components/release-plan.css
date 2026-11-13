@@ -1,0 +1,25 @@
+.release-plan{min-width:0;margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.release-plan-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.release-plan-heading h3{margin:0 0 4px;font-size:15px}
+.release-plan-heading p{margin:0;font-size:12px;color:var(--mute)}
+.release-plan-tag,.release-plan-counts>span{padding:5px 9px;border-radius:7px;background:var(--bg);font-size:12px}
+.release-plan-counts{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
+.release-plan-counts b{margin-left:6px}
+.release-plan-blockers{padding:12px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-soft);margin:12px 0}
+.release-plan-blockers strong{color:var(--danger)}
+.release-plan ul{padding-left:20px;margin:6px 0;font-size:12px;line-height:1.7}
+.release-plan-operations{max-height:440px;overflow:auto;overscroll-behavior:contain;margin-top:12px}
+.release-plan-operation{border-top:1px solid var(--line)}
+.release-plan-operation>summary{display:flex;align-items:center;gap:10px;cursor:pointer;padding:11px 2px;list-style:revert}
+.release-plan-number{flex:0 0 24px;height:24px;display:grid;place-items:center;border-radius:6px;background:var(--bg);font-size:11px}
+.release-plan-operation-title{flex:1;min-width:0;display:grid;gap:3px}
+.release-plan-operation-title strong{font-size:13px;overflow-wrap:anywhere}
+.release-plan-operation-title small,.release-plan-support{font-size:11px;color:var(--mute);overflow-wrap:anywhere}
+.release-plan-risk{flex-shrink:0;border-radius:5px;padding:3px 6px;font-size:11px;background:var(--bg)}
+.release-plan-risk.risk-high{color:#b91c1c;background:#fee2e2}
+.release-plan-risk.risk-medium{color:#92400e;background:#fef3c7}
+.release-plan-risk.risk-low{color:#166534;background:#dcfce7}
+.release-plan-operation-body{padding:0 8px 12px 36px;font-size:12px;overflow-wrap:anywhere}
+.release-plan-notices,.release-plan-conflicts{margin-top:12px;font-size:12px;overflow-wrap:anywhere}
+.release-plan-notices summary,.release-plan-conflicts summary{cursor:pointer}
+@media(max-width:640px){.release-plan{padding:12px}.release-plan-operation>summary{flex-wrap:wrap}.release-plan-operation-title{flex-basis:calc(100% - 40px)}.release-plan-support{margin-left:auto}.release-plan-operation-body{padding-left:8px}}

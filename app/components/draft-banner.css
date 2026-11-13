@@ -1,0 +1,9 @@
+.builder-header .draft-banner.draft-banner-compact{position:relative;flex:0 1 auto;padding:0;max-width:260px;max-height:36px;border-radius:7px;gap:0}
+.draft-banner-compact details{min-width:0;max-width:100%}
+.draft-banner-compact summary{display:flex;align-items:center;gap:7px;padding:6px 9px;cursor:pointer;white-space:nowrap;font-size:11px;list-style:none}
+.draft-banner-compact summary::after{content:'▾';font-size:10px}
+.draft-banner-label{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.draft-banner-popover{position:absolute;right:0;top:calc(100% + 6px);width:300px;max-width:calc(100vw - 24px);padding:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);font-size:12px;white-space:normal;overflow-wrap:anywhere;z-index:220}
+.draft-banner-popover p{color:var(--mute);margin:7px 0 12px}
+.draft-banner-popover a{display:block;margin-bottom:12px}
+@media(max-width:760px){.draft-banner-label{display:none}.draft-banner-compact summary{padding:6px;font-size:10px}.builder-header .draft-banner.draft-banner-compact{max-width:100px;flex-shrink:0}.draft-banner-popover{position:fixed;right:12px;top:64px}}

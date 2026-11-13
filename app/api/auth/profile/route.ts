@@ -1,3 +1,4 @@
+import {draftCookie} from '@/lib/releases';
 import {publishMedia} from '@/lib/media-location';
 import {requiredAccountText,profileAvatar} from '@/lib/account-fields';
 import {db} from '@/lib/db';
@@ -5,7 +6,7 @@ import {requestUser,assertSameOrigin,AuthError,validPassword,verifyPassword,hash
 import {authResponse,authFailure} from '@/lib/auth-response';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){try{const user=requestUser(req);if(!user)throw new AuthError('กรุณาเข้าสู่ระบบ',401);const role=db.prepare('SELECT label FROM _roles WHERE name=?').get(user.role) as {label:string}|undefined;return authResponse(req,{user,roleLabel:role?.label||user.role,active:true});}catch(e){return authFailure(e);}}
-export async function PATCH(req:Request){try{assertSameOrigin(req);const user=requestUser(req);if(!user)throw new AuthError('กรุณาเข้าสู่ระบบ',401);if(Number(req.headers.get('content-length'))>300000)throw new AuthError('รูปภาพใหญ่เกินไป');const text=await req.text();if(text.length>300000)throw new AuthError('รูปภาพใหญ่เกินไป');const input=JSON.parse(text);if(input.op==='password'){
+export async function PATCH(req:Request){try{assertSameOrigin(req);const user=requestUser(req);if(!user)throw new AuthError('กรุณาเข้าสู่ระบบ',401);if(draftCookie(req))throw new AuthError('กลับเวอร์ชันจริงก่อนแก้ไขบัญชีผู้ใช้',409);if(Number(req.headers.get('content-length'))>300000)throw new AuthError('รูปภาพใหญ่เกินไป');const text=await req.text();if(text.length>300000)throw new AuthError('รูปภาพใหญ่เกินไป');const input=JSON.parse(text);if(input.op==='password'){
  const password=validPassword(input.password);if(typeof input.currentPassword!=='string'||input.currentPassword.length>128)throw new AuthError('กรุณากรอกรหัสผ่านเดิม');
  // Reuse the login throttle, including its global and per-account limits.
  const {login,revokeSession}=await import('@/lib/auth');const checked=await login({username:user.username||user.email,password:input.currentPassword});revokeSession(checked.token);

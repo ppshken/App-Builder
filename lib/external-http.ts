@@ -1,3 +1,4 @@
+import {assertDevelopmentEffect} from './development-context';
 import https from 'node:https';
 import {promises as dns} from 'node:dns';
 import {BlockList,isIP} from 'node:net';
@@ -14,7 +15,7 @@ export function externalCredentialOptions(app:string){return credentials().filte
 export function resolveExternalCredential(id:string,app:string,origin:string){if(!id)return {headers:{} as Record<string,string>,secrets:[] as string[]};const c=credentials().find(c=>c.id===id&&c.apps?.includes(app)&&c.origins?.includes(origin));if(!c)throw new ExternalDataError('ไม่มีสิทธิ์ใช้ Credential กับแอปหรือปลายทางนี้',403);const valid=(v:unknown)=>typeof v==='string'&&v.length>0&&v.length<=8000&&!/[\r\n]/.test(v);if(c.type==='basic'&&valid(c.username)&&valid(c.password))return {headers:{Authorization:'Basic '+Buffer.from(c.username+':'+c.password).toString('base64')},secrets:[c.username!,c.password!]};if(!valid(c.value))throw new ExternalDataError('Credential ที่เซิร์ฟเวอร์ไม่พร้อมใช้งาน');if(c.type==='bearer')return {headers:{Authorization:'Bearer '+c.value},secrets:[c.value!]};if(c.type==='api_key'&&typeof c.header==='string'&&/^[A-Za-z][A-Za-z0-9-]{0,63}$/.test(c.header)&&!['host','cookie','connection','content-length','transfer-encoding'].includes(c.header.toLowerCase()))return {headers:{[c.header]:c.value!},secrets:[c.value!]};throw new ExternalDataError('ชนิด Credential ไม่รองรับ');}
 export type ExternalHttpResult={data:unknown;status:number;bytes:number;duration_ms:number;secrets:string[]};
 let active=0;
-export async function requestExternalJson(raw:string,connection:ExternalConnection,app:string,consume:()=>void=()=>{}):Promise<ExternalHttpResult>{
+export async function requestExternalJson(raw:string,connection:ExternalConnection,app:string,consume:()=>void=()=>{}):Promise<ExternalHttpResult>{assertDevelopmentEffect('เรียก API ภายนอก');
  if(active>=4)throw new ExternalDataError('มีคำขอ API พร้อมกันมากเกินไป กรุณาลองใหม่',429);active++;const started=Date.now(),deadline=started+connection.timeout_ms;
  try{let url=validateExternalUrl(raw,externalOrigins(app));const originalOrigin=url.origin;
   for(let attempt=0,redirects=0;;){

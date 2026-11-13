@@ -27,7 +27,7 @@ import {DEFAULT_SETTINGS,validateSettings} from "./app-settings";
 import {validateDisplay} from "./view-display";
 import {migrateListReferences,assertStoredListReferences} from "./list-reference-migration";
 
-const META = ["_table_shares","_table_overlays","_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
+const META = ["_release_data_versions","_table_shares","_table_overlays","_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
 export type BackupInfo={name:string;size:number;created:string;reason:string};
@@ -43,7 +43,7 @@ function supportedTables(db:Database.Database) {
  const all=objects(db);
  const appConfigs=restoreConfigTables(db);if(appConfigs.some(name=>!all.some(o=>o.name===name&&o.type==='table')))throw Error("โครงสร้างการตั้งค่ารายแอปในไฟล์สำรองไม่ครบ");
  const realtimeTables=db.prepare("SELECT name FROM _tables").all() as {name:string}[];
- const trustedTriggers=new Map([...auditTriggerDefinitions(db),...realtimeTables.flatMap(t=>realtimeTriggerDefinitions(t.name))].map(t=>[t.name,t.sql]));
+ const trustedTriggers=new Map([...auditTriggerDefinitions(db),...realtimeTables.flatMap(t=>[...realtimeTriggerDefinitions(t.name),...releaseRevisionTriggers('t_'+t.name)]),...releaseTrackedGlobals(db).flatMap(t=>releaseRevisionTriggers(t))].map(t=>[t.name,t.sql]));
  const trustedViews=new Map<string,string>();const metadataFields=db.pragma("table_info('_tables')") as {name:string}[];if(metadataFields.some(c=>c.name==='source_kind')){const template=new Database(':memory:');try{for(const row of db.prepare("SELECT name,source_id FROM _tables WHERE source_kind='EXTERNAL_REST_API'").all() as {name:string;source_id:string}[]){createExternalReadView(template,row.name,readColumns(db,row.name),row.source_id);const view=template.prepare("SELECT name,sql FROM sqlite_master WHERE name=? AND type='view'").get('t_'+row.name) as {name:string;sql:string};trustedViews.set(view.name,view.sql);if(!all.some(o=>o.name===view.name&&o.type==='view'))throw Error('โครงสร้าง External Source ไม่ครบ');}}finally{template.close();}}
  if(all.some(o=>o.type==="view"&&o.sql!==trustedViews.get(o.name)||o.type==="trigger"&&o.sql?.trim()!==trustedTriggers.get(o.name)))throw Error("ไฟล์นี้มี SQL View หรือ Trigger ที่ระบบกู้คืนยังไม่รองรับ กรุณาใช้ไฟล์สำรองของ No-code Builder");
  if(!["_tables","_columns"].every(name=>all.some(o=>o.name===name&&o.type==="table")))throw Error("ไฟล์นี้ไม่ใช่ฐานข้อมูลของ No-code Builder");
@@ -78,7 +78,7 @@ export function inspectBackup(sourceFile:string,stageFile:string,current?:Databa
    for(const row of source.prepare(`SELECT * FROM "${name}"`).iterate() as Iterable<Record<string,any>>)insert.run(...selected.map(n=>row[n]));
   };
   foreignKeyTransaction(destination,()=>{
-   for(const name of META)if(!['_bulk_action_state','_bulk_action_runs'].includes(name))copyMeta(name); // Never restore execution receipts into a new data timeline.
+   for(const name of META)if(!['_release_data_versions','_bulk_action_state','_bulk_action_runs'].includes(name))copyMeta(name); // Never restore execution receipts into a new data timeline.
    for(const id of restoreApplications(destination))createApplicationConfig(destination,id);
    for(const name of restoreConfigTables(destination))copyMeta(name);
    for(const name of AUTH_TABLES.filter(n=>!['_sessions','_auth_attempts'].includes(n)))copyMeta(name);
@@ -128,7 +128,7 @@ export function restoreBackup(db:Database.Database,path:string,stageFile:string)
   const restoreAudit=auditContext(),before=createBackup(db,path,"restore");
   db.prepare("ATTACH DATABASE ? AS restore_snapshot").run(stageFile);
   try{withoutAudit(()=>foreignKeyTransaction(db,()=>{
-   removeAuditTriggers(db);
+   removeAuditTriggers(db);removeReleaseRevisionTracking(db);
    const keepSeparated=securitySeparated(db)||!!db.prepare("SELECT 1 FROM _users LIMIT 1").get();
    for(const obj of objects(db).filter(o=>o.type==='view'))db.prepare('DROP VIEW "'+obj.name+'"').run();
    for(const obj of objects(db).filter(o=>o.type==='table'&&o.name!=='sqlite_sequence'&&!preserved(o.name)))db.prepare('DROP TABLE "'+obj.name+'"').run();
@@ -151,10 +151,11 @@ export function restoreBackup(db:Database.Database,path:string,stageFile:string)
    const fields=(db.pragma("table_info('_audit_log')") as {name:string}[]).map(c=>'"'+c.name+'"').join(',');db.prepare('INSERT OR IGNORE INTO main._audit_log('+fields+') SELECT '+fields+' FROM restore_snapshot._audit_log').run();
    for(const obj of schema.filter(o=>o.type==='index'&&o.sql&&!preserved(o.tbl_name)))db.exec(obj.sql!);
    for(const t of tables){syncKeyIndex(db,t.name);installRealtimeTriggers(db,t.name);}
-   installAuditing(db);
+   installReleaseRevisionTracking(db);installAuditing(db);
    if(restoreAudit){const actor=restoreAudit.actor;db.prepare('INSERT INTO _audit_log(event_id,request_id,occurred_at,actor_id,actor_name,actor_email,actor_role,category,entity_type,entity_key,entity_label,operation,source,changes_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),restoreAudit.requestId,Date.now(),actor.id,actor.name,actor.email,actor.role,'settings','_restore',before.name,'กู้คืนข้อมูลทุกแอป','update',restoreAudit.source,JSON.stringify([{path:['applications'],before:null,after:restoreApplications(db),before_exists:false,after_exists:true}]));}
   }));}finally{db.prepare("DETACH DATABASE restore_snapshot").run();}
   return before;
  }finally{stage.close();}
 }
 export function cleanStage(folder:string){const absolute=resolve(folder);if(!/^\.restore-stage-[a-f0-9-]{36}$/.test(basename(absolute))||!existsSync(absolute)||lstatSync(absolute).isSymbolicLink())return;for(const name of ["upload.db","ready.db","ready.db-wal","ready.db-shm"]){const file=join(absolute,name);if(existsSync(file)&&!lstatSync(file).isDirectory())unlinkSync(file);}if(readdirSync(absolute).length===0)rmdirSync(absolute);}
+import {releaseRevisionTriggers,releaseTrackedGlobals,removeReleaseRevisionTracking,installReleaseRevisionTracking} from './release-data-revisions';

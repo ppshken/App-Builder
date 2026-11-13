@@ -1,4 +1,5 @@
 import {PUSH_SCHEMA} from "./push-schema";
+import {installReleaseRevisionTracking} from './release-data-revisions';
 import {SHARED_TABLE_SCHEMA} from './shared-table-schema';
 import {migrateSystemViews} from "./system-views";
 import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
@@ -234,5 +235,6 @@ export function initializeDatabase(db: Database.Database, path: string) {
   db.exec(SHARED_TABLE_SCHEMA);
   db.exec("CREATE INDEX IF NOT EXISTS _tables_owner_app ON _tables(owner_app_id)");
   for(const id of applicationIds(db))createApplicationConfig(db,id);
+  installReleaseRevisionTracking(db);
   db.pragma("journal_mode = WAL");
 }

@@ -42,3 +42,7 @@ out/
 
 # Private Web Push keys generated locally
 .env.push
+
+/.rehearsal-worker/
+
+.backup-management/

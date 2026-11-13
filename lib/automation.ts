@@ -1,3 +1,5 @@
+import {AuthError} from './auth';
+import {assertDevelopmentAction} from './development-context';
 import {isSystemFormulaTable,systemFormulaColumns} from "./formula-system-schema";
 import type {Column} from './columns';
 import {traceAction} from "./action-trace";
@@ -6,7 +8,7 @@ import {deleteRecord} from "./delete-record";
 import {writeRecord} from "./data-write";
 import {communicationUrl,safeActionUrl,type ActionAppearance,type ActionConfig,type ActionKind,actionPermission} from "./action-config";
 import {assertRowAllowed,rowAllowed} from "./row-access";
-import {canRead,canExecuteAction,assertReferenceWrites,assertTablePermission} from "./permissions";
+import {currentAccess,canRead,canExecuteAction,assertReferenceWrites,assertTablePermission} from "./permissions";
 import { columnsOf, db, tableExists } from "./db";
 import { normalizeValue, assertIdentifier, calculateRow, assertFormulas, refTablesOf, evaluateColumnExpression } from "./columns";
 import { asBoolean, evaluateExpression, references, tableReferences, ExpressionContext } from "./expression";
@@ -26,7 +28,7 @@ export function checkFormula(table: string, source: unknown, extra:Column[] = []
   return source.trim();
 }
 export function slices(): Slice[] { return (db.prepare("SELECT * FROM _slices ORDER BY label,name").all() as any[]).filter(s=>canRead(s.table_name)).map(({ columns_json, ...s }) => ({ ...s, columns: JSON.parse(columns_json) })); }
-export function actions(table?: string): RowAction[] { return (db.prepare("SELECT * FROM _actions ORDER BY label,name").all() as any[]).filter(a => (!table || a.table_name === table) && canRead(a.table_name) && canExecuteAction(a)).map(({ values_json,config_json,appearance_json, ...a }) => ({ ...a, values: JSON.parse(values_json),config:JSON.parse(config_json||"{}"),appearance:JSON.parse(appearance_json||"{}") })); }
+export function actions(table?: string,mode:'runtime'|'builder'='runtime'): RowAction[] { if(mode==='builder'&&!currentAccess().builder)throw new AuthError('ผู้พัฒนาแอปเท่านั้นที่ดูการตั้งค่า Action ได้',403);return (db.prepare("SELECT * FROM _actions ORDER BY label,name").all() as any[]).filter(a => (!table || a.table_name === table) && (mode==='builder'||canRead(a.table_name) && canExecuteAction(a))).map(({ values_json,config_json,appearance_json, ...a }) => ({ ...a, values: JSON.parse(values_json),config:JSON.parse(config_json||"{}"),appearance:JSON.parse(appearance_json||"{}") })); }
 export function sliceFor(name: string | null, table: string) {
   if (!name) return null;
   assertIdentifier(name); const s = slices().find(s => s.name === name && s.table_name === table);
@@ -37,6 +39,7 @@ export function executeAction(name: string, id: number, userEmail: string, slice
   assertIdentifier(name);
   if (!Number.isSafeInteger(id) || id < 1) throw new Error("กรุณาเลือกแถวข้อมูล");
   const a = actions().find(a => a.name === name); if (!a || !tableExists(a.table_name)) throw new Error("ไม่พบ Action");
+  assertDevelopmentAction(a.kind);
   const t = a.table_name, cols = columnsOf(t), now = new Date(), slice = sliceFor(sliceName, t);
   return db.transaction(() => {
     const context = expressionContext(now, userEmail);

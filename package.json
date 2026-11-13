@@ -2,8 +2,8 @@
   "name": "nocode-builder",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --webpack",
+    "dev": "node scripts/build-rehearsal-worker.cjs && next dev --turbopack",
+    "build": "node scripts/build-rehearsal-worker.cjs && next build --webpack",
     "start": "next start",
     "test": "node scripts/test.cjs",
     "test:api": "node scripts/integration.cjs api",

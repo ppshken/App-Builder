@@ -1,0 +1,1 @@
+.release-update-notice{position:fixed;top:64px;right:12px;z-index:1100;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:calc(100vw - 24px);padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);box-shadow:0 4px 18px #0002;font-size:12px}.release-update-notice button{font-size:12px;padding:5px 8px}

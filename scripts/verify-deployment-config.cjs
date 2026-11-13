@@ -6,9 +6,16 @@ function command(args){const r=spawnSync('docker',args,{cwd:root,env,encoding:'u
 const env={...process.env};
 for(const key of Object.keys(env))if(key.startsWith('NOCODE_')||key.startsWith('COMPOSE_')||/^(APP_|NODE_IMAGE$|CADDY_IMAGE$|ACME_EMAIL$|HTTP_|HTTPS_|PUBLIC_)/.test(key))delete env[key];
 function check(name,fn){try{fn();results.push({name,status:'VERIFIED'});}catch(e){results.push({name,status:'FAILED',message:e.message});}}
-let http,https;
+let http,https,nginx;
 check('Compose HTTP renders with example configuration',()=>{http=JSON.parse(command(['compose','--env-file','.env.docker.example','-f','compose.yaml','config','--format','json']));});
 check('Compose HTTPS renders with example configuration',()=>{https=JSON.parse(command(['compose','--env-file','.env.docker.example','-f','compose.yaml','-f','compose.https.yaml','config','--format','json']));});
+check('Compose host Nginx exposes loopback only and disables bundled proxy by default',()=>{
+ nginx=JSON.parse(command(['compose','--env-file','.env.docker.example','-f','compose.yaml','-f','compose.nginx.yaml','config','--format','json']));
+ assert.deepEqual(nginx.services.app.ports.map(p=>[p.host_ip,String(p.published),p.target]),[['127.0.0.1','3001',3000]]);
+ assert(!nginx.services.proxy,'bundled proxy must be absent when its profile is disabled');
+ const enabled=JSON.parse(command(['compose','--env-file','.env.docker.example','--profile','bundled-caddy','-f','compose.yaml','-f','compose.nginx.yaml','config','--format','json']));
+ assert(enabled.services.proxy.profiles.includes('bundled-caddy'));
+});
 check('ports match Next startup and app has no public host port',()=>{
  assert(http&&https);for(const cfg of [http,https]){assert(!cfg.services.app.ports?.length);assert(cfg.services.app.expose.includes('3000'));assert.equal(cfg.services.app.environment.PORT,'3000');assert.equal(cfg.services.app.environment.HOSTNAME,'0.0.0.0');}
  assert.deepEqual(http.services.proxy.ports.map(p=>[p.host_ip,String(p.published),p.target,p.protocol]),[['127.0.0.1','8080',8080,'tcp']]);
@@ -23,15 +30,17 @@ check('container hardening and writable runtime paths are declared',()=>{
  const dockerfile=read('Dockerfile');assert.match(dockerfile,/USER node/);assert.match(dockerfile,/chmod 0700 \/data/);assert.match(read('deploy/start-app.sh'),/umask 077/);
 });
 check('build/start commands and runtime font assets match source',()=>{
- assert.equal(JSON.parse(read('package.json')).scripts.build,'next build --webpack');assert.match(read('Dockerfile'),/RUN npm run build && npm prune/);assert.match(read('Dockerfile'),/CMD \["sh", "deploy\/start-app.sh"\]/);assert.match(read('deploy/start-app.sh'),/exec node node_modules\/next\/dist\/bin\/next start/);
+ assert.equal(JSON.parse(read('package.json')).scripts.build,'node scripts/build-rehearsal-worker.cjs && next build --webpack');assert.match(read('Dockerfile'),/RUN npm run build && npm prune/);assert.match(read('Dockerfile'),/CMD \["sh", "deploy\/start-app.sh"\]/);assert.match(read('deploy/start-app.sh'),/exec node node_modules\/next\/dist\/bin\/next start/);
+ assert.match(read('scripts/build-rehearsal-worker.cjs'),/lib\/rehearsal-worker-entry\.ts/);assert.match(read('scripts/build-rehearsal-worker.cjs'),/lib\/publication-validation-worker-entry\.ts/);assert.match(read('Dockerfile'),/COPY --from=build \/app\/\.rehearsal-worker \/\.rehearsal-worker|COPY --from=build \/app\/\.rehearsal-worker \.\/\.rehearsal-worker/);
+ assert(read('.dockerignore').split(/\r?\n/).includes('/.rehearsal-worker/'),'host worker artifacts must be rebuilt inside the image');
  for(const file of ['public/fonts/sarabun-0.woff2','app/fonts.css','deploy/start-app.sh','deploy/healthcheck.cjs','deploy/setup-owner.cjs'])assert(fs.existsSync(path.join(root,file)),file);
 });
 check('optional code environment variables are passed to the container',()=>{
- for(const key of ['NOCODE_API_ORIGINS','NOCODE_API_WORKSPACE_ORIGINS','NOCODE_API_CREDENTIALS','NOCODE_API_READ_QUERY_PATHS','NOCODE_USAGE_RETENTION_DAYS','NOCODE_PWA_VERSION','NOCODE_PDF_BROWSER_PATH','NOCODE_WEBHOOK_ORIGINS'])assert(Object.hasOwn(https.services.app.environment,key),key);
+ for(const key of ['NOCODE_API_ORIGINS','NOCODE_API_WORKSPACE_ORIGINS','NOCODE_API_CREDENTIALS','NOCODE_API_READ_QUERY_PATHS','NOCODE_USAGE_RETENTION_DAYS','NOCODE_PWA_VERSION','NOCODE_PDF_BROWSER_PATH','NOCODE_WEBHOOK_ORIGINS','NOCODE_SCHEMA_PUBLICATION'])assert(Object.hasOwn(https.services.app.environment,key),key);
 });
 check('Caddy routes whole app including API, PWA and Next assets without rewriting',()=>{
  for(const file of ['deploy/Caddyfile','deploy/Caddyfile.https']){assert.match(read(file),/reverse_proxy app:3000/);assert.match(read(file),/flush_interval -1/);assert(!/handle_path|uri strip_prefix/.test(read(file)));}
- assert(https.services.proxy.volumes.some(v=>v.target==='/etc/caddy/Caddyfile'&&v.source.endsWith('/deploy/Caddyfile.https')));
+ assert(https.services.proxy.volumes.some(v=>v.target==='/etc/caddy/Caddyfile'&&v.source.replace(/\\/g,'/').endsWith('/deploy/Caddyfile.https')));
 });
 check('build context excludes private data while preserving backup source',()=>{
  const ignore=read('.dockerignore').split(/\r?\n/);for(const entry of ['.git','node_modules','.env*','*.db','*.db-*','uploads','backups','.app-releases','.aws','.ssh','.codex','.npmrc','*.pem','*.key'])assert(ignore.includes(entry),entry);

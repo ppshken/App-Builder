@@ -21,6 +21,7 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 RUN node node_modules/playwright/cli.js install --with-deps chromium && rm -rf /var/lib/apt/lists/* /root/.npm
 COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build /app/.rehearsal-worker ./.rehearsal-worker
 COPY --from=build /app/public ./public
 COPY --from=build /app/app/fonts.css ./app/fonts.css
 COPY --from=build /app/next.config.mjs ./next.config.mjs

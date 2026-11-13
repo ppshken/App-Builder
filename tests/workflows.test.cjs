@@ -14,3 +14,37 @@ test('PDF designer validates bounds, data references, safe colors and preserves 
 
 test('PDF table layouts validate spans, weights, expressions, pages and true child relations',()=>{const {blankPdfGrid}=require('../.test-build/pdf-design');const e={id:'grid',kind:'table',page:0,x:5,y:5,width:100,height:60,text:'',column:'',fontSize:12,color:'#17243a',background:'transparent',align:'left',bold:false,grid:blankPdfGrid(3,3)};e.grid.cells[1][0]={text:'[name]',colSpan:2};const layout={pages:2,grid:true,snap:true,elements:[e]};assert.deepEqual(validatePdfTemplate({...template,layout},env).layout,layout);for(const mutate of [g=>g.widths.push(1),g=>g.cells[0][0].colSpan=4,g=>g.border_color='red',g=>g.cells[1][0].text='[missing]']){const bad=structuredClone(e);mutate(bad.grid);assert.throws(()=>validatePdfTemplate({...template,layout:{elements:[bad]}},env));}assert.throws(()=>validatePdfTemplate({...template,layout:{pages:1,elements:[{...e,page:2}]}},env));const child={...e,id:'child',kind:'related',height:100,grid:undefined,related:{table_name:'children',ref_column:'parent',columns:['photo'],labels:{photo:'รูป'},widths:[1],mode:'table',grid_columns:2,rows_per_page:3,row_height:20,show_header:true,header_background:'#f1f5f9',border_color:'#cbd5e1',padding:1,filter_expr:'TRUE',sort_column:'id',sort_dir:'asc',limit:200}};assert.equal(validatePdfTemplate({...template,layout:{elements:[child]}},env).layout.elements[0].related.columns[0],'photo');assert.throws(()=>validatePdfTemplate({...template,layout:{elements:[{...child,related:{...child.related,ref_column:'photo'}}]}},env));});
 test('PDF table rendering escapes data, merges cells and paginates multiple related slots',()=>{const {blankPdfGrid}=require('../.test-build/pdf-design'),{designedPdfHtml}=require('../.test-build/pdf-design-html');const e={id:'grid',kind:'table',x:5,y:5,width:100,height:60,text:'',column:'',fontSize:12,color:'#17243a',background:'transparent',align:'left',bold:false,grid:blankPdfGrid(2,2)};e.grid.cells[0][0]={text:'[name]',colSpan:2};e.grid.cells[1][0]={text:'=[amount] * 2'};const r={...e,id:'children',kind:'related',y:70,height:60,grid:undefined,related:{table_name:'children',ref_column:'parent',columns:['name'],labels:{name:'รายการ'},widths:[1],mode:'table',grid_columns:2,rows_per_page:2,row_height:20,show_header:true,header_background:'#f1f5f9',border_color:'#cbd5e1',padding:1,filter_expr:'',sort_column:'id',sort_dir:'asc',limit:20}};const html=designedPdfHtml({elements:[e,r]},'portrait',{name:'<script>bad</script>',amount:2},[{name:'name'}],(_t,_c,v)=>String(v).replaceAll('<','&lt;').replaceAll('>','&gt;'),'items',()=>4,()=>({rows:Array.from({length:5},(_,i)=>({name:'child-'+i})),columns:[{name:'name',label:'ชื่อ'}]}));assert.equal((html.match(/class="designed-page"/g)||[]).length,3);assert.ok(html.includes('colspan="2"'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('child-4'));});
+
+test('PDF overflow pages repeat only opted-in elements and continue related rows without repeating the page title',()=>{
+ const {designedPdfHtml}=require('../.test-build/pdf-design-html');
+ const base={x:5,y:5,width:120,height:10,text:'',column:'',fontSize:12,color:'#17243a',background:'transparent',align:'left',bold:false,page:0};
+ for(const mode of ['table','grid'])for(const repeat of [undefined,false,true]){
+  const title={...base,id:'title',kind:'text',text:'FIRST_PAGE_TITLE',repeat_all_pages:repeat};
+  const footer={...base,id:'footer',kind:'text',text:'REPEATED_FOOTER',repeat_all_pages:true};
+  const child={...base,id:'children',kind:'related',y:30,height:60,related:{table_name:'children',ref_column:'parent',columns:['name'],labels:{name:'Child'},widths:[1],mode,grid_columns:2,rows_per_page:2,row_height:20,show_header:true,header_background:'#f1f5f9',border_color:'#cbd5e1',padding:1,filter_expr:'',sort_column:'id',sort_dir:'asc',limit:20}};
+  const html=designedPdfHtml({pages:2,elements:[title,footer,child,{...base,id:'second',kind:'text',text:'SECOND_BASE_TITLE',page:1}]},'portrait',{},[],(_t,_c,v)=>String(v),'parent',()=>null,()=>({rows:Array.from({length:9},(_,i)=>({name:'CHILD_'+i+'_END'})),columns:[{name:'name',label:'Child'}]}));
+  const pages=html.split('<section ').slice(1);
+  assert.ok(pages.length>2);
+  assert.equal(pages.filter(p=>p.includes('FIRST_PAGE_TITLE')).length,repeat===true?pages.length:1,'title must respect repeat_all_pages');
+  assert.equal(pages.filter(p=>p.includes('REPEATED_FOOTER')).length,pages.length);
+  assert.equal(pages.filter(p=>p.includes('SECOND_BASE_TITLE')).length,1);
+  for(let i=0;i<9;i++)assert.equal(html.split('CHILD_'+i+'_END').length-1,1,'each child appears exactly once');
+ }
+});
+
+test('PDF continuation moves related slots to the top while preserving repeated headers, footers and relative placement',()=>{
+ const {designedPdfHtml}=require('../.test-build/pdf-design-html');
+ const base={x:5,y:100,width:120,height:40,text:'',column:'',fontSize:12,color:'#17243a',background:'transparent',align:'left',bold:false,page:0};
+ const rel={table_name:'children',ref_column:'parent',columns:['name'],labels:{name:'Child'},widths:[1],mode:'table',grid_columns:2,rows_per_page:1,row_height:10,show_header:true,header_background:'#f1f5f9',border_color:'#cbd5e1',padding:1,filter_expr:'',sort_column:'id',sort_dir:'asc',limit:20};
+ for(const orientation of ['portrait','landscape'])for(const header of [false,true]){
+  const elements=[{...base,id:'a',kind:'related',related:rel},{...base,id:'b',kind:'related',y:145,related:{...rel,table_name:'other'}}];
+  if(header)elements.push({...base,id:'header',kind:'text',y:0,height:20,text:'HEADER',repeat_all_pages:true});
+  elements.push({...base,id:'footer',kind:'text',y:170,height:8,text:'FOOTER',repeat_all_pages:true});
+  const html=designedPdfHtml({elements},orientation,{},[],(_t,_c,v)=>String(v),'parent',()=>null,e=>({rows:Array.from({length:2},(_,i)=>({name:e.id+'ROW'+i})),columns:[{name:'name',label:'Child'}]}));
+  const pages=html.split('<section ').slice(1);assert.equal(pages.length,2);
+  assert.ok(pages[0].includes('top:100mm'));assert.ok(pages[0].includes('top:145mm'));
+  const tops=[...pages[1].matchAll(/position:absolute;[^>]*?top:([0-9.]+)mm/g)].map(m=>Number(m[1]));
+  assert.deepEqual(tops,header?[20,65,0,170]:[0,45,170]);
+  for(const token of ['aROW0','aROW1','bROW0','bROW1'])assert.equal(html.split(token).length-1,1);
+ }
+});

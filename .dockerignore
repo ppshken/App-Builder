@@ -51,3 +51,7 @@ server-backups
 !app/backups/**
 !app/api/backups
 !app/api/backups/**
+
+/.rehearsal-worker/
+
+.backup-management/

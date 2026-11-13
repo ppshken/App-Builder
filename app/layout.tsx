@@ -1,3 +1,5 @@
+import {developmentAccess} from '@/lib/development-workspace';
+import {draftManifest,isDevelopmentDraft} from '@/lib/releases';
 import {STANDARD_SETTINGS,usesStandardTheme} from "@/lib/standard-theme";
 import {pwaBrand} from '@/lib/pwa-server';
 import {pwaBase} from '@/lib/pwa';
@@ -32,12 +34,12 @@ export default async function Root({ children }: { children: React.ReactNode }) 
   const page=path.split('?')[0];if(user&&page==='/apps'&&new URL(path,'http://local').searchParams.get('tab')==='central'&&user.role!=='owner')redirect('/apps');let application:ReturnType<typeof applicationScopeFor>|undefined;
   if(user&&page!=='/login'){try{application=applicationScopeFor(user,pwa||applicationCookie(requestCookies.toString()));}catch{if(page!=='/apps')redirect('/apps');application=undefined;}}
   const requested=new URL(path,'http://local').searchParams.get('app');if(!pwa&&user&&page==='/run'&&requested&&requested!==application?.id)redirect('/apps?open='+encodeURIComponent(requested)+'&next='+encodeURIComponent(path));
-  const access=user?(application&&page!=='/apps'?withApplication(application,()=>accessFor(user)):accessFor(user)):NO_ACCESS;
+  let access=user?(application&&page!=='/apps'?withApplication(application,()=>accessFor(user)):accessFor(user)):NO_ACCESS;
   if(page==="/login"&&user)redirect(pwa?pwaBase(pwa):landingPage(user));
   if(user&&page!=="/login"&&page!=="/run"&&page!=="/apps"&&page!=="/"&&(!access.builder||((page==="/users"||page==="/backups"||page==="/audit-log")&&!access.owner)))redirect("/run");
   const scoped=<T,>(work:()=>T)=>application?withApplication(application,work):work();
   let settings=scoped(()=>readAppSettings(!user||!application));if(pwa&&!user){const brand=pwaBrand(pwa);if(brand)settings={...settings,name:brand.name,icon_image:pwaBase(pwa)+"icon/192"};}const draftId=pwa?undefined:requestCookies.get(DRAFT_COOKIE)?.value;
-  if(draftId&&user&&access.builder&&page!=="/login"&&page!=="/releases"){try{const draft=scoped(()=>openDraft(draftId,user.id));try{settings=scoped(()=>withDatabase(draft,()=>readAppSettings()));}finally{draft.close();}}catch{}}
+  if(draftId&&user&&access.builder&&page!=="/login"&&page!=="/releases"){try{const draft=scoped(()=>openDraft(draftId,user.id));try{const manifest=scoped(()=>draftManifest(draftId,user.id));if(isDevelopmentDraft(manifest)&&application){const development=developmentAccess(draft,application,access);application=development.application;access=development.access;}settings=scoped(()=>withDatabase(draft,()=>readAppSettings()));}finally{draft.close();}}catch{}}
   const appearance=usesStandardTheme(page)?STANDARD_SETTINGS:settings;
   const dark=appearance.mode==="dark",colors=themeColors(appearance,dark);
   const style={"--accent":colors.accent,"--accent-soft":colors.soft,"--brand-color":colors.button,"--brand-contrast":colors.buttonText,"--app-font-family":fontFamily(page==="/login"||page==="/apps"||page==="/"?"noto-sans-thai":appearance.font),"--app-font-weight":String(appearance.font_weight),"--font-scale":String(appearance.font_size/14)} as CSSProperties;

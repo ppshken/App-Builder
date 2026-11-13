@@ -1,3 +1,4 @@
+import {AuthError} from '@/lib/auth';
 import {customActions} from '@/lib/custom-page';
 import {pruneApplicationActionGrants} from '@/lib/application-role-grants';
 import {validateStoredWorkflows} from "@/lib/workflow-validation";
@@ -11,7 +12,7 @@ import { assertIdentifier } from "@/lib/columns";
 import { actions, checkFormula, executeAction } from "@/lib/automation";
 import { bad, errorMessage, readBody } from "@/lib/api";
 export const dynamic = "force-dynamic";
-async function handleGET() { try { return NextResponse.json(actions()); } catch(e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); } }
+async function handleGET(req:Request) { try { return NextResponse.json(actions(undefined,new URL(req.url).searchParams.get('builder')==='1'?'builder':'runtime')); } catch(e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); } }
 async function handlePOST(req: Request) {
   try {
     const b = await readBody(req);
@@ -52,7 +53,7 @@ function save(b: Record<string, any>, existing: boolean) {
   const parents=db.prepare("SELECT name,label,config_json FROM _actions WHERE kind='grouped' AND name<>?").all(b.name) as any[];for(const parent of parents){const steps=JSON.parse(parent.config_json).actions||[];if(steps.includes(b.name)&&(!["set","add","copy","delete"].includes(b.kind)||b.kind==="delete"&&steps.indexOf(b.name)!==steps.length-1||(db.prepare("SELECT table_name FROM _actions WHERE name=?").get(parent.name) as any).table_name!==b.table_name))throw Error('Action นี้ใช้ในชุด "'+parent.label+'" กรุณานำออกจากชุดก่อนเปลี่ยนชนิดหรือตาราง');}
   const look=appearance(b.appearance||{},b.kind);
   const args = [JSON.stringify(safeConfig),JSON.stringify(look),b.label.trim(), b.table_name, b.kind, condition, JSON.stringify(values), b.confirmation.trim(), b.name];
-  db.transaction(()=>{db.prepare(existing ? "UPDATE _actions SET config_json=?,appearance_json=?,label=?,table_name=?,kind=?,condition_expr=?,values_json=?,confirmation=? WHERE name=?" : "INSERT INTO _actions(config_json,appearance_json,label,table_name,kind,condition_expr,values_json,confirmation,name) VALUES(?,?,?,?,?,?,?,?,?)").run(...args);validateStoredWorkflows(db);})();
+  db.transaction(()=>{if(!existing&&db.prepare('SELECT 1 FROM _actions WHERE name=?').get(b.name))throw new AuthError('ชื่อในระบบของ Action นี้มีอยู่แล้วในแอปปัจจุบัน กรุณาโหลดรายการใหม่แล้วเพิ่มอีกครั้ง',409);db.prepare(existing ? "UPDATE _actions SET config_json=?,appearance_json=?,label=?,table_name=?,kind=?,condition_expr=?,values_json=?,confirmation=? WHERE name=?" : "INSERT INTO _actions(config_json,appearance_json,label,table_name,kind,condition_expr,values_json,confirmation,name) VALUES(?,?,?,?,?,?,?,?,?)").run(...args);validateStoredWorkflows(db);})();
   return NextResponse.json({ ok: true });
 }
 async function handleDELETE(req: Request) { try { const name = new URL(req.url).searchParams.get("name"); assertIdentifier(name);if((db.prepare("SELECT config_json FROM _automations").all() as {config_json:string}[]).some(w=>JSON.parse(w.config_json).steps.some((s:any)=>s.kind==="action"&&s.action_name===name)))return bad("ลบไม่ได้: Automation ใช้ Action นี้อยู่ กรุณานำออกจากขั้นตอนก่อน");const parent=(db.prepare("SELECT label,config_json FROM _actions WHERE kind='grouped'").all() as any[]).find(a=>(JSON.parse(a.config_json).actions||[]).includes(name));if(parent)return bad('ลบไม่ได้: ชุด "'+parent.label+'" ใช้ Action นี้อยู่'); const used = (db.prepare("SELECT label,display_json FROM _views").all() as {label:string;display_json:string}[]).find(v => { const d=JSON.parse(v.display_json); return d.row_click === "action" && d.row_action === name||d.form_saved_action===name||customActions(d.custom_page).includes(name)||d.bulk_actions?.allowed_action_ids?.includes(name); }); if (used) return bad(`ลบไม่ได้: View "${used.label}" ใช้ Action นี้อยู่ กรุณานำออกจากการคลิกแถวหรือ Action หลังบันทึกก่อน`); const changed=db.transaction(()=>{const count=db.prepare("DELETE FROM _actions WHERE name=?").run(name).changes;pruneApplicationActionGrants(db);return count;})(); return changed ? NextResponse.json({ok:true}) : bad("ไม่พบ Action",404); } catch(e) { return bad(errorMessage(e),errorStatus(e)); } }

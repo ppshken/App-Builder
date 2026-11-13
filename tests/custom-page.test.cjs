@@ -22,3 +22,5 @@ test('image display settings accept known fit, anchor and ratio values and rejec
  assert.throws(()=>validateCustomPage({version:2,children:[{id:'text',type:'text',imageFit:'cover'}]}));
  validateCustomPage({version:1,children:[{id:'legacy',type:'image',height:200}]});
 });
+
+test('custom page supports full-width content without dropping legacy bounded widths',()=>{assert.equal(emptyCustomPage().fullWidth,true);assert.equal(validateCustomPage({version:2,children:[],fullWidth:true,maxWidth:1200}).fullWidth,true);assert.equal(validateCustomPage({version:2,children:[],maxWidth:900}).maxWidth,900);assert.throws(()=>validateCustomPage({version:2,children:[],fullWidth:'yes'}));});
