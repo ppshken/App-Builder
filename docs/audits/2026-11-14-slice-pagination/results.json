@@ -1,0 +1,11 @@
+{
+  "allMatchingResponseBytes": 2635004,
+  "sourceRows": 20000,
+  "sliceMatches": 10000,
+  "pageRows": 25,
+  "groupSummaryRows": 2,
+  "firstGroupedRequestMs": 645,
+  "initialResponseBytes": 7094,
+  "browserRequests": 8,
+  "allRowsRequests": 0
+}

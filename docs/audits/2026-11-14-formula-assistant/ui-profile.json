@@ -1,0 +1,15 @@
+{
+  "sourceRows": 12000,
+  "serverReadMetrics": {
+    "dataLoads": 1,
+    "cacheHits": 0,
+    "rowsLoaded": 12000,
+    "loadMs": 29.615999999999985
+  },
+  "restrictedVisibleRows": 3,
+  "profiledDataColumns": [
+    "id",
+    "group_id"
+  ],
+  "note": "Read-only formula tests; no form saves or production writes."
+}

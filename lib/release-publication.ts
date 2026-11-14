@@ -71,6 +71,7 @@ export async function publishDevelopment(id:string,owner:number,intent:string,re
   if(initial.validatesRows){
    verifiedStamp=publicationDataStamp(raw,stampTables);
    const validation=await validatePublicationInWorker({databasePath,workspaceId:id,appId,owner,planHash:initial.planHash!},()=>{assertPublicationLease(journal,attempt!);journal.prepare("UPDATE attempts SET lease_until=?,updated_at=? WHERE id=? AND token=? AND status='preparing'").run(Date.now()+10*60000,Date.now(),attempt!.id,attempt!.token);},aborted);
+   if(validation.coverage?.mode==='sample')throw new AuthError('ต้องตรวจข้อมูลครบก่อนเผยแพร่',409);
    if(validation.status!=='passed')throw new PublicationValidationError(validation);
    if(publicationDataStamp(raw,stampTables)!==verifiedStamp)throw new AuthError('มีข้อมูลเปลี่ยนระหว่างตรวจล่าสุด กรุณากดเผยแพร่อีกครั้ง ระบบจะตรวจใหม่โดยไม่ต้องสร้างพื้นที่พัฒนาใหม่',409);
    validationId=validation.id;verifiedResult=validation;

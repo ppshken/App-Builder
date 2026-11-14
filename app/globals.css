@@ -17534,3 +17534,7 @@ input:is(
 .record-table table[data-uniform-rows] > tbody > tr:not(.record-group-row) {
   height: var(--uniform-data-row-height, auto);
 }
+
+.formula-performance{padding:16px 0}.formula-performance h3,.formula-performance h4{margin:0 0 12px}.formula-performance ul{padding-inline-start:20px;line-height:1.8;margin:12px 0}.formula-cost{display:inline-block;padding:5px 10px;border-radius:8px;font-size:13px;font-weight:600;background:var(--accent-soft);color:var(--accent)}.formula-cost-review{background:color-mix(in srgb,#f59e0b 14%,var(--panel));color:var(--ink)}.formula-measurement{border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}.formula-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}.formula-metric-grid>div{min-width:0;background:var(--input);border-radius:8px;padding:12px}.formula-metric-grid dt{font-size:12px;color:var(--mute);overflow-wrap:anywhere}.formula-metric-grid dd{font-size:18px;font-weight:600;margin:6px 0 0;overflow-wrap:anywhere}.formula-measurement details{font-size:13px;margin:12px 0}.formula-measurement summary{cursor:pointer}@media(max-width:600px){.formula-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.formula-measurement{padding:12px}}
+
+.formula-cost-details{margin-top:20px}

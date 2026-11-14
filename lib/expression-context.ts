@@ -1,4 +1,5 @@
-import {visibleRawRows} from "./row-access";
+import type {FormulaReadMetrics} from './formula-performance';
+import {visibleRawRows,hasRowRule} from "./row-access";
 import {expressionLookup} from './expression-lookup';
 import {isSystemFormulaTable,systemFormulaColumns} from './formula-system-schema';
 import {formulaSystemData} from './formula-system-data';
@@ -12,7 +13,7 @@ import { labelTextColumn,labelImageColumn, calculateRow, Column, refTablesOf } f
 import { ExpressionContext, ExpressionTable, RelatedReadScope, directTableReferences, parentSelectReferences, unboundedTableReferences, tableReferences, referencePaths, relatedReferences, references } from "./expression";
 
 // One bounded snapshot per request; never turn expression text into SQL.
-export function expressionContext(now = new Date(), userEmail = "", database:Database.Database=db) {
+export function expressionContext(now = new Date(), userEmail = "", database:Database.Database=db,metrics?:FormulaReadMetrics) {
   // Request-local metadata only: never share permissions or snapshots between users.
   const metadata=new Map<string,Column[]>();
   const columnsOf=(name:string)=>{let cols=metadata.get(name);if(!cols){cols=systemFormulaColumns(name)||effectiveColumns(database,name);metadata.set(name,cols);}return cols;};
@@ -21,14 +22,14 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
   const fullTables = new Map<string, ExpressionTable>(), projections = new Map<string, ExpressionTable>(), relatedProjections = new Map<string, ExpressionTable>();
   let relatedCachedRows=0;
   let systemData:Record<string,ExpressionTable>|undefined;
-  const systemTable=(name:string,requested?:string[])=>{systemData??=formulaSystemData(database);const data=systemData[name];for(const column of requested||[])if(!data.columns.includes(column))throw Error(`ไม่พบคอลัมน์ [${column}] ในตาราง ${name}`);return tables[name]=data;};
+  const systemTable=(name:string,requested?:string[])=>{if(!systemData){systemData=formulaSystemData(database);if(metrics){metrics.dataLoads+=Object.keys(systemData).length;metrics.rowsLoaded+=Object.values(systemData).reduce((sum,t)=>sum+t.rows.length,0);}}const data=systemData[name];for(const column of requested||[])if(!data.columns.includes(column))throw Error(`ไม่พบคอลัมน์ [${column}] ในตาราง ${name}`);return tables[name]=data;};
   const project=(name:string,requested:string[],related=false,scope?:RelatedReadScope):ExpressionTable=>{
     if(isSystemFormulaTable(name)){if(related||scope)throw Error('ตารางระบบไม่รองรับ Related');return systemTable(name,requested);}
     assertTablePermission(name,"read");
-    if (!scope&&fullTables.has(name)) return fullTables.get(name)!;
+    if (!scope&&fullTables.has(name)){if(metrics)metrics.cacheHits++;return fullTables.get(name)!;}
     const cacheKey = `${name}:${[...new Set(requested)].sort().join(",")}:${related?"related":"table"}:${scope?JSON.stringify(scope):"all"}`;
     const cache=scope?relatedProjections:projections;
-    if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+    if (cache.has(cacheKey)){if(metrics)metrics.cacheHits++;return cache.get(cacheKey)!;}
     if (loading.has(cacheKey) || loading.size >= 16) throw new Error(`สูตร${related?" Related":"ข้ามตาราง"}อ้างอิงวนกันที่ ${name}[${requested.join(",")}]`);
     if (!tableExists(name)) throw new Error(`ไม่พบตาราง ${name} กรุณาตรวจชื่อในระบบ`);
     const cols = columnsOf(name), key = cols.find(c=>c.is_key)?.name || "id";
@@ -37,6 +38,8 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     const needed = new Set([...requested,key,...cols.filter(c=>c.type==="ref"&&!c.is_virtual).map(c=>c.name),...(!related?cols.filter(c=>!c.is_virtual&&(c.name===label||c.name===image)).map(c=>c.name):[])]);
     for (const name of needed) { const c=cols.find(c=>c.name===name); if(c?.is_virtual&&c.virtual_expr)for(const ref of references(c.virtual_expr))needed.add(ref); }
     const selected = cols.filter(c=>needed.has(c.name));
+    // Rules normalize every physical field, so retain full rows for those users.
+    const fields=hasRowRule(name,database)?"*":[...new Set(["id",...selected.filter(c=>!c.is_virtual).map(c=>c.name)])].map(c=>{if(!IDENT.test(c))throw Error("ชื่อคอลัมน์ไม่ถูกต้อง");return '"'+c+'"';}).join(",");
     let raw:Record<string,any>[];
     if(scope){
       const links=cols.filter(c=>c.type==='ref'&&!c.is_virtual&&(!scope.ownerTable||c.ref_table===scope.ownerTable)&&(!scope.refColumn||c.name===scope.refColumn));
@@ -44,13 +47,14 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       const ref=links[0].name;if(!IDENT.test(ref))throw Error('ชื่อคอลัมน์ Ref ไม่ถูกต้อง');
       if(scope.parentIds.length>500)throw Error('Related อ่านได้ครั้งละไม่เกิน 500 แถวแม่');
       const ids=[...new Set(scope.parentIds.map(Number).filter(id=>Number.isSafeInteger(id)&&id>0))];
-      raw=scope.includeBlank?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id').all() as Record<string,any>[]:ids.length?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id').all(JSON.stringify(ids)) as Record<string,any>[]:[];
-    }else raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id`).all() as Record<string,any>[];
+      raw=scope.includeBlank?database.prepare('SELECT '+fields+' FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id').all() as Record<string,any>[]:ids.length?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id').all(JSON.stringify(ids)) as Record<string,any>[]:[];
+    }else raw = database.prepare(`SELECT ${fields} FROM "t_${name}" ORDER BY id`).all() as Record<string,any>[];
     loading.add(cacheKey);
     try {
       // Project only requested values, so unrelated child formulas do not load
       // the parent back into its own Related calculation.
       const rows = visibleRawRows(name,raw,database).map(r=>calculateRow(selected,r,false,now,false,userEmail,context).row);
+      if(metrics){metrics.rowsLoaded+=rows.length;if(!scope||scope.includeBlank||scope.parentIds.length)metrics.dataLoads++;}
       const data: ExpressionTable = {columns:["id",...selected.map(c=>c.name)],key,rows,labels:Object.fromEntries(rows.filter(r=>r[key]!=null).map(r=>[String(r[key]),String(r[label]??r[key])])),labelImages: image?Object.fromEntries(rows.filter(r=>r[key]!=null&&typeof r[image]==="string").map(r=>[String(r[key]),String(r[image])])):{},refs:refTablesOf(cols),relatedRefs:refTablesOf(cols.filter(c=>!c.is_virtual))};
       if(scope){
         while(cache.size&&(cache.size>=256||relatedCachedRows+data.rows.length>20000)){const oldest=cache.keys().next().value!;relatedCachedRows-=cache.get(oldest)!.rows.length;cache.delete(oldest);}
@@ -64,7 +68,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       return data;
     } finally {loading.delete(cacheKey);}
   };
-  const context: ExpressionContext = { ...expressionUser(currentUser()||null,database), getEqualityRows:expressionLookup(), getRelatedTable(name,column,scope){return project(name,[column,...(scope?.columns||[])],true,scope);},
+  const context: ExpressionContext = { enableSelectMemo:true, ...expressionUser(currentUser()||null,database), getEqualityRows:expressionLookup(), getRelatedTable(name,column,scope){return project(name,[column,...(scope?.columns||[])],true,scope);},
     getSelectTable(name,requested,scope){
       if(isSystemFormulaTable(name))return;
       assertTablePermission(name,'read');
@@ -74,7 +78,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     if(isSystemFormulaTable(name))return systemTable(name,columns);
     if(columns?.length)return project(name,columns);
     assertTablePermission(name,"read");
-    if (fullTables.has(name)) return fullTables.get(name)!;
+    if (fullTables.has(name)){if(metrics)metrics.cacheHits++;return fullTables.get(name)!;}
     if (loading.has(name) || loading.size >= 16) throw new Error(`สูตรข้ามตารางอ้างอิงวนกันที่ ${name} กรุณาแก้สูตร`);
     if (!tableExists(name)) throw new Error(`ไม่พบตาราง ${name} กรุณาตรวจชื่อในระบบ`);
     const cols = columnsOf(name), key = cols.find(c => c.is_key)?.name || "id", label = labelTextColumn(cols);
@@ -82,6 +86,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     loading.add(name);
     try {
       const rows = visibleRawRows(name,raw,database).map(r => calculateRow(cols, r, false, now, false, userEmail, context).row);
+      if(metrics){metrics.rowsLoaded+=rows.length;metrics.dataLoads++;}
       const labels: Record<string, string> = Object.create(null),labelImages:Record<string,string>=Object.create(null),image=labelImageColumn(cols);
       for (const r of rows) if (r[key] != null) {labels[String(r[key])] = String(r[label] ?? r[key]);if(image&&typeof r[image]==="string"&&r[image])labelImages[String(r[key])]=r[image] as string;}
       const data = { columns: ["id", ...cols.map(c => c.name)], key, rows, labels, labelImages, refs: refTablesOf(cols), relatedRefs:refTablesOf(cols.filter(c=>!c.is_virtual)) };

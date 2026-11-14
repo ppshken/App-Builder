@@ -1,7 +1,7 @@
 import type {AppView} from './views';
 export type GroupLevel={column:string;direction:'asc'|'desc'};
 export function viewGroups(view?:Pick<AppView,'group_column'|'group_dir'|'display'>):GroupLevel[]{return view?.display?.group_by?.length?view.display.group_by:view?.group_column?[{column:view.group_column,direction:view.group_dir==='desc'?'desc':'asc'}]:[];}
-export type GroupNode<T>={key:string;column:string;label:string;value:unknown;rows:T[];children:GroupNode<T>[];path:string[]};
+export type GroupNode<T>={key:string;column:string;label:string;value:unknown;count?:number;rows:T[];children:GroupNode<T>[];path:string[]};
 export function groupTree<T>(rows:T[],levels:GroupLevel[],value:(row:T,column:string)=>unknown,label:(row:T,column:string)=>string,numeric:(column:string)=>boolean,depth=0,path:string[]=[]):GroupNode<T>[]{
  if(depth>=levels.length)return [];const level=levels[depth],map=new Map<string,GroupNode<T>>();
  for(const row of rows){const v=value(row,level.column),empty=v==null||v===''||Array.isArray(v)&&!v.length,key=JSON.stringify(empty?null:v);let node=map.get(key);if(!node){node={key:JSON.stringify([...path,key]),column:level.column,label:empty?'ไม่ระบุ':label(row,level.column),value:v,rows:[],children:[],path:[...path,key]};map.set(key,node);}node.rows.push(row);}

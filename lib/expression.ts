@@ -1,3 +1,4 @@
+import type {FormulaEvalMetrics} from './formula-performance';
 import {createUuid} from "./uuid";
 import {isSystemFormulaTable} from './formula-system-schema';
 import {normalizeDateTime} from "./datetime";
@@ -331,7 +332,7 @@ const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
 export type RelatedReadScope = {ownerTable?:string;parentIds:(string|number)[];refColumn?:string;columns?:string[];includeBlank?:boolean};
-export type ExpressionContext = ExpressionUser & { getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { metrics?:FormulaEvalMetrics;enableSelectMemo?:boolean; getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -344,6 +345,13 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
   } else node = source;
   const now = options.now ?? new Date();
   let steps = 0;
+  const selectMemo=new Map<Node,Map<boolean,Value>>(),memoSafety=new Map<Node,boolean>();
+  function memoEligible(n:Node):boolean{
+    if(!options.enableSelectMemo||n.kind!=='call'||n.name!=='SELECT'||n.args[0].kind!=='table'||n.args[2]&&n.args[2].kind!=='literal')return false;
+    if(memoSafety.has(n))return memoSafety.get(n)!;
+    const stable=(v:Node):boolean=>v.kind==='related'||v.kind==='deref'?false:v.kind==='call'?v.name!=='UNIQUEID'&&v.args.every(stable):v.kind==='binary'?stable(v.left)&&stable(v.right):v.kind==='unary'?stable(v.value):true;
+    const safe=stable(n);memoSafety.set(n,safe);return safe;
+  }
   let formattedTime: {date:string;time:string}|undefined;
   const timeParts = () => {
     if(formattedTime)return formattedTime;
@@ -395,6 +403,8 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
   }
   function run(n: Node, scope?: Scope, referenceResult = false): Value {
     if (++steps > (options.tables || options.getTable ? 100000 : 2000)) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
+    if(options.metrics)options.metrics.steps++;
+    const memoized=memoEligible(n);if(memoized&&selectMemo.get(n)?.has(referenceResult)){if(options.metrics)options.metrics.memoHits++;return selectMemo.get(n)!.get(referenceResult)!;}
     let result: Value;
     if (n.kind === "literal") result = n.value;
     else if (n.kind === "table") {
@@ -408,6 +418,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       const values: string[] = [];
       // An unsaved parent must never match orphan rows with an empty Ref.
       if (!isBlank(id)) for (const candidate of data.rows) {
+        if(options.metrics){options.metrics.steps++;options.metrics.relatedRows++;}
         if (++steps > 100000) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
         if (!listEquivalent(candidate[ref], id ?? null)) continue;
         const value = tableValue(data, n.name, candidate);
@@ -422,6 +433,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       else {
         const data = dataset(table,[n.name]);
         if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${table}`);
+        if(options.metrics&&options.getEqualityRows)options.metrics.indexLookups++;
         const target = options.getEqualityRows?.(data,"id",Number(id))?.find(r=>r.id===Number(id)) ?? data.rows.find(r => r.id === Number(id));
         if (!target) fail(`ไม่พบแถวที่ [${n.column}] อ้างอิง กรุณาเลือกข้อมูลใหม่`);
         result = target[n.name] ?? null;
@@ -469,6 +481,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           const data=origin.kind==='related'&&options.getRelatedTable?options.getRelatedTable(source.table,source.column,{ownerTable:scope?.table||options.tableName,parentIds:typeof parentId==='number'||typeof parentId==='string'?[parentId]:[],refColumn:origin.refColumn,columns:requested}):parentSelected||dataset(source.table,requested,origin.kind==='related');if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
           if(referenceResult&&source.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
           const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');
+          if(options.metrics)options.metrics.sortRows+=keys.length;
           const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
           const keyColumn=referenceResult?'id':source.column,lookup=new Map(data.rows.map(row=>[String(row[keyColumn]),row]));
           const decorated=keys.map((key,index)=>{const row=lookup.get(String(key));if(!row)fail('ORDERBY ไม่พบรหัสแถว '+String(key)+' ในตาราง '+source.table);return {key,index,sorts:sorters.map(sort=>{const value=run(sort.node,{row,refs:data.refs||{},table:source.table});if(Array.isArray(value))fail('ค่าสำหรับเรียง ORDERBY ต้องเป็นค่าเดียว');return value;})};});
@@ -493,11 +506,12 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
               // Leave missing outer fields to the interpreter, in its usual order.
               if(!options.resolve&&!Object.hasOwn(row,outer.name))break;
               const value=run(outer,scope),indexed=options.getEqualityRows(data,column.name,value);
-              if(indexed)candidates=indexed;
+              if(indexed){candidates=indexed;if(options.metrics)options.metrics.indexLookups++;}
               break;
             }
           }
           for (const candidate of candidates) {
+            if(options.metrics)options.metrics.selectRows++;
             if(related&&(isBlank(related.id)||!listEquivalent(candidate[related.ref],related.id??null)))continue;
             if (!asBoolean(run(n.args[1], { row: candidate, refs: data.refs || {}, table: source.table }))) continue;
             const value = tableValue(data, source.name, candidate); if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
@@ -567,6 +581,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     }
     if (typeof result === "number" && !Number.isFinite(result)) fail("ผลคำนวณใหญ่เกินไป กรุณาตรวจตัวเลขในสูตร");
     if (typeof result === "string" && result.length > 10000) fail("ข้อความที่สูตรสร้างยาวเกิน 10,000 ตัวอักษร");
+    if(memoized){let cache=selectMemo.get(n);if(!cache)selectMemo.set(n,cache=new Map());cache.set(referenceResult,result);}
     return result;
   }
   return run(node,undefined,!!options.referenceListTable);

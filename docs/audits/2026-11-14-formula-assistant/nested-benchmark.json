@@ -1,0 +1,46 @@
+{
+  "source": "COUNT(SELECT(items[id], IN([id], SELECT(items[id], TRUE))))",
+  "rows": 280,
+  "results": [
+    {
+      "memoEnabled": false,
+      "timesMs": [
+        17.518500000000003,
+        12.09075,
+        8.346582999999995,
+        6.921250000000001,
+        12.314041000000003
+      ],
+      "medianMs": 12.09075,
+      "metrics": {
+        "steps": 79242,
+        "selectRows": 78680,
+        "relatedRows": 0,
+        "indexLookups": 0,
+        "memoHits": 0,
+        "sortRows": 0
+      }
+    },
+    {
+      "memoEnabled": true,
+      "timesMs": [
+        1.8923330000000078,
+        1.616624999999999,
+        1.798084000000003,
+        1.6726670000000041,
+        4.8174999999999955
+      ],
+      "medianMs": 1.798084000000003,
+      "metrics": {
+        "steps": 1122,
+        "selectRows": 560,
+        "relatedRows": 0,
+        "indexLookups": 0,
+        "memoHits": 279,
+        "sortRows": 0
+      }
+    }
+  ],
+  "scanReduction": 0.9928825622775801,
+  "note": "One formula over synthetic in-memory tables, one warm-up then five trials; not HTTP or production latency."
+}

@@ -1,3 +1,4 @@
+import {formulaInputColumns,readMetrics} from '@/lib/formula-performance';
 import {assertTablePermission} from "@/lib/permissions";
 import {visibleRawRows} from "@/lib/row-access";
 import {actionConfigExpressions} from "@/lib/action-config";
@@ -35,7 +36,9 @@ async function handleGET(req: Request) {
 }
 async function handlePOST(req: Request) {
   try {
-    const { source, columns, table, rowId } = await readBody(req);
+    const { source, columns, table, rowId,profile,sampleFields } = await readBody(req);
+    if(profile!==undefined&&typeof profile!=="boolean")return bad("การวัดประสิทธิภาพไม่ถูกต้อง");
+    if(sampleFields!==undefined&&(!Array.isArray(sampleFields)||sampleFields.length>201||sampleFields.some((f:unknown)=>typeof f!=="string"||f.length>100)))return bad("ข้อมูลช่องตัวอย่างไม่ถูกต้อง");
     const userEmail = req.headers.get("x-nocode-preview-email") || "";
     if (typeof source !== "string" || !Array.isArray(columns) || columns.length > 200 || typeof userEmail !== "string" || (userEmail && (userEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)))) return bad("ข้อมูลทดสอบสูตรไม่ถูกต้อง");
     // Column information describes unsaved editor fields; SQL still uses checked database metadata only.
@@ -49,7 +52,10 @@ async function handlePOST(req: Request) {
       if(rowId!=null&&!visibleRawRows(table,raw).length)return bad('ไม่พบแถวที่ใช้ทดสอบ หรือไม่มีสิทธิ์อ่าน',403);
       scope={ownerTable:table,parentIds:rowId==null?[]:[rowId]};
     }
-    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot([source], safe,false,scope));
+    const metrics=readMetrics(),started=performance.now(),ownerColumns=table?columnsOf(table):[];
+    const dependencies=formulaInputColumns(source,ownerColumns,[],sampleFields?new Set<string>(sampleFields):undefined).map(c=>c.is_virtual?c.virtual_expr:sampleFields?.includes(c.name)?undefined:c.default_expr).filter((s):s is string=>typeof s==='string'&&!!s.trim());
+    const data=expressionContext(new Date(),userEmail.toLowerCase(),db,profile?metrics:undefined).snapshot([source,...dependencies],safe,false,scope);
+    return NextResponse.json(profile?{data,performance:{...metrics,loadMs:performance.now()-started}}:data);
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 

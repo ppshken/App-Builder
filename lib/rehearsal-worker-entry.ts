@@ -6,6 +6,7 @@ import {accessFor,runAuthorized} from './permissions';
 import {withAuditActor} from './audit-context';
 import {rehearseDraft} from './releases';
 import {openRehearsalQueue,rehearsalQueuePath,claimRehearsal,jobCheckpoint,finishRehearsal,sweepRehearsals} from './rehearsal-jobs';
+import {REHEARSAL_SAMPLE_LIMIT} from './release-rehearsal';
 import {statfsSync} from 'node:fs';
 import {dirname} from 'node:path';
 import type {AuthUser} from './auth';
@@ -21,7 +22,7 @@ async function main(){
   if(!user?.active)throw Error('สิทธิ์ผู้ใช้เปลี่ยน');
   const app=applicationScopeFor(user,job.app_id),size=Number(database.pragma('page_count',{simple:true}))*Number(database.pragma('page_size',{simple:true})),space=statfsSync(dirname(databasePath));
   if(size>2*1024**3||space.bavail*space.bsize<size*2+64*1024**2)throw Error('พื้นที่ซ้อมไม่เพียงพอ');
-  const result=await withApplication(app,()=>{const access=accessFor(user);if(!access.builder)throw Error('สิทธิ์ผู้พัฒนาเปลี่ยน');return runAuthorized(user,access,()=>withAuditActor(user,'release-rehearsal',()=>rehearseDraft(job.workspace_id,job.owner,job.plan_hash,{jobId:job.id,limit:1000000,deadline:Date.now()+15*60000,checkpoint:(stage,processed,total)=>jobCheckpoint(q,job,stage,processed,total),cancelled})));});
+  const result=await withApplication(app,()=>{const access=accessFor(user);if(!access.builder)throw Error('สิทธิ์ผู้พัฒนาเปลี่ยน');return runAuthorized(user,access,()=>withAuditActor(user,'release-rehearsal',()=>rehearseDraft(job.workspace_id,job.owner,job.plan_hash,{jobId:job.id,mode:job.mode||"full",limit:job.mode==="sample"?REHEARSAL_SAMPLE_LIMIT:1000000,deadline:Date.now()+(job.mode==="sample"?2:15)*60000,checkpoint:(stage,processed,total)=>jobCheckpoint(q,job,stage,processed,total),cancelled})));});
   jobCheckpoint(q,job,'FINISHING');finishRehearsal(q,job,result);
  }catch{finishRehearsal(q,job);}finally{sweepRehearsals(q,databasePath);q.close();}
 }

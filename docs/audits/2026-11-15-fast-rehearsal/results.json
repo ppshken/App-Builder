@@ -1,0 +1,19 @@
+{
+  "sourceRows": 20000,
+  "sample": {
+    "mode": "sample",
+    "checked": 100,
+    "total": 20000,
+    "perTableLimit": 100,
+    "foreignKeysChecked": false
+  },
+  "sampleMs": 123,
+  "full": {
+    "mode": "full",
+    "checked": 20000,
+    "total": 20000,
+    "foreignKeysChecked": true
+  },
+  "fullMs": 1420,
+  "livePreserved": true
+}

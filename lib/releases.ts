@@ -5,7 +5,7 @@ import {withDevelopment} from './development-context';
 import {withApplication} from './application-context';
 import {currentUser,currentAccess,runAuthorized} from './permissions';
 import {withoutWorkflows} from './workflows';
-import {RELEASE_EXECUTOR_VERSION,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
+import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
 import {calculateRow,validateRow} from './columns';
 import {expressionContext} from './expression-context';
 import {analyzeReleasePlan} from './release-plan';
@@ -83,11 +83,12 @@ export function publishDraft(id:string,owner:number,expectedHash:string){const m
 export function reviewedDraft(id:string,owner:number){const review=draftDiff(id,owner);return {...review,rehearsal_hash:rehearsalPlanHash(review),rehearsal:latestRehearsal(id,owner,review)};}
 
 export function rehearsalPlanHash(review:ReturnType<typeof draftDiff>){return hash({executor:RELEASE_EXECUTOR_VERSION,plan:review.plan,review:review.review_hash});}
-export type RehearsalControl={jobId:string;limit:number;deadline:number;checkpoint:(stage:string,processed?:number,total?:number)=>void;cancelled:()=>boolean};
+export type RehearsalControl={mode?:"sample"|"full";jobId:string;limit:number;deadline:number;checkpoint:(stage:string,processed?:number,total?:number)=>void;cancelled:()=>boolean};
 export async function rehearseDraft(id:string,owner:number,expectedHash:string,control?:RehearsalControl){
  const started=Date.now(),review=draftDiff(id,owner),manifest=review.manifest,app=currentApplication(),user=currentUser();
  if(!isDevelopmentDraft(manifest)||!app||!user)throw new AuthError('เลือกพื้นที่พัฒนาโครงสร้างของแอปนี้ก่อนซ้อม',409);
  const planHash=rehearsalPlanHash(review);if(expectedHash!==planHash)throw new AuthError('แผนเปลี่ยนหลังตรวจ กรุณาตรวจใหม่ก่อนซ้อม',409);
+ const sample=control?.mode==="sample",samplePerTable=sample?REHEARSAL_SAMPLE_ROWS:undefined;
  const limit=control?.limit??2000,deadline=control?.deadline??started+15000,checkpoint=(stage:string,processed=0,total=0)=>{if(Date.now()>deadline)throw Error('หมดเวลาซ้อม');control?.checkpoint(stage,processed,total);};
  const job=control?.jobId||randomUUID(),directory=join(dirname(developmentDatabaseFile(id)),'rehearsal-'+job),target=join(directory,'rehearsal.db');
  const result:RehearsalResult={id:job,workspaceId:id,appId:app.id,status:'blocked',createdAt:started,expiresAt:started+3600000,durationMs:0,planHash,tables:[],checks:[],reasons:[],publishAllowed:false};
@@ -107,21 +108,23 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
   await withDatabase(database,()=>withApplication(scoped.application,()=>runAuthorized(user,scoped.access,()=>withDevelopment({id:job,sourceAppId:app.id,databaseFile:target},()=>withoutWorkflows(async()=>{
    const shared=new Set((database.prepare('SELECT DISTINCT table_name FROM _application_datasets WHERE app_id<>? AND can_read=1').all(app.id) as {table_name:string}[]).map(t=>t.table_name));
    if(review.plan.operations.some(o=>o.category==='schema'&&shared.has(o.table!))){result.reasons.push('ยังไม่ซ้อมโครงสร้างตารางที่มีแอปอื่นเชื่อมอยู่');return;}
-   stage='FINGERPRINT';const before=dataFingerprint(database,names,limit,deadline,undefined,n=>checkpoint('FINGERPRINT',n));result.dataHash=before.hash;
+   stage='FINGERPRINT';const before=dataFingerprint(database,names,limit,deadline,undefined,n=>checkpoint('FINGERPRINT',n),samplePerTable);result.dataHash=before.hash;
    const columns=Object.fromEntries(names.map(name=>[name,(database.pragma('table_info("t_'+name+'")') as {name:string}[]).map(c=>c.name)]));
    for(const o of review.plan.operations.filter(o=>o.kind==='create_table'))scoped.application.datasets[o.table!]={read:true,create:true,update:true,delete:true,export:true};
    stage='SCHEMA';checkpoint(stage);applyRehearsalSchema(database,review.plan,live,desired,applyReleaseCatalog);
    stage='PRESERVATION';
    // Hash the original columns again; additional nullable fields must not change old values.
-   const preserved=dataFingerprint(database,names,limit,deadline,columns,n=>checkpoint('PRESERVATION',n)).hash===before.hash;
+   const preserved=dataFingerprint(database,names,limit,deadline,columns,n=>checkpoint('PRESERVATION',n),samplePerTable).hash===before.hash;
    const afterNames=desired._tables.filter(t=>scoped.application.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));
    // Include newly added tables in permission context for expression validation.
    for(const o of review.plan.operations.filter(o=>o.kind==='create_table')){scoped.application.datasets[o.table!]={read:true,create:true,update:true,delete:true,export:true};if(!afterNames.includes(o.table!))afterNames.push(o.table!);}
    result.tables=afterNames.map(table=>({table,before:before.tables.find(t=>t.table===table)?.rows||0,after:Number((database.prepare('SELECT count(*) n FROM "t_'+table+'"').get() as {n:number}).n)}));
-   const fk=(database.pragma('foreign_key_check') as {table:string}[]).filter(r=>afterNames.some(t=>r.table==='t_'+t));
-   stage='ROW_VALIDATION';const {invalid,checked,issues,omittedIssueRows}=validateReleaseRows(database,afterNames,{limit,deadline,now:new Date(),email:user.email||'',collectIssues:true,checkpoint:n=>checkpoint(stage,n,before.tables.reduce((n,t)=>n+t.rows,0))});
+   const fk=sample?[]:(database.pragma('foreign_key_check') as {table:string}[]).filter(r=>afterNames.some(t=>r.table==='t_'+t));
+   stage='ROW_VALIDATION';const {invalid,checked,issues,omittedIssueRows}=validateReleaseRows(database,afterNames,{limit,deadline,now:new Date(),email:user.email||'',collectIssues:true,samplePerTable,checkpoint:n=>checkpoint(stage,n,sample?Math.min(limit,result.tables.reduce((sum,t)=>sum+Math.min(REHEARSAL_SAMPLE_ROWS,t.after),0)):before.tables.reduce((n,t)=>n+t.rows,0))});
+   let sampleRemaining=limit;for(const table of [...result.tables].sort((a,b)=>a.table<b.table?-1:a.table>b.table?1:0)){table.checked=sample?Math.min(table.after,REHEARSAL_SAMPLE_ROWS,sampleRemaining):table.after;sampleRemaining-=table.checked;}
+   result.coverage={mode:sample?"sample":"full",checked,total:result.tables.reduce((sum,t)=>sum+t.after,0),...(sample?{perTableLimit:REHEARSAL_SAMPLE_ROWS}:{}),foreignKeysChecked:!sample};
    result.rowIssues=issues;result.omittedIssueRows=omittedIssueRows;
-   result.checks=[{code:'ORIGINAL_DATA_PRESERVED',passed:preserved},{code:'ROW_COUNTS',passed:result.tables.every(t=>t.before===t.after)},{code:'FOREIGN_KEYS',passed:fk.length===0,count:fk.length},{code:'ROW_VALIDATION',passed:invalid===0,count:invalid},{code:'ROWS_CHECKED',passed:true,count:checked}];
+   result.checks=[{code:sample?'SAMPLE_DATA_PRESERVED':'ORIGINAL_DATA_PRESERVED',passed:preserved},{code:'ROW_COUNTS',passed:result.tables.every(t=>t.before===t.after)},...(!sample?[{code:'FOREIGN_KEYS',passed:fk.length===0,count:fk.length}]:[]),{code:'ROW_VALIDATION',passed:invalid===0,count:invalid},{code:'ROWS_CHECKED',passed:true,count:checked}];
    result.status=result.checks.every(c=>c.passed)?'passed':'failed';
    if(result.status==='failed')result.reasons.push('ข้อมูลอ้างอิงหรือเงื่อนไขข้อมูลไม่ผ่าน ดูจำนวนปัญหาในผลตรวจ โดยไม่แสดงค่าข้อมูล');
   })))));
@@ -137,7 +140,7 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
  return finish();
  function finish(){result.durationMs=Date.now()-started;if(!control)save(file(id,'.rehearsal.json'),result);return result;}
 }
-export function latestRehearsal(id:string,owner:number,review:ReturnType<typeof draftDiff>){draftManifest(id,owner);if(!existsSync(file(id,'.rehearsal.json')))return null;const result=json(file(id,'.rehearsal.json')) as RehearsalResult;let stale=result.expiresAt<Date.now()||result.planHash!==rehearsalPlanHash(review);if(!stale&&result.dataHash)try{const names=catalog()._tables.filter(t=>currentApplication()?.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));stale=db.transaction(()=>dataFingerprint(db,names).hash!==result.dataHash)();}catch{stale=true;}return {...result,stale};}
+export function latestRehearsal(id:string,owner:number,review:ReturnType<typeof draftDiff>){draftManifest(id,owner);if(!existsSync(file(id,'.rehearsal.json')))return null;const result=json(file(id,'.rehearsal.json')) as RehearsalResult;let stale=result.expiresAt<Date.now()||result.planHash!==rehearsalPlanHash(review);if(!stale&&result.dataHash)try{const names=catalog()._tables.filter(t=>currentApplication()?.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));stale=db.transaction(()=>dataFingerprint(db,names,result.coverage?.mode==="sample"?REHEARSAL_SAMPLE_LIMIT:2000,Date.now()+15000,undefined,undefined,result.coverage?.mode==="sample"?REHEARSAL_SAMPLE_ROWS:undefined).hash!==result.dataHash)();}catch{stale=true;}return {...result,stale};}
 
 export function draftCookie(req:Request){return req.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith(DRAFT_COOKIE+'='))?.slice(DRAFT_COOKIE.length+1)||'';}
 
