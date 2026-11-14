@@ -24,7 +24,7 @@ export function groupingTree(rows:Row[],levels:GroupLevel[],cols:Column[],weight
 }
 export function groupLeaves<T>(tree:GroupNode<T>[]):GroupNode<T>[]{return tree.flatMap(n=>n.children.length?groupLeaves(n.children):[n]);}
 export function sqlGroupingSupported(levels:GroupLevel[],cols:Column[]){return levels.every(l=>l.column==='id'||cols.some(c=>c.name===l.column&&!c.is_virtual&&['text','longtext','number','decimal','ref','yesno'].includes(c.type)));}
-export function groupedSqlPage(table:string,cols:Column[],levels:GroupLevel[],path:string[],where:string,args:any[],sort:string,direction:string,requested:number,size:number,now:Date,email:string,context:ReturnType<typeof expressionContext>){
+export function groupedSqlPage(table:string,cols:Column[],levels:GroupLevel[],path:string[],where:string,args:any[],sort:string,direction:string,requested:number,size:number,now:Date,email:string,context:ReturnType<typeof expressionContext>,rowFields="*"){
  // Identifiers come only from validated column metadata. All values are bound.
  const fields=levels.map(l=>'"'+l.column+'"').join(',');
  let summaries=db.prepare('SELECT '+fields+',COUNT(*) __group_count,MIN(id) id FROM "t_'+table+'" WHERE '+where+' GROUP BY '+fields).all(...args) as Row[];
@@ -34,7 +34,7 @@ export function groupedSqlPage(table:string,cols:Column[],levels:GroupLevel[],pa
  for(const leaf of leaves){const count=leaf.count||0;if(skip>=count){skip-=count;continue;}if(!remaining)break;
   const values:any[]=[],conditions=leaf.path.map((key,i)=>{const value=JSON.parse(key),column='"'+levels[i].column+'"';if(value===null)return '('+column+" IS NULL OR "+column+"='')";values.push(value);return column+' IS ?';});
   const take=Math.min(remaining,count-skip);
-  rows.push(...db.prepare('SELECT * FROM "t_'+table+'" WHERE ('+where+') AND '+conditions.join(' AND ')+' ORDER BY "'+sort+'" '+direction+',id '+direction+' LIMIT ? OFFSET ?').all(...args,...values,take,skip) as Row[]);
+  rows.push(...db.prepare('SELECT '+rowFields+' FROM "t_'+table+'" WHERE ('+where+') AND '+conditions.join(' AND ')+' ORDER BY "'+sort+'" '+direction+',id '+direction+' LIMIT ? OFFSET ?').all(...args,...values,take,skip) as Row[]);
   remaining-=take;skip=0;
  }
  return {rows,total,page,groups,group_path:validPath,group_total:groups.reduce((sum,n)=>sum+(n.count||0),0)};

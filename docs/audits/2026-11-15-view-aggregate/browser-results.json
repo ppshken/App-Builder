@@ -1,0 +1,11 @@
+{
+  "sourceRows": 20000,
+  "parentRows": 100,
+  "pageRows": 25,
+  "count": 200,
+  "sum": 200,
+  "partialPageMs": 657,
+  "unusedVirtualsExcluded": true,
+  "displaySnapshotSourceExcluded": true,
+  "editPreservedHiddenValues": true
+}

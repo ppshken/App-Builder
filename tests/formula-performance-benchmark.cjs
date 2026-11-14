@@ -7,7 +7,7 @@ withDatabase(db,()=>{
  const results=[];for(const mode of ['scan','indexed']){
  const cols=readColumns(db,'perf_lines'),raw=db.prepare('SELECT * FROM t_perf_lines LIMIT 150').all(),times=[],reads=[];
  const prepare=db.prepare;let count=0;db.prepare=function(sql){if(/SELECT .* FROM "t_perf_/.test(sql))count++;return prepare.call(this,sql);};
- for(let trial=-1;trial<5;trial++){count=0;const start=performance.now(),ctx=expressionContext(new Date(),'',db);if(mode==='scan')ctx.getEqualityRows=undefined;for(const r of raw){const actual=calculateRow(cols,r,false,new Date(),false,'',ctx).row;assert.equal(actual.sibling_count,10);assert.equal(actual.sibling_sum,10);assert.equal(actual.parent_title,'Parent '+r.parent_id);}if(trial>=0){times.push(performance.now()-start);reads.push(count);}}
+ for(let trial=-1;trial<5;trial++){count=0;const start=performance.now(),ctx=expressionContext(new Date(),'',db);ctx.getAggregate=undefined;if(mode==='scan')ctx.getEqualityRows=undefined;for(const r of raw){const actual=calculateRow(cols,r,false,new Date(),false,'',ctx).row;assert.equal(actual.sibling_count,10);assert.equal(actual.sibling_sum,10);assert.equal(actual.parent_title,'Parent '+r.parent_id);}if(trial>=0){times.push(performance.now()-start);reads.push(count);}}
  results.push({mode,rows:12000,displayedRows:150,virtualsPerRow:3,timesMs:times,medianMs:[...times].sort((a,b)=>a-b)[2],sqlTableReads:reads});db.prepare=prepare;
  }
  const report={results,speedup:results[0].medianMs/results[1].medianMs,note:"Local isolated calculation benchmark, not HTTP or a production SLA."};console.log(JSON.stringify(report,null,2));if(process.argv[2])require('node:fs').writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n');

@@ -1,0 +1,73 @@
+{
+  "parents": 100,
+  "sourceRows": 20000,
+  "pageSize": 25,
+  "results": [
+    {
+      "mode": "full_view",
+      "timesMs": [
+        170.36204199999997,
+        138.166917,
+        168.17316700000003,
+        152.178542,
+        146.79441599999984
+      ],
+      "medianMs": 152.178542,
+      "responseBytes": 256524,
+      "sourceRowsMaterialized": 20000,
+      "metrics": {
+        "steps": 2000100,
+        "selectRows": 500000,
+        "relatedRows": 0,
+        "indexLookups": 0,
+        "memoHits": 0,
+        "sortRows": 0,
+        "sqlAggregates": 50
+      }
+    },
+    {
+      "mode": "projected_interpreter",
+      "timesMs": [
+        41.680000000000064,
+        31.4993750000001,
+        27.999042000000145,
+        26.381209000000126,
+        24.027207999999973
+      ],
+      "medianMs": 27.999042000000145,
+      "responseBytes": 6324,
+      "sourceRowsMaterialized": 10000,
+      "metrics": {
+        "steps": 30150,
+        "selectRows": 10000,
+        "relatedRows": 0,
+        "indexLookups": 50,
+        "memoHits": 0,
+        "sortRows": 0
+      }
+    },
+    {
+      "mode": "projected_sql",
+      "timesMs": [
+        19.89625000000001,
+        21.166625000000067,
+        22.263000000000147,
+        19.506875000000036,
+        19.871875000000045
+      ],
+      "medianMs": 19.89625000000001,
+      "responseBytes": 6324,
+      "sourceRowsMaterialized": 0,
+      "metrics": {
+        "steps": 50,
+        "selectRows": 0,
+        "relatedRows": 0,
+        "indexLookups": 0,
+        "memoHits": 0,
+        "sortRows": 0,
+        "sqlAggregates": 50
+      }
+    }
+  ],
+  "note": "Local calculation + JSON serialization benchmark, one warm-up then five trials, not HTTP or production latency."
+}

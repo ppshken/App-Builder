@@ -1,4 +1,5 @@
 "use client";
+import {runtimeFields,viewExpressionSources} from "@/lib/view-projection";
 import {expressionLookup} from "@/lib/expression-lookup";
 import {requiredRefresh,type DataRefreshReceipt} from '@/lib/data-refresh';
 import {createRefreshQueue} from '@/lib/refresh-queue';
@@ -113,7 +114,14 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
   const equalityRows=useMemo(()=>expressionLookup(),[expressionTables,draftExpressionScope]);
   const expressionOptions = { getEqualityRows:equalityRows,enableSelectMemo:true, ...expressionUser, tableName:table, tables: withDraftExpressionRows(expressionTables,draftExpressionScope), refTables: meta ? refTablesOf(meta.columns) : {} };
   const scopedExpressions=useRef(false),listExpressionTables=useRef<Record<string,ExpressionTable>>({});
-  async function fetchExpressionTables(displayOnly=false,parentIds:number[]=[form?.id||detail?.id||initialRow||draftValues?.id].filter(Boolean).map(Number)) { const r = await fetch(`/api/expression-data?table=${encodeURIComponent(table)}${displayOnly ? "&display=1" : ""}&related_parent_ids=${encodeURIComponent(JSON.stringify(parentIds))}`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+  const listDefaults=runtimeView?.kind==="table"?appSettings.display_defaults.table:appSettings.display_defaults.list;
+  const listFields=meta&&!initialRow?runtimeFields(meta.columns,runtimeView,listDefaults,rowActions,sliceColumns):undefined;
+  const fieldsKey=listFields?JSON.stringify(listFields):"";
+  const fieldsQuery=fieldsKey?"&fields="+encodeURIComponent(fieldsKey):"";
+  const expressionSources=(names?:string[])=>JSON.stringify(viewExpressionSources(Object.fromEntries(Object.entries(displaySettings(runtimeView?.display,listDefaults).data_styles||{}).filter(([column])=>!names||names.includes(column)))));
+  const extraSources=expressionSources(listFields);
+  const sourceQuery=fieldsQuery+((extraSources!=="[]"&&encodeURIComponent(extraSources).length<2000)?"&extra_sources="+encodeURIComponent(extraSources):"")+sliceQuery;
+  async function fetchExpressionTables(displayOnly=false,parentIds:number[]=[form?.id||detail?.id||initialRow||draftValues?.id].filter(Boolean).map(Number)) { const r = await fetch(`/api/expression-data?table=${encodeURIComponent(table)}${displayOnly ? "&display=1" : ""}${displayOnly&&!form&&!detail&&!initialRow?sourceQuery:""}&related_parent_ids=${encodeURIComponent(JSON.stringify(parentIds))}`, { headers: requestHeaders }), j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
   const requestedRelated=runtimeView?.position==='inline'?initialValues?.__related_scope as {owner?:string;id?:number;column?:string}|undefined:undefined;
   const relatedScope=requestedRelated&&typeof requestedRelated.owner==='string'&&/^[a-z][a-z0-9_]{0,40}$/.test(requestedRelated.owner)&&typeof requestedRelated.column==='string'&&/^[a-z][a-z0-9_]{0,40}$/.test(requestedRelated.column)&&Number.isSafeInteger(requestedRelated.id)&&requestedRelated.id!>0?requestedRelated:undefined;
   const [dashboardLimit,setDashboardLimit]=useState(200),dashboardSentinel=useRef<HTMLDivElement>(null);
@@ -128,7 +136,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
   const activeFilters=JSON.stringify([...(activeTabFilter?[activeTabFilter]:[]),...quickFilters,...filters.filter(f=>["empty","not_empty"].includes(f.op)||f.value?.trim()),...(relatedScope?[{column:relatedScope.column!,op:"eq",value:String(relatedScope.id)}]:[])]);
   const [q, setQ] = useState(""), [sort, setSort] = useState(runtimeView?.sort_column || "id"), [dir, setDir] = useState(runtimeView?.sort_dir || "desc");
   const [searchTerm,setSearchTerm]=useState("");
-  const rowQueryKey=JSON.stringify([application,workspace,user?.id,table,searchTerm,sort,dir,page,pageSize,groupingKey,nestedMode?groupPath:[],activeFilters,sliceQuery,mapScope,dashboardSearch===undefined,nestedMode,previewEmail]),currentRowQuery=useRef(rowQueryKey);currentRowQuery.current=rowQueryKey;
+  const rowQueryKey=JSON.stringify([application,workspace,user?.id,table,fieldsKey,searchTerm,sort,dir,page,pageSize,groupingKey,nestedMode?groupPath:[],activeFilters,sliceQuery,mapScope,dashboardSearch===undefined,nestedMode,previewEmail]),currentRowQuery=useRef(rowQueryKey);currentRowQuery.current=rowQueryKey;
   const refreshEpoch=useRef({stamp:{data:externalDataRevision,realtime:realtimeRevision},list:0,detail:0});
   const refreshNeeded=requiredRefresh(refreshEpoch.current.stamp,{data:externalDataRevision,realtime:realtimeRevision},dataRefreshReceipt,{source:refreshSource,table,slice:runtimeView?.slice_name||'',recordId:initialRow,query:rowQueryKey});
   if(refreshNeeded.list)refreshEpoch.current.list++;if(refreshNeeded.detail)refreshEpoch.current.detail++;
@@ -159,7 +167,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
   const Screen = onDraftSaved || runtimeView ? RuntimeScreen : EditorDialog;
   const initialDetailOpened = useRef(false);
   const editOrigin = useRef<any>(null),leaving=useRef(false);
-  const openDetail = (row: any) => { setSaved(""); if (onNavigate && detailView) {if((detailView.slice_name||"")===(runtimeView?.slice_name||""))rememberRuntimeRow(table,row,previewEmail,detailView.slice_name||"");onNavigate(detailView, row.id);} else setDetail(row); };
+  const openDetail = async (row: any) => { setSaved(""); if (onNavigate && detailView) {if(!row.__partial&&(detailView.slice_name||"")===(runtimeView?.slice_name||""))rememberRuntimeRow(table,row,previewEmail,detailView.slice_name||"");onNavigate(detailView, row.id);} else if(row.__partial){try{const response=await fetch(`/api/data/${table}?id=${row.id}${sliceQuery}`,{headers:requestHeaders}),data=await response.json();if(!response.ok||!data.length)throw Error(data.error||"ไม่พบข้อมูล");setDetail(data[0]);}catch(e){setErr((e as Error).message);}}else setDetail(row); };
   useLayoutEffect(() => { if (runtimeView) onScreenChange?.((form ? formView : detail ? detailView : runtimeView)?.name || runtimeView.name, !!(form || detail), form?.id || detail?.id,form ? (form.id?"แก้ไข · ":"เพิ่ม · ")+String(form.__label||formView?.label||runtimeView.label) : detail ? String(detail.__label??detailView?.label??runtimeView.label) : undefined); }, [runtimeView?.name, formView?.name, detailView?.name, !!form, !!detail, form?.id, detail?.id, detail?.__label,form?.__label,onScreenChange]);
   const [initialForm, setInitialForm] = useState(""), [discard, setDiscard] = useState(false), [saved, setSaved] = useState("");
   const pendingNavigation=useRef<(()=>void)|null>(null);
@@ -175,14 +183,17 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
     let active = true;
     setMeta(null); setForm(null); setLoadErr("");setPage(1);setFilters([]);setQ("");setSearchTerm("");
     (async () => {
-      const [all, expressionData, visible, viewRegistry, actions, slices] = await Promise.all([
-        runtimeJSON("/api/tables"), runtimeJSON(`/api/expression-data?table=${encodeURIComponent(table)}&display=1&related_parent_ids=${encodeURIComponent(JSON.stringify(initialRow?[Number(initialRow)]:[]))}`,previewEmail,15000),
+      const [all, visible, viewRegistry, actions, slices] = await Promise.all([
+        runtimeJSON("/api/tables"),
         runtimeJSON("/api/views?runtime=1",previewEmail,15000), runtimeJSON("/api/views"),
         runtimeView ? runtimeJSON("/api/actions") : [], runtimeView ? runtimeJSON("/api/slices") : []
       ]);
       const m = all.find((t: Table) => t.name === table);
       if (!active) return;
       if (!m) { setMeta(false); return; }
+      const selected=!initialRow?runtimeFields(m.columns,runtimeView,listDefaults,actions.filter((a:RowAction)=>a.table_name===table),slices.find((s:Slice)=>s.name===runtimeView?.slice_name)?.columns||[]):undefined;
+      const projection=selected?"&fields="+encodeURIComponent(JSON.stringify(selected)):"",initialSources=expressionSources(selected);
+      const expressionData=await runtimeJSON(`/api/expression-data?table=${encodeURIComponent(table)}&display=1&related_parent_ids=${encodeURIComponent(JSON.stringify(initialRow?[Number(initialRow)]:[]))}${projection}${sliceQuery}${initialSources!=="[]"&&encodeURIComponent(initialSources).length<2000?"&extra_sources="+encodeURIComponent(initialSources):""}`,previewEmail,15000);if(!active)return;
       listExpressionTables.current=expressionData;scopedExpressions.current=Object.values(expressionData).some((t:any)=>!!t.related_scope);setAllTables(all);setExpressionTables(expressionData); setRelatedViews(viewRegistry.map((v:AppView)=>({...v,label:visible.views.find((resolved:AppView)=>resolved.name===v.name)?.label||runtimeViewName(v).label}))); setHiddenInline(visible.hidden);
       setRowActions(actions.filter((a:RowAction)=>a.table_name===table));
       setSliceColumns(slices.find((s:Slice)=>s.name===runtimeView?.slice_name)?.columns || []);
@@ -190,7 +201,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
 
     })().catch(e => { if (active) { setLoadErr(e.message || "โหลดตารางไม่ได้"); setMeta(false); } });
     return () => { active = false; };
-  }, [table, previewEmail, runtimeView?.slice_name]);
+  }, [table, previewEmail, runtimeView?.slice_name,runtimeView?.name,JSON.stringify([runtimeView?.columns,runtimeView?.display?.title_column,runtimeView?.display?.image_column,runtimeView?.display?.summary_columns,runtimeView?.display?.group_by,runtimeView?.group_column,viewExpressionSources(runtimeView?.display?.data_styles),viewExpressionSources(listDefaults?.data_styles),listDefaults?.title_column,listDefaults?.image_column,listDefaults?.summary_columns])]);
   useEffect(()=>{setGroupPath([]);setGroupAll(false);},[table,groupingKey,searchTerm,activeFilters]);
   const rowFlight=useRef<{key:string;promise:Promise<boolean>;signal?:AbortSignal}|undefined>(undefined),backgroundQueue=useRef<ReturnType<typeof createRefreshQueue>|undefined>(undefined);
   const load = useCallback(function read(signal?: AbortSignal,forceExternal=false,background=false):Promise<boolean> {
@@ -200,7 +211,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
     const ticket=++rowRequest.current;if(!background)setRowsLoading(true);
     const promise=(async()=>{
     try {
-      const r = await fetch(`/api/data/${table}?q=${encodeURIComponent(searchTerm)}&sort=${sort}&dir=${dir}&page=${page}&page_size=${pageSize}${nestedMode?`&group_by=${encodeURIComponent(groupingKey)}&group_path=${encodeURIComponent(JSON.stringify(groupPath))}`:""}&filters=${encodeURIComponent(activeFilters)}${sliceQuery}${forceExternal?"&refresh_source=1":""}${mapScope?"&map_scope="+encodeURIComponent(mapScope):""}`, { signal, headers: requestHeaders }), j = await r.json();
+      const r = await fetch(`/api/data/${table}?q=${encodeURIComponent(searchTerm)}&sort=${sort}&dir=${dir}&page=${page}&page_size=${pageSize}${fieldsQuery}${nestedMode?`&group_by=${encodeURIComponent(groupingKey)}&group_path=${encodeURIComponent(JSON.stringify(groupPath))}`:""}&filters=${encodeURIComponent(activeFilters)}${sliceQuery}${forceExternal?"&refresh_source=1":""}${mapScope?"&map_scope="+encodeURIComponent(mapScope):""}`, { signal, headers: requestHeaders }), j = await r.json();
       if (!r.ok) {if(r.status===403&&ticket===rowRequest.current){setRows([]);setTotal(0);setServerGroups([]);setGroupTotal(0);setDetail(null);}throw new Error(j.error);} if(ticket!==rowRequest.current||currentRowQuery.current!==rowQueryKey)return false;const loadedRows=Array.isArray(j)?j:j.rows;if(scopedExpressions.current){const data=await fetchExpressionTables(true,loadedRows.map((r:any)=>Number(r.id)));if(signal?.aborted||ticket!==rowRequest.current||currentRowQuery.current!==rowQueryKey)return false;listExpressionTables.current=data;setExpressionTables(data);}rememberRead(r);setRows(loadedRows);setTotal(Array.isArray(j)?j.length:j.total);setPages(Array.isArray(j)?1:j.pages);setPage(Array.isArray(j)?1:j.page);if(nestedMode){setServerGroups(j.groups||[]);setGroupTotal(j.group_total||0);if(j.group_path&&JSON.stringify(j.group_path)!==JSON.stringify(groupPath))setGroupPath(j.group_path);} setLoadErr("");return true;
     } catch (e) { if (!signal?.aborted&&ticket===rowRequest.current) setLoadErr(e instanceof Error ? e.message : "โหลดข้อมูลไม่ได้ กรุณาลองใหม่");return false; }
     finally {if(ticket===rowRequest.current)setRowsLoading(false);}
@@ -296,7 +307,8 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
     if (onNavigate && formView && runtimeView?.kind !== "form") { onNavigate(formView, row.id); return; }
     editOrigin.current = detail;leaving.current=false;
     setBusy(true); setErr("");
-    try { const [expressionData]=await Promise.all([fetchExpressionTables(false,[Number(row.id)])]);setExpressionTables(expressionData);
+    try { if(row.__partial){const response=await fetch(`/api/data/${table}?id=${row.id}${sliceQuery}`,{headers:requestHeaders}),data=await response.json();if(!response.ok||!data.length)throw Error(data.error||"ไม่พบข้อมูล");row=data[0];}
+    const [expressionData]=await Promise.all([fetchExpressionTables(false,[Number(row.id)])]);setExpressionTables(expressionData);
     const value = Object.fromEntries(["id", "__version", ...meta.columns.filter(c => !c.is_virtual).map(c => c.name)].map(k => [k, row[k]]));
     setSaveConflict(false);setErr(""); setAttempted(false); setFormTime(new Date()); setForm(value); setInitialForm(JSON.stringify(value)); setDetail(null); setSaved("");
     } catch(e) { setErr((e as Error).message); } finally { setBusy(false); }

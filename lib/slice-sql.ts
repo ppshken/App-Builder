@@ -5,18 +5,19 @@ type Node=ReturnType<typeof parseExpression>;
 type Plan={where:string;args:(string|number|null)[]};
 // Deliberately conservative: unsupported formulas retain the existing interpreter.
 // Never compile a fragment of AND/OR: doing so could change short-circuit errors.
-export function sliceSql(source:string,columns:Column[],email:string):Plan|null {
+export function sliceSql(source:string,columns:Column[],email:string):Plan|null {try{return sliceSqlNode(parseExpression(source),columns,email);}catch{return null;}}
+export function sliceSqlNode(node:Node,columns:Column[],email:string,validated=false):Plan|null {
  const numeric=new Set(['number','decimal','ref','user','price','percent','rating','yesno']);
  function field(n:Node):{sql:string;numeric:boolean;boolean:boolean}|null {
   if(n.kind!=='column'||!/^[a-z][a-z0-9_]{0,40}$/.test(n.name))return null;
   const c=n.name==='id'?{type:'number',is_virtual:false}:columns.find(c=>c.name===n.name);
   if(!c||c.is_virtual||!['text','longtext','enum',...numeric].includes(c.type))return null;
-  let sql='"'+n.name+'"';
-  if(['number','decimal','price'].includes(c.type)&&n.name!=='id')sql='(CASE WHEN typeof('+sql+") IN ('integer','real') AND abs("+sql+')<=1.7976931348623157e308 THEN '+sql+' END)';
-  if(c.type==='yesno')sql='(CASE WHEN '+sql+' IN (0,1) THEN '+sql+' END)';
-  if(['ref','user'].includes(c.type))sql='(CASE WHEN '+sql+'>=1 AND '+sql+'<=9007199254740991 AND '+sql+'=CAST('+sql+' AS INTEGER) THEN '+sql+' END)';
-  if(c.type==='percent')sql='(CASE WHEN '+sql+' BETWEEN 0 AND 1 THEN '+sql+' END)';
-  if(c.type==='rating')sql='(CASE WHEN '+sql+' BETWEEN 0 AND 5 AND '+sql+'=CAST('+sql+' AS INTEGER) THEN '+sql+' END)';
+  let sql='"'+n.name+'"';if(validated&&["text","longtext"].includes(c.type))sql+=" COLLATE BINARY";
+  if(!validated&&['number','decimal','price'].includes(c.type)&&n.name!=='id')sql='(CASE WHEN typeof('+sql+") IN ('integer','real') AND abs("+sql+')<=1.7976931348623157e308 THEN '+sql+' END)';
+  if(!validated&&c.type==='yesno')sql='(CASE WHEN '+sql+' IN (0,1) THEN '+sql+' END)';
+  if(!validated&&['ref','user'].includes(c.type))sql='(CASE WHEN '+sql+'>=1 AND '+sql+'<=9007199254740991 AND '+sql+'=CAST('+sql+' AS INTEGER) THEN '+sql+' END)';
+  if(!validated&&c.type==='percent')sql='(CASE WHEN '+sql+' BETWEEN 0 AND 1 THEN '+sql+' END)';
+  if(!validated&&c.type==='rating')sql='(CASE WHEN '+sql+' BETWEEN 0 AND 5 AND '+sql+'=CAST('+sql+' AS INTEGER) THEN '+sql+' END)';
   // Enum normalization turns values outside static options into null in tolerant reads.
   // Escape metadata literals as SQL strings; expression/user values remain bound args.
   const column=columns.find(c=>c.name===n.name);
@@ -50,5 +51,5 @@ export function sliceSql(source:string,columns:Column[],email:string):Plan|null 
   }
   return null;
  }
- try{return compile(parseExpression(source));}catch{return null;}
+ try{return compile(node);}catch{return null;}
 }

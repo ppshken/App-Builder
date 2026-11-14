@@ -1,3 +1,4 @@
+import type {AggregateReader} from './formula-aggregate';
 import type {FormulaEvalMetrics} from './formula-performance';
 import {createUuid} from "./uuid";
 import {isSystemFormulaTable} from './formula-system-schema';
@@ -332,7 +333,7 @@ const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
 export type RelatedReadScope = {ownerTable?:string;parentIds:(string|number)[];refColumn?:string;columns?:string[];includeBlank?:boolean};
-export type ExpressionContext = ExpressionUser & { metrics?:FormulaEvalMetrics;enableSelectMemo?:boolean; getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { getAggregate?:AggregateReader;metrics?:FormulaEvalMetrics;enableSelectMemo?:boolean; getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -528,7 +529,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "OR": result = n.args.some(a => asBoolean(run(a, scope))); break;
         case "NOT": result = !asBoolean(arg(0)); break;
         case "LIST": result = n.args.map(a => { const v = run(a, scope); if (typeof v !== "string" && typeof v !== "number") fail("LIST ต้องรับข้อความหรือตัวเลข"); return String(v); }); break;
-        case "COUNT": { const v = arg(0); if (!Array.isArray(v)) fail("COUNT ต้องรับรายการ เช่น [tags]"); result = v.length; break; }
+        case "COUNT": { const native=options.getAggregate?.("COUNT",n.args[0],name=>options.resolve?options.resolve(name):Object.hasOwn(row,name)?row[name]??null:fail(`ไม่พบคอลัมน์ [${name}]`));if(native!==undefined){if(options.metrics)options.metrics.sqlAggregates=(options.metrics.sqlAggregates||0)+1;result=native;break;}const v = arg(0); if (!Array.isArray(v)) fail("COUNT ต้องรับรายการ เช่น [tags]"); result = v.length; break; }
         case "IN": { const needle = arg(0), values = arg(1); if (!Array.isArray(values)) fail("IN ต้องรับรายการในช่องที่สอง เช่น IN(\"ด่วน\", [tags])"); result = values.some(v => listEquivalent(needle, v)); break; }
         case "UNIQUEID": result = createUuid(); break;
         case "USERID": result = options.userId ?? null; break;
@@ -544,7 +545,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "DISTANCE": {const from=arg(0),to=arg(1);result=isBlank(from)||isBlank(to)?null:distanceKilometers(from,to);break;}
         case "DURATION": result=normalizeDuration(arg(0));break;
         case "TOTALHOURS": case "TOTALMINUTES": case "TOTALSECONDS": {const v=arg(0);result=isBlank(v)?null:durationMilliseconds(v)/(n.name==='TOTALHOURS'?3600000:n.name==='TOTALMINUTES'?60000:1000);break;}
-        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}
+        case "SUM": {const native=options.getAggregate?.("SUM",n.args[0],name=>options.resolve?options.resolve(name):Object.hasOwn(row,name)?row[name]??null:fail(`ไม่พบคอลัมน์ [${name}]`));if(native!==undefined){if(options.metrics)options.metrics.sqlAggregates=(options.metrics.sqlAggregates||0)+1;result=native;break;}const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}
         case "RIGHT": {const value=arg(0),count=numeric(arg(1));if(!Number.isSafeInteger(count)||count<0)fail("RIGHT จำนวนตัวอักษรต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป");if(Array.isArray(value))fail("RIGHT ต้องรับข้อความหรือตัวเลข ไม่ใช่รายการ");result=count===0?"":Array.from(String(value??"")).slice(-count).join("");break;}
         case "TEXT": result=formatExpressionText(arg(0),n.args.length===2?arg(1):undefined);break;
         case "INDEX": {const values=arg(0),index=numeric(arg(1));if(!Array.isArray(values))fail("INDEX ต้องรับรายการ เช่น INDEX([tags], 1)");if(!Number.isSafeInteger(index))fail("INDEX ตำแหน่งต้องเป็นจำนวนเต็ม โดยรายการแรกเริ่มที่ 1");result=index>=1&&index<=values.length?values[index-1]:null;break;}

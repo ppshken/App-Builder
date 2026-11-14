@@ -1,3 +1,4 @@
+import {parseProjection,projectionColumns} from '@/lib/view-projection';
 import {formulaInputColumns,readMetrics} from '@/lib/formula-performance';
 import {assertTablePermission} from "@/lib/permissions";
 import {visibleRawRows} from "@/lib/row-access";
@@ -16,13 +17,16 @@ async function handleGET(req: Request) {
     if (table && !tableExists(table)) return bad("ไม่พบตาราง", 404);
     const userEmail = req.headers.get("x-nocode-preview-email") || "";
     if (userEmail && (userEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail))) return bad("อีเมลสำหรับ Preview ไม่ถูกต้อง");
-    const sources = source !== null ? [source] : table ? columnsOf(table).filter(c => u.searchParams.get("display") !== "1" || c.type !== "list").flatMap(c => FORMULA_FIELDS.map(f => c[f] || "")) : [];
+    const fields=table?parseProjection(u.searchParams.get("fields"),columnsOf(table)):undefined;
+    const displayColumns=table&&fields?projectionColumns(columnsOf(table),fields):table?columnsOf(table):[];
+    const sources = source !== null ? [source] : table ? displayColumns.filter(c => u.searchParams.get("display") !== "1" || c.type !== "list").flatMap(c => fields&&u.searchParams.get("display")==="1" ? [c.type==="enum"||c.type==="enumlist"?c.valid_if||"":"",...(c.ref_table&&["enum","enumlist"].includes(c.type)?[c.ref_table+"[id]"]:[])] : FORMULA_FIELDS.map(f => c[f] || "")) : [];
+    const additional:string[]=[];const extra=u.searchParams.get("extra_sources");if(extra){if(extra.length>60000)return bad("สูตรประกอบหน้าจอยาวเกินไป");const expressions=JSON.parse(extra);if(!Array.isArray(expressions)||expressions.length>200||expressions.some(s=>typeof s!=="string"||s.length>4000))return bad("สูตรประกอบหน้าจอไม่ถูกต้อง");additional.push(...expressions);}
     if (source === null && table) {
       const childLinks=db.prepare("SELECT table_name,name FROM _columns WHERE ref_table=? AND (is_part_of=1 OR related_required=1)").all(table) as {table_name:string;name:string}[];
-      for(const link of childLinks){const c=columnsOf(link.table_name).find(c=>c.name===link.name);if(c)sources.push(c.part_add_if||"",c.part_show_if||"",c.part_valid_if||"");}
+      for(const link of fields?[]:childLinks){const c=columnsOf(link.table_name).find(c=>c.name===link.name);if(c)sources.push(c.part_add_if||"",c.part_show_if||"",c.part_valid_if||"");}
 
-      for (const a of db.prepare("SELECT condition_expr,values_json,config_json FROM _actions WHERE table_name=?").all(table) as {condition_expr:string;values_json:string;config_json:string}[]) sources.push(a.condition_expr,...actionConfigExpressions(JSON.parse(a.config_json||"{}")), ...Object.values(JSON.parse(a.values_json)) as string[]);
-      for (const s of db.prepare("SELECT filter_expr FROM _slices WHERE table_name=?").all(table) as {filter_expr:string}[]) sources.push(s.filter_expr);
+      for (const a of db.prepare("SELECT condition_expr,values_json,config_json FROM _actions WHERE table_name=?").all(table) as {condition_expr:string;values_json:string;config_json:string}[]) sources.push(a.condition_expr,...(fields?[]:[...actionConfigExpressions(JSON.parse(a.config_json||"{}")), ...Object.values(JSON.parse(a.values_json)) as string[]]));
+      for (const s of db.prepare("SELECT filter_expr FROM _slices WHERE table_name=?"+(fields?" AND name=?":"")).all(...(fields?[table,u.searchParams.get("slice")||""]:[table])) as {filter_expr:string}[]) sources.push(s.filter_expr);
     }
     let relatedScope:{ownerTable:string;parentIds:number[];deferBlank?:boolean}|undefined;
     const parentIds=u.searchParams.get('related_parent_ids');
@@ -31,7 +35,8 @@ async function handleGET(req: Request) {
       const raw=db.prepare('SELECT * FROM "t_'+table+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)) as Record<string,any>[];
       relatedScope={ownerTable:table,parentIds:visibleRawRows(table,raw).map(r=>Number(r.id)),deferBlank:ids.length>0||u.searchParams.get("display")==="1"};
     }
-    return NextResponse.json(expressionContext(new Date(), userEmail.toLowerCase()).snapshot(sources, table ? columnsOf(table) : [],source===null,relatedScope));
+    const snapshot=(extras:string[])=>expressionContext(new Date(),userEmail.toLowerCase()).snapshot([...sources,...extras],table?columnsOf(table):[],source===null,relatedScope);
+    try{return NextResponse.json(snapshot(additional));}catch(error){if(!additional.length)throw error;return NextResponse.json(snapshot([]),{headers:{"X-Nocode-Optional-Expressions-Skipped":"1"}});}
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 async function handlePOST(req: Request) {

@@ -1,3 +1,6 @@
+import {parseProjection,projectionColumns} from '@/lib/view-projection';
+import {rowVersion} from '@/lib/row-version';
+import {rowRule} from '@/lib/row-access';
 import {parseGrouping,sqlGroupingSupported,groupedSqlPage,groupedMemoryPage} from '@/lib/grouped-pagination';
 import {realtimeReadVersions} from '@/lib/realtime-read-version';
 import {assertRowVersion} from '@/lib/row-version';
@@ -43,6 +46,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       if (firstError) throw new Error(`ค่าเริ่มต้นของ "${firstError.label}": ${errors[firstError.name]}`);
       return NextResponse.json({ values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
     }
+    return db.transaction(()=>{
     // Capture before synchronous reads: a later write must never be marked as covered.
     const realtimeHeaders={'X-Nocode-Realtime-Versions':JSON.stringify(realtimeReadVersions())};
     const filters=parseFilters(u.searchParams.get("filters"),cols),paged=u.searchParams.has("page"),size=Number(u.searchParams.get("page_size")||25),requested=Number(u.searchParams.get("page")||1);
@@ -52,26 +56,32 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     const wanted=u.searchParams.get("id");if(wanted&&(!/^[1-9]\d*$/.test(wanted)||!Number.isSafeInteger(Number(wanted))))return bad("รหัสแถวไม่ถูกต้อง");
     const mapScope=mapViewScope(t,u.searchParams.get("map_scope"));
     const slice=sliceFor(u.searchParams.get("slice"),t),slicePlan=slice?sliceSql(slice.filter_expr,cols,userEmail):null;
+    const fields=parseProjection(u.searchParams.get('fields'),cols);
+    if(fields&&(!paged||wanted))return bad('การเลือกคอลัมน์ใช้กับหน้ารายการแบบแบ่งหน้าเท่านั้น');
+    const selected=fields&&!mapScope?projectionColumns(cols,fields,[slice?.filter_expr||'']):undefined;
+    const needed=selected?projectionColumns(cols,[...selected.map(c=>c.name),requestedSort?.name||'id',...filters.map(f=>f.column),...(grouping?.levels.map(l=>l.column)||[]),...(search?cols.map(c=>c.name):[])]):cols;
+    const sqlFields=selected&&!['read','update','delete'].some(op=>rowRule(t,op as 'read'|'update'|'delete'))?['id',...needed.filter(c=>!c.is_virtual).map(c=>c.name)].map(n=>'"'+n+'"').join(','):'*';
     const fast=paged&&(!grouping||sqlGroupingSupported(grouping.levels,cols))&&!mapScope&&(!slice||!!slicePlan)&&!u.searchParams.get("id")&&!requestedSort?.is_virtual&&!filters.some(f=>cols.find(c=>c.name===f.column)?.is_virtual||["list","enumlist"].includes(cols.find(c=>c.name===f.column)!.type))&&(!search||!cols.some(c=>c.is_virtual||c.type==="ref"));
     let page=requested,total=0,rawRows:Row[]|undefined;
     if(wanted)rawRows=db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).all(Number(wanted)) as Row[];
     // Ref choices only return 500 rows; limit before calculating every row in the table.
     if(!mapScope&&u.searchParams.get("all")!=="1"&&!paged&&!wanted&&!search&&!filters.length&&!u.searchParams.get("slice")&&!requestedSort&&!hasRowRule(t)){
       const direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
-      rawRows=db.prepare(`SELECT * FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
+      rawRows=db.prepare(`SELECT ${sqlFields} FROM "t_${t}" ORDER BY id ${direction} LIMIT 500`).all() as Row[];
     }
     if(fast)db.transaction(()=>{const query=filterSql(filters,cols);let where=query.where;const args=query.args;if(slicePlan){where+=' AND ('+slicePlan.where+')';args.push(...slicePlan.args);}if(search&&cols.length){where+=' AND ('+cols.filter(c=>!c.is_virtual).map(c=>'instr(lower(CAST("'+c.name+'" AS TEXT)),lower(?))>0').join(' OR ')+')';args.push(...cols.filter(c=>!c.is_virtual).map(()=>search));}
       if(hasRowRule(t)){const permitted=visibleRawRows(t,db.prepare(`SELECT * FROM "t_${t}" WHERE ${where}`).all(...args) as Row[]).map(r=>r.id);where+=' AND id IN (SELECT value FROM json_each(?))';args.push(JSON.stringify(permitted));}
-      if(grouping){groupResult=groupedSqlPage(t,cols,grouping.levels,grouping.path,where,args,requestedSort?.name||'id',u.searchParams.get('dir')==='asc'?'ASC':'DESC',requested,size,now,userEmail,context);rawRows=groupResult.rows;total=groupResult.total;page=groupResult.page;return;}
+      if(grouping){groupResult=groupedSqlPage(t,cols,grouping.levels,grouping.path,where,args,requestedSort?.name||'id',u.searchParams.get('dir')==='asc'?'ASC':'DESC',requested,size,now,userEmail,context,sqlFields);rawRows=groupResult.rows;total=groupResult.total;page=groupResult.page;return;}
       total=(db.prepare('SELECT COUNT(*) AS total FROM "t_'+t+'" WHERE '+where).get(...args) as {total:number}).total;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));const key=requestedSort?.name||"id",direction=u.searchParams.get("dir")==="asc"?"ASC":"DESC";
       const window=sqlPageWindow(total,page,size,direction);
-      rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+where+' ORDER BY "'+key+'" '+window.direction+',id '+window.direction+' LIMIT ? OFFSET ?').all(...args,window.limit,window.offset) as Row[];
+      rawRows=db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'" WHERE '+where+' ORDER BY "'+key+'" '+window.direction+',id '+window.direction+' LIMIT ? OFFSET ?').all(...args,window.limit,window.offset) as Row[];
       if(window.reverse)rawRows.reverse();
     })();
     // Unpaged Dashboard, Ref-label search and virtual sorting also benefit from
     // safe Slice pushdown; permissions and the interpreter checks still run below.
-    if(slicePlan&&rawRows===undefined)rawRows=db.prepare('SELECT * FROM "t_'+t+'" WHERE '+slicePlan.where).all(...slicePlan.args) as Row[];
-    let rows = readRows(t, cols, now, userEmail, context,rawRows);
+    if(slicePlan&&rawRows===undefined)rawRows=db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'" WHERE '+slicePlan.where).all(...slicePlan.args) as Row[];
+    if(selected&&rawRows===undefined)rawRows=db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'"').all() as Row[];
+    let rows = readRows(t, needed, now, userEmail, context,rawRows,selected?{allColumns:cols}:undefined);
     if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
     if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
     const wantedId = u.searchParams.get("id");
@@ -79,7 +89,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       if (!/^[1-9]\d*$/.test(wantedId)) return bad("รหัสแถวไม่ถูกต้อง");
       rows = rows.filter(r => r.id === Number(wantedId));
     }
-    rows = withReferenceLabels(t, cols, rows, now, userEmail, context);
+    rows = withReferenceLabels(t, needed, rows, now, userEmail, context);
     if(!fast)rows=rows.filter(row=>matchesFilters(row,filters,cols));
     const q = (u.searchParams.get("q") || "").toLocaleLowerCase();
     if (q&&!fast) rows = rows.filter(r => cols.some(c => String(c.type === "ref" ? r[`${c.name}__label`] ?? "" : r[c.name] ?? "").toLocaleLowerCase().includes(q)));
@@ -89,8 +99,10 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const comparison = left == null ? right == null ? 0 : -1 : right == null ? 1 : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "th");
       return direction * (comparison || a.id - b.id);
     });
-    if(paged){if(grouping&&!fast){groupResult=groupedMemoryPage(rows,grouping.levels,grouping.path,cols,requested,size);rows=groupResult.rows;total=groupResult.total;page=groupResult.page;}else if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows,total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size)),...(groupResult?{groups:groupResult.groups,group_total:groupResult.group_total,group_path:groupResult.group_path}:{})},{headers:realtimeHeaders});}
+    const responseRows=(items:Row[])=>{if(!selected||!items.length)return items;const originals=sqlFields==='*'&&rawRows?rawRows:db.prepare('SELECT * FROM "t_'+t+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(items.map(r=>r.id))) as Row[],byId=new Map(originals.map(r=>[r.id,r]));return items.map(row=>({...row,__version:rowVersion(t,cols,byId.get(row.id)!)}));};
+    if(paged){if(grouping&&!fast){groupResult=groupedMemoryPage(rows,grouping.levels,grouping.path,cols,requested,size);rows=groupResult.rows;total=groupResult.total;page=groupResult.page;}else if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows:responseRows(rows),total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size)),...(groupResult?{groups:groupResult.groups,group_total:groupResult.group_total,group_path:groupResult.group_path}:{})},{headers:realtimeHeaders});}
     return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500),{headers:realtimeHeaders});
+    })();
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }
 async function handlePOST(req:Request,{params}:{params:{table:string}}){try{const submission=await readFormImageRequest(req);return NextResponse.json(saveFormWithImages(params.table,submission.values,undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req),submission.images));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
