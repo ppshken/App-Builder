@@ -360,7 +360,6 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     const data = options.getTable ? options.getTable(name,columns) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
     if (!data) fail(`ไม่พบข้อมูลตาราง ${name} กรุณาตรวจชื่อในระบบหรือโหลดข้อมูลใหม่`);
     if(data.related_scope&&!allowScoped)fail("ข้อมูลนี้มีเฉพาะ Related ของแถวแม่ ไม่ใช่ข้อมูลทั้งตาราง กรุณาโหลดสูตรใหม่");
-    if (data.rows.length > 10000) fail("ตารางตัวเลือกมีข้อมูลเกิน 10,000 แถว กรุณาลดจำนวนรายการ");
     return data;
   }
   function tableValue(data: ExpressionTable, name: string, candidate: Record<string, Value>) {
@@ -376,7 +375,6 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     const data=options.getRelatedTable?options.getRelatedTable(n.table,n.name,{ownerTable:owner,parentIds:typeof id==='number'||typeof id==='string'?[id]:[],refColumn:n.refColumn,columns}):dataset(n.table,columns,true);
     if(data.related_scope&&owner&&owner!==data.related_scope.ownerTable)fail('ข้อมูล Related ไม่ตรงตารางแม่ กรุณาโหลดข้อมูลใหม่');
     if(data.related_scope&&!isBlank(id)&&!data.related_scope.parentIds.includes(Number(id)))fail('ข้อมูล Related ไม่ครอบคลุมแถวแม่ กรุณาโหลดข้อมูลใหม่');
-    if(data.rows.length>10000)fail('ตาราง Related มีข้อมูลเกิน 10,000 แถว');
     if(!data.columns.includes(n.name))fail('ไม่พบคอลัมน์ ['+n.name+'] ในตาราง '+n.table);
     const links=Object.entries(data.relatedRefs??data.refs??{}).filter(([name,target])=>(!n.refColumn||name===n.refColumn)&&(!owner||target===owner));
     if(links.length!==1)fail(links.length?'ตาราง '+n.table+' มี Ref ไปตารางแม่หลายช่อง กรุณาระบุ [Related_'+n.table+':ชื่อคอลัมน์Ref]['+n.name+']':'ไม่พบ Ref จากตาราง '+n.table+' ไปตารางแม่ปัจจุบัน');
@@ -467,9 +465,10 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           const source=listSourceNode(n.args[0]);if(!source)fail('ORDERBY ช่องแรกต้องเป็น ตาราง[id] หรือ SELECT(ตาราง[id], เงื่อนไข)');
           let origin=n.args[0],selector:Extract<Node,{kind:'call'}>|undefined;while(origin.kind==='call'&&['ORDERBY','SELECT'].includes(origin.name)){if(origin.name==='SELECT'&&origin.args[0].kind==='table')selector=origin;origin=origin.args[0];}
           const requested=[source.column,...scopedColumns(n.args.filter((_,i)=>i%2===1),source.table)],parentId=scope?scope.row.id:options.resolve?options.resolve('id'):row.id;
-          const data=origin.kind==='related'&&options.getRelatedTable?options.getRelatedTable(source.table,source.column,{ownerTable:scope?.table||options.tableName,parentIds:typeof parentId==='number'||typeof parentId==='string'?[parentId]:[],refColumn:origin.refColumn,columns:requested}):(selector&&selector.args[0].kind==='table'?parentSelectedData(selector.args[0],requested,selector.args[1],scope):undefined)||dataset(source.table,requested,origin.kind==='related');if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
+          const parentSelected=selector&&selector.args[0].kind==='table'?parentSelectedData(selector.args[0],requested,selector.args[1],scope):undefined;
+          const data=origin.kind==='related'&&options.getRelatedTable?options.getRelatedTable(source.table,source.column,{ownerTable:scope?.table||options.tableName,parentIds:typeof parentId==='number'||typeof parentId==='string'?[parentId]:[],refColumn:origin.refColumn,columns:requested}):parentSelected||dataset(source.table,requested,origin.kind==='related');if(!['id',data.key].includes(source.column))fail('ORDERBY ต้องใช้รายการ id หรือ Key ของตาราง');
           if(referenceResult&&source.table!==options.referenceListTable)fail('สูตร List ต้องดึงจากตาราง '+options.referenceListTable);
-          const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');if(keys.length>10000)fail('ORDERBY รับได้ไม่เกิน 10,000 แถว');
+          const keys=arg(0,referenceResult);if(!Array.isArray(keys))fail('ORDERBY ต้องรับรายการรหัสแถว');
           const sorters:{node:Node;descending:boolean}[]=[];for(let i=1;i<n.args.length;i+=2)sorters.push({node:n.args[i],descending:i+1<n.args.length?asBoolean(arg(i+1)):false});
           const keyColumn=referenceResult?'id':source.column,lookup=new Map(data.rows.map(row=>[String(row[keyColumn]),row]));
           const decorated=keys.map((key,index)=>{const row=lookup.get(String(key));if(!row)fail('ORDERBY ไม่พบรหัสแถว '+String(key)+' ในตาราง '+source.table);return {key,index,sorts:sorters.map(sort=>{const value=run(sort.node,{row,refs:data.refs||{},table:source.table});if(Array.isArray(value))fail('ค่าสำหรับเรียง ORDERBY ต้องเป็นค่าเดียว');return value;})};});
@@ -479,8 +478,8 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "SELECT": {
           const source=n.args[0];if(source.kind!=='table'&&source.kind!=='related')fail('SELECT ต้องระบุตาราง[คอลัมน์] หรือ Related');
           const requested=[source.name,...scopedColumns([n.args[1]],source.table)],related=source.kind==='related'?relatedDataset(source,requested,scope):null;
-          const data=related?related.data:source.kind==='table'?(parentSelectedData(source,requested,n.args[1],scope)||dataset(source.table,requested)):dataset(source.table,requested),distinct=n.args.length===3?asBoolean(arg(2)):false;
-          if(data.rows.length>10000)fail('SELECT มีข้อมูลเกิน 10,000 แถว');
+          const parentSelected=source.kind==='table'?parentSelectedData(source,requested,n.args[1],scope):undefined;
+          const data=related?related.data:parentSelected||dataset(source.table,requested),distinct=n.args.length===3?asBoolean(arg(2)):false;
           if (referenceResult && source.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
           if (!data.columns.includes(source.name)) fail(`ไม่พบคอลัมน์ [${source.name}] ในตาราง ${source.table}`);
           const values: string[] = [];
@@ -517,7 +516,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "DISTANCE": {const from=arg(0),to=arg(1);result=isBlank(from)||isBlank(to)?null:distanceKilometers(from,to);break;}
         case "DURATION": result=normalizeDuration(arg(0));break;
         case "TOTALHOURS": case "TOTALMINUTES": case "TOTALSECONDS": {const v=arg(0);result=isBlank(v)?null:durationMilliseconds(v)/(n.name==='TOTALHOURS'?3600000:n.name==='TOTALMINUTES'?60000:1000);break;}
-        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");if(values.length>10000)fail("SUM รับรายการได้ไม่เกิน 10,000 ค่า");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}
+        case "SUM": {const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}
         case "RIGHT": {const value=arg(0),count=numeric(arg(1));if(!Number.isSafeInteger(count)||count<0)fail("RIGHT จำนวนตัวอักษรต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป");if(Array.isArray(value))fail("RIGHT ต้องรับข้อความหรือตัวเลข ไม่ใช่รายการ");result=count===0?"":Array.from(String(value??"")).slice(-count).join("");break;}
         case "TEXT": result=formatExpressionText(arg(0),n.args.length===2?arg(1):undefined);break;
         case "INDEX": {const values=arg(0),index=numeric(arg(1));if(!Array.isArray(values))fail("INDEX ต้องรับรายการ เช่น INDEX([tags], 1)");if(!Number.isSafeInteger(index))fail("INDEX ตำแหน่งต้องเป็นจำนวนเต็ม โดยรายการแรกเริ่มที่ 1");result=index>=1&&index<=values.length?values[index-1]:null;break;}

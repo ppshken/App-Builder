@@ -157,14 +157,23 @@ test('SELECT projected rows still enforce row and table permissions',()=>inspect
  runAuthorized(user,{owner:false,builder:false,tables:{},actions:[]},()=>assert.throws(()=>evaluateExpression(inspectionCount,{inspection_id:7},expressionContext(now,'',db)),/สิทธิ์/));
 }));
 
-test('Related reads only current-parent children in large tables while retaining per-parent and unscoped limits',()=>fixture(db=>{
+test('Related reads only current-parent children in large tables without row caps on parent-scoped and full formula reads',()=>fixture(db=>{
  db.exec("CREATE INDEX _ref_product_image_product_id ON t_product_image(product_id);WITH RECURSIVE n(x) AS (SELECT 3 UNION ALL SELECT x+1 FROM n WHERE x<10005) INSERT INTO t_product_image(id,product_id,image) SELECT x,8,NULL FROM n");
  const ctx=expressionContext(now,'',db),opts={...ctx,tableName:'products'};
  assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:7},opts),1);
  assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:999},opts),0);
  assert.equal(evaluateExpression('COUNT([Related_product_image])',{},opts),0);
- assert.throws(()=>evaluateExpression('COUNT([Related_product_image])',{id:8},opts),/10,000/);
- assert.throws(()=>ctx.getTable('product_image'),/10,000/);
+ assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:8},opts),10004);
+ const snapshot=expressionContext(now,'',db).snapshot(['COUNT([Related_product_image])'],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7,8]});
+ assert.equal(snapshot.product_image.rows.length,10005);
+ for(const options of [opts,{tableName:'products',tables:snapshot}]){
+  assert.equal(evaluateExpression('COUNT([Related_product_image])',{id:8},options),10004);
+  assert.equal(evaluateExpression('SUM([Related_product_image][id])',{id:8},options),(3+10005)*10003/2+2);
+  assert.equal(evaluateExpression('COUNT(SELECT([Related_product_image], TRUE))',{id:8},options),10004);
+  const ordered=evaluateExpression('ORDERBY([Related_product_image], [id], TRUE)',{id:8},options);assert.equal(ordered.length,10004);assert.equal(ordered[0],'10005');
+  assert.equal(evaluateExpression('COUNT(SELECT(product_image[id], [product_id] = [_THISROW].[id]))',{id:8},options),10004);
+ }
+ assert.equal(ctx.getTable('product_image').rows.length,10005);
  const plan=db.prepare('EXPLAIN QUERY PLAN SELECT * FROM t_product_image WHERE product_id=? ORDER BY id LIMIT 10001').all(7);assert.ok(plan.some(x=>x.detail.includes('_ref_product_image_product_id')));
 }));
 
@@ -217,7 +226,7 @@ test('Related SELECT and parent-bound table SELECT read only current children in
  assert.equal(evaluateExpression('COUNT(SELECT([Related_product_image], [id] = 1))',{id:7},opts),1);
  assert.equal(evaluateExpression(formula,{id:7},opts),1);
  const snap=expressionContext(now,'',db).snapshot([formula],readColumns(db,'products'),false,{ownerTable:'products',parentIds:[7]});assert.equal(snap.product_image.rows.length,1);assert.equal(evaluateExpression(formula,{id:7},{tableName:'products',tables:snap}),1);
- assert.throws(()=>evaluateExpression('COUNT(SELECT(product_image[id], OR([product_id] = [_THISROW].[id], TRUE)))',{id:7},opts),/10,000/);
+ assert.equal(evaluateExpression('COUNT(SELECT(product_image[id], OR([product_id] = [_THISROW].[id], TRUE)))',{id:7},opts),10005);
 }));
 
 test('SELECT Related condition completions, schema validation and saved formula dependencies use child columns',()=>fixture(db=>{
@@ -271,4 +280,15 @@ test('SELECT Related respects pending child edits, additions, deletions and canc
  const scope={table:'product_image',column:'product_id',parentId:7,editingKey:'',records:[{key:'edit',id:1,values:{amount:4}},{key:'new',values:{amount:5}}]};
  assert.equal(evaluateExpression(formula,{id:7},{tables:withDraftExpressionRows(snap,scope),tableName:'products'}),9);
  scope.records[0].deleted=true;assert.equal(evaluateExpression(formula,{id:7},{tables:withDraftExpressionRows(snap,scope),tableName:'products'}),5);assert.equal(evaluateExpression(formula,{id:7},{tables:snap,tableName:'products'}),0);
+}));
+
+ test('Automation calculates nested sibling inspection SELECTs above 10,000 rows without evaluating unrelated virtuals',()=>inspectionFixture(db=>{
+ db.exec("DELETE FROM _columns WHERE table_name='list_inspection' AND name='unrelated_cycle';WITH RECURSIVE n(x) AS (SELECT 4 UNION ALL SELECT x+1 FROM n WHERE x<12005) INSERT INTO t_list_inspection SELECT x,7,10,'bus' FROM n;INSERT INTO _columns(table_name,name,label,type,is_virtual,virtual_expr) VALUES('list_inspection','inspected_ids','Inspected IDs','list',1,'SELECT(list_inspection[id], [inspection_id] = [_THISROW].[inspection_id])');UPDATE _columns SET virtual_expr='COUNT([inspected_ids])' WHERE table_name='list_inspection' AND name='current_list_inspection'");
+ const raw=db.prepare('SELECT * FROM t_list_inspection WHERE id=1').get(),{workflowRow,workflowMatches}=require('../.test-build/workflows');
+ const calculated=workflowRow('list_inspection',raw);assert.equal(calculated.current_list_inspection,12004);assert.equal(calculated.inspected_ids.length,12004);
+ assert.equal(workflowRow('list_inspection',db.prepare('SELECT * FROM t_list_inspection WHERE id=3').get()).current_list_inspection,1);
+ assert.equal(workflowMatches({table_name:'list_inspection',event:'update',condition_expr:'[current_list_inspection] = 12004'},raw),true);
+ const source='COUNT(SELECT(list_inspection[id], [inspection_id] = [_THISROW].[inspection_id]))',snapshot=expressionContext(now,'',db).snapshot([source],readColumns(db,'list_inspection'));assert.equal(snapshot.list_inspection.rows.length,12005);assert.equal(evaluateExpression(source,raw,{tables:snapshot}),12004);
+ db.exec("INSERT INTO _roles(name,label,builder) VALUES('large_reader','Reader',0);INSERT INTO _role_row_rules VALUES('large_reader','list_inspection','read','[id] <= 3')");
+ const user={id:9,name:'Reader',email:'reader@example.test',role:'large_reader'},rights={read:true,create:false,update:false,delete:false};runAuthorized(user,{owner:false,builder:false,tables:{list_inspection:rights},actions:[]},()=>assert.equal(workflowRow('list_inspection',raw).current_list_inspection,2));
 }));

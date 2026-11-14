@@ -43,9 +43,8 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       const ref=links[0].name;if(!IDENT.test(ref))throw Error('ชื่อคอลัมน์ Ref ไม่ถูกต้อง');
       if(scope.parentIds.length>500)throw Error('Related อ่านได้ครั้งละไม่เกิน 500 แถวแม่');
       const ids=[...new Set(scope.parentIds.map(Number).filter(id=>Number.isSafeInteger(id)&&id>0))];
-      raw=scope.includeBlank?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id LIMIT 10001').all() as Record<string,any>[]:ids.length?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id LIMIT 10001').all(JSON.stringify(ids)) as Record<string,any>[]:[];
-    }else raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id LIMIT 10001`).all() as Record<string,any>[];
-    if (raw.length > 10000) throw new Error(`ตาราง ${name} มีข้อมูลเกิน 10,000 แถวสำหรับสูตร${related?" Related":"ตัวเลือก"}`);
+      raw=scope.includeBlank?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id').all() as Record<string,any>[]:ids.length?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id').all(JSON.stringify(ids)) as Record<string,any>[]:[];
+    }else raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id`).all() as Record<string,any>[];
     loading.add(cacheKey);
     try {
       // Project only requested values, so unrelated child formulas do not load
@@ -78,8 +77,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     if (loading.has(name) || loading.size >= 16) throw new Error(`สูตรข้ามตารางอ้างอิงวนกันที่ ${name} กรุณาแก้สูตร`);
     if (!tableExists(name)) throw new Error(`ไม่พบตาราง ${name} กรุณาตรวจชื่อในระบบ`);
     const cols = columnsOf(name), key = cols.find(c => c.is_key)?.name || "id", label = labelTextColumn(cols);
-    const raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id LIMIT 10001`).all() as Record<string, any>[];
-    if (raw.length > 10000) throw new Error(`ตาราง ${name} มีข้อมูลเกิน 10,000 แถวสำหรับสูตรตัวเลือก`);
+    const raw = database.prepare(`SELECT * FROM "t_${name}" ORDER BY id`).all() as Record<string, any>[];
     loading.add(name);
     try {
       const rows = visibleRawRows(name,raw,database).map(r => calculateRow(cols, r, false, now, false, userEmail, context).row);
@@ -94,7 +92,6 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     const scopedSnapshots:Record<string,ExpressionTable>=Object.create(null);
     const mergeScoped=(name:string,data:ExpressionTable,refColumns:string[],includeBlank=false,scope=relatedScope!)=>{
       const prior=scopedSnapshots[name],rows=new Map((prior?.rows||[]).map(r=>[r.id,r]));for(const r of data.rows)rows.set(r.id,{...rows.get(r.id),...r});
-      if(rows.size>10000)throw Error('ข้อมูล Related ที่ส่งให้ฟอร์มเกิน 10,000 แถว กรุณาลดจำนวนแถวแม่');
       scopedSnapshots[name]={...prior,...data,columns:[...new Set([...(prior?.columns||[]),...data.columns])],rows:[...rows.values()],related_scope:{ownerTable:scope.ownerTable,parentIds:[...new Set([...(prior?.related_scope?.parentIds||[]),...scope.parentIds])],...(includeBlank||prior?.related_scope?.blankRefColumns?{blankRefColumns:[...new Set([...(prior?.related_scope?.blankRefColumns||[]),...(includeBlank?refColumns:[])])]}:{}),refColumns:[...new Set([...(prior?.related_scope?.refColumns||[]),...refColumns])]}};
     };
     const queue = sources.map(source => ({ source, columns, relatedScope })), loaded = new Set<string>();

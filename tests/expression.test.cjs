@@ -149,7 +149,7 @@ test('Cross-table shorthand and SELECT preserve row scope, outer references, lab
  assert.match(formulaErrors(cols,{permission:[{name:'permission_key',type:'text'}]})['permissions.valid_if'],/active/);
  for(const source of ['SELECT([permissions], TRUE)','SELECT(permission[permission_key])','SELECT(permission[permission_key], TRUE, TRUE, FALSE)','[_THISROW]','permission[__proto__]','Permission[permission_key]'])assert.throws(()=>parseExpression(source),/[ก-๙]/);
  assert.throws(()=>run('permission[missing]',{},ctx),/ไม่พบคอลัมน์/);assert.throws(()=>run('missing[permission_key]',{},ctx),/ไม่พบข้อมูลตาราง/);
- assert.throws(()=>run('SELECT(permission[permission_key], TRUE)',{}, {tables:{permission:{...tables.permission,rows:Array(10001).fill(tables.permission.rows[0])}}}),/10,000/);
+ assert.equal(run('SELECT(permission[permission_key], TRUE)',{}, {tables:{permission:{...tables.permission,rows:Array(10001).fill(tables.permission.rows[0])}}}).length,10001);
 });
 
 test('Decimal and Ref property expressions retain numeric types, row scope, empty refs and dependency names',()=>{

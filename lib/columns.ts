@@ -104,7 +104,7 @@ export function normalizeValue(c: Column, value: unknown): Value {
     if (isBlank(value)) return [];
     let items = value;
     if (typeof items === "string") { try { items = JSON.parse(items); } catch { throw new Error(`"${c.label}" ต้องเป็นรายการ เช่น ["ค่าแรก","ค่าที่สอง"]`); } }
-    if (!Array.isArray(items) || items.length > 10000 || items.some(v => (typeof v !== "string" && typeof v !== "number") || (typeof v === "number" && !Number.isFinite(v)))) throw new Error(`"${c.label}" ต้องเป็นรายการข้อความหรือตัวเลข ไม่เกิน 10,000 รายการ`);
+    if (!Array.isArray(items) || items.some(v => (typeof v !== "string" && typeof v !== "number") || (typeof v === "number" && !Number.isFinite(v)))) throw new Error(`"${c.label}" ต้องเป็นรายการข้อความหรือตัวเลข`);
     return [...new Set(items.map(String))];
   }
   if (c.type === "enumlist") {
