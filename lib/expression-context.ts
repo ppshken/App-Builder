@@ -1,4 +1,5 @@
 import {visibleRawRows} from "./row-access";
+import {expressionLookup} from './expression-lookup';
 import {isSystemFormulaTable,systemFormulaColumns} from './formula-system-schema';
 import {formulaSystemData} from './formula-system-data';
 import {expressionUser} from "./user-settings";
@@ -63,7 +64,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       return data;
     } finally {loading.delete(cacheKey);}
   };
-  const context: ExpressionContext = { ...expressionUser(currentUser()||null,database), getRelatedTable(name,column,scope){return project(name,[column,...(scope?.columns||[])],true,scope);},
+  const context: ExpressionContext = { ...expressionUser(currentUser()||null,database), getEqualityRows:expressionLookup(), getRelatedTable(name,column,scope){return project(name,[column,...(scope?.columns||[])],true,scope);},
     getSelectTable(name,requested,scope){
       if(isSystemFormulaTable(name))return;
       assertTablePermission(name,'read');

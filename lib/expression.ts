@@ -331,7 +331,7 @@ const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/
 export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
 export type RelatedReadScope = {ownerTable?:string;parentIds:(string|number)[];refColumn?:string;columns?:string[];includeBlank?:boolean};
-export type ExpressionContext = ExpressionUser & { tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -422,7 +422,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       else {
         const data = dataset(table,[n.name]);
         if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${table}`);
-        const target = data.rows.find(r => r.id === Number(id));
+        const target = options.getEqualityRows?.(data,"id",Number(id))?.find(r=>r.id===Number(id)) ?? data.rows.find(r => r.id === Number(id));
         if (!target) fail(`ไม่พบแถวที่ [${n.column}] อ้างอิง กรุณาเลือกข้อมูลใหม่`);
         result = target[n.name] ?? null;
       }
@@ -483,7 +483,21 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
           if (referenceResult && source.table !== options.referenceListTable) fail(`สูตร List ต้องดึงจากตาราง ${options.referenceListTable}`);
           if (!data.columns.includes(source.name)) fail(`ไม่พบคอลัมน์ [${source.name}] ในตาราง ${source.table}`);
           const values: string[] = [];
-          for (const candidate of data.rows) {
+          // Only a leading direct equality can skip unrelated rows without
+          // suppressing errors or changing AND/OR short-circuit behavior.
+          let candidates=data.rows,leading=n.args[1];
+          while(leading.kind==='call'&&leading.name==='AND')leading=leading.args[0];
+          if(options.getEqualityRows&&data.rows.length&&leading.kind==='binary'&&['=','=='].includes(leading.op)){
+            for(const [column,outer]of [[leading.left,leading.right],[leading.right,leading.left]]){
+              if(column.kind!=='column'||column.name==='_THIS'||outer.kind!=='outer'||!data.columns.includes(column.name))continue;
+              // Leave missing outer fields to the interpreter, in its usual order.
+              if(!options.resolve&&!Object.hasOwn(row,outer.name))break;
+              const value=run(outer,scope),indexed=options.getEqualityRows(data,column.name,value);
+              if(indexed)candidates=indexed;
+              break;
+            }
+          }
+          for (const candidate of candidates) {
             if(related&&(isBlank(related.id)||!listEquivalent(candidate[related.ref],related.id??null)))continue;
             if (!asBoolean(run(n.args[1], { row: candidate, refs: data.refs || {}, table: source.table }))) continue;
             const value = tableValue(data, source.name, candidate); if (value !== null) values.push(referenceResult ? String(candidate.id) : value);

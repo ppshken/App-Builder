@@ -1,0 +1,48 @@
+{
+  "results": [
+    {
+      "mode": "scan",
+      "rows": 12000,
+      "displayedRows": 150,
+      "virtualsPerRow": 3,
+      "timesMs": [
+        274.779292,
+        273.099208,
+        264.70170800000005,
+        268.4112500000001,
+        284.908541
+      ],
+      "medianMs": 273.099208,
+      "sqlTableReads": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "mode": "indexed",
+      "rows": 12000,
+      "displayedRows": 150,
+      "virtualsPerRow": 3,
+      "timesMs": [
+        42.553499999999985,
+        37.98700000000008,
+        38.69945800000005,
+        36.09495800000013,
+        35.07012499999996
+      ],
+      "medianMs": 37.98700000000008,
+      "sqlTableReads": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ]
+    }
+  ],
+  "speedup": 7.189280753942122,
+  "note": "Local isolated calculation benchmark, not HTTP or a production SLA."
+}
