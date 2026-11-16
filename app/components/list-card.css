@@ -1,0 +1,26 @@
+.custom-list-card{width:100%;min-width:0;cursor:pointer;}.custom-list-card .custom-page-content{width:100%;min-width:0;}.custom-list-card .custom-node{min-width:0;overflow-wrap:anywhere;}.custom-list-card .custom-text{min-width:0;}.custom-list-card .custom-text>svg{display:inline-block;width:1em;height:1em;vertical-align:middle;}.record-card.has-custom-card{display:block!important;padding:0!important;overflow:hidden;}.custom-list-card .custom-button button{min-height:32px;}.list-card-settings{display:grid;gap:10px;}.list-card-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--line);}.list-card-sample{padding:12px;background:var(--input);border-bottom:1px solid var(--line);max-height:280px;overflow:auto;}.list-card-mapping{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:8px;}.list-card-map-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;}.list-card-sample .custom-list-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:500px;margin:auto;}.list-card-editor-body{display:flex;flex-direction:column;min-height:0;height:100%;}.list-card-editor-body>.custom-builder{flex:1;min-height:0;}.list-card-designer-dialog .editor-dialog-body{padding:0;overflow:hidden;}@media(max-width:600px){.list-card-map-row{grid-template-columns:1fr;}}
+
+.custom-list-card .custom-page,.custom-list-card .custom-page-content{min-height:0;}.list-card-designer-dialog .custom-canvas-frame,.list-card-designer-dialog .custom-canvas-frame>.custom-page,.list-card-designer-dialog .custom-page-content{min-height:0;}.list-card-designer-dialog>.dialog-body{padding:0;overflow:hidden;}
+
+.list-card-designer-dialog .list-card-toolbar{display:grid;grid-template-columns:minmax(160px,220px) auto minmax(180px,1fr) auto;align-items:end;flex:none;}
+.list-card-designer-dialog .list-card-toolbar label{margin:0;min-width:0;}
+.list-card-designer-dialog .list-card-sample{max-height:160px;flex:none;}
+.list-card-designer-dialog .custom-builder-columns{grid-template-columns:320px minmax(0,1fr) 320px;}
+.list-card-designer-dialog .custom-library{padding:14px;gap:10px;overflow:auto;}
+.list-card-designer-dialog .custom-library>.custom-tree{flex:1 0 240px;min-height:240px;}
+.list-card-designer-dialog .custom-library>.custom-palette{flex:1 0 200px;min-height:200px;grid-template-columns:repeat(2,minmax(0,1fr));}
+.list-card-designer-dialog .custom-palette button{min-height:76px;font-size:13px;gap:6px;}
+.list-card-designer-dialog .custom-tree-label strong{font-size:13px;}
+.list-card-designer-dialog .custom-tree-label small{font-size:11px;}
+.list-card-designer-dialog .custom-tree .custom-tree-select{min-height:40px;}
+@media(min-width:701px) and (max-width:1100px){.list-card-designer-dialog .custom-builder-columns{grid-template-columns:280px minmax(0,1fr) 260px;}.list-card-designer-dialog .list-card-toolbar{grid-template-columns:1fr 1fr;}}
+@media(max-width:700px){.list-card-designer-dialog .custom-builder-columns{display:block;}.list-card-designer-dialog .list-card-toolbar{grid-template-columns:1fr 1fr;}.list-card-designer-dialog .custom-library>.custom-palette{grid-template-columns:repeat(3,minmax(0,1fr));}.list-card-designer-dialog .custom-library>.custom-tree{min-height:220px;flex-basis:220px;}}
+
+.list-card-designer-dialog .custom-builder-columns{grid-template-columns:460px minmax(0,1fr) 300px;}
+.list-card-designer-dialog .custom-library{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:10px;overflow:hidden;}
+.list-card-designer-dialog .custom-library>.custom-tree{grid-column:1;grid-row:1 / 4;min-height:0;padding:0 10px 0 0;border-bottom:0;border-right:1px solid var(--line);}
+.list-card-designer-dialog .custom-library>.custom-palette-heading{grid-column:2;grid-row:1;margin:0;}
+.list-card-designer-dialog .custom-library>.custom-palette{grid-column:2;grid-row:2;min-height:0;align-content:start;}
+.list-card-designer-dialog .custom-library>.custom-palette+p{grid-column:2;grid-row:3;}
+@media(min-width:701px) and (max-width:1100px){.list-card-designer-dialog .custom-builder-columns{grid-template-columns:380px minmax(0,1fr) 240px;}.list-card-designer-dialog .custom-library{padding:10px;gap:8px;}}
+@media(max-width:700px){.list-card-designer-dialog .custom-builder-columns{display:block;}.list-card-designer-dialog .custom-library.custom-active{display:grid;}.list-card-designer-dialog .custom-library:not(.custom-active){display:none;}.list-card-designer-dialog .custom-library>.custom-palette{grid-template-columns:repeat(2,minmax(0,1fr));}}

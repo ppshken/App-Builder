@@ -1,3 +1,5 @@
+import {listCardReferences} from './list-card';
+import {customExpressions} from './custom-page';
 import {labelTextColumn,labelImageColumn,type Column} from './columns';
 import {references,parseExpression,tableReferences,referencePaths} from './expression';
 import {displaySettings,type ViewDisplay} from './view-display';
@@ -23,7 +25,8 @@ export function runtimeFields(columns:Column[],view:AppView|undefined,defaults:P
  const summaries=display.summary_columns===null?shown.filter(c=>!c.is_label&&c.type!=='image').slice(0,3):visibleColumns(source,display.summary_columns).filter(c=>display.summary_columns!.includes(c.name));summaries.forEach(c=>names.add(c.name));
  // Settings contain column selectors and formatting expressions. Parse only
  // expressions; ordinary labels/text are ignored.
- const expressions:string[]=[];const visit=(v:unknown)=>{if(typeof v==='string'){if(columns.some(c=>c.name===v))names.add(v);try{for(const ref of references(v))names.add(ref);}catch{}}else if(Array.isArray(v))v.forEach(visit);else if(v&&typeof v==='object')Object.values(v).forEach(visit);};if(view.group_column)names.add(view.group_column);visit(display.group_by);if(display.group_summary==='sum'&&display.group_sum_column)names.add(display.group_sum_column);visit(display.tabs_column);visit(display.filter_columns);
+ const expressions:string[]=display.list_card_enabled?customExpressions(display.list_card):[];const visit=(v:unknown)=>{if(typeof v==='string'){if(columns.some(c=>c.name===v))names.add(v);try{for(const ref of references(v))names.add(ref);}catch{}}else if(Array.isArray(v))v.forEach(visit);else if(v&&typeof v==='object')Object.values(v).forEach(visit);};if(view.group_column)names.add(view.group_column);visit(display.group_by);if(display.group_summary==='sum'&&display.group_sum_column)names.add(display.group_sum_column);visit(display.tabs_column);visit(display.filter_columns);
+ if(display.list_card_enabled)listCardReferences(display.list_card).forEach(name=>names.add(name));
  for(const [column,style]of Object.entries(display.data_styles||{}))if(names.has(column))for(const rule of style.rules||[])expressions.push(rule.condition);
  actions.forEach(a=>expressions.push(a.condition_expr));const selected=projectionColumns(columns,[...names],expressions);
  const fields=selected.map(c=>c.name).sort();return selected.length>=columns.length||selected.length>200||encodeURIComponent(JSON.stringify(fields)).length>2500?undefined:fields;

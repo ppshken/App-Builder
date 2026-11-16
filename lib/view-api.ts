@@ -1,3 +1,4 @@
+import {validateListCardActions} from './list-card';
 import {reorderViews} from './view-order';
 import {validateViewDisplayName} from "./view-display-name";
 import {readTableDataStyles,saveTableDataStyles,tableDecorationViews} from "./table-decorations";
@@ -87,6 +88,7 @@ async function write(req: Request, existing: boolean, preview = false) {
     if(display.group_by?.some(g=>g.column!=="id"&&!names.has(g.column)))throw Error("คอลัมน์จัดกลุ่มไม่อยู่ในตารางหรือ Slice นี้");
     if(b.position==="inline"&&display.group_by?.some(g=>cols.find(c=>c.name===g.column)?.is_virtual))throw Error("Inline View ต้องจัดกลุ่มด้วยคอลัมน์ที่เก็บในตาราง");
     if(existing){const parents=db.prepare("SELECT display_json FROM _views WHERE kind='custom' AND name<>?").all(b.name) as {display_json:string}[];for(const parent of parents)for(const node of customNodes(JSON.parse(parent.display_json).custom_page?.children||[]))if(node.view===b.name&&customNodeTargetError(node,b as any))throw Error("View นี้ถูกใช้ในหน้ากำหนดเอง กรุณานำองค์ประกอบอ้างอิงออกก่อนเปลี่ยนรูปแบบ");}
+    if(display.list_card){if(b.kind!=='list'||b.position==='inline')throw Error('การ์ดกำหนดเองรุ่นนี้ใช้กับ View รายการที่ไม่ใช่ Inline');validateListCardActions(display.list_card,db.prepare('SELECT name,table_name FROM _actions').all() as any[],b.table_name);}
     if(display.custom_page&&b.kind!=="custom")throw Error("ตัวออกแบบหน้าจอใช้ได้เฉพาะ View กำหนดเอง");
     for(const action of customActions(display.custom_page))if(!db.prepare("SELECT 1 FROM _actions WHERE name=?").get(action))throw Error("ไม่พบ Action ขององค์ประกอบ");
     for(const node of customNodes(display.custom_page?.children||[]))if(node.type==='form'&&node.view){const target=db.prepare("SELECT table_name FROM _views WHERE name=?").get(node.view) as {table_name:string}|undefined;if(target)for(const name of Object.keys(node.defaults||{}))if(!columnsOf(target.table_name).some(c=>c.name===name&&!c.is_virtual&&c.is_editable!==false&&c.is_editable!==0))throw Error("ค่าตั้งต้นฟอร์มต้องเลือกคอลัมน์ที่แก้ไขได้");}

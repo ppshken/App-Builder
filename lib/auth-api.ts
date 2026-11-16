@@ -27,6 +27,7 @@ export function withAuth(handler:(...args:any[])=>Promise<Response>){return asyn
    const url=new URL(req.url),path=url.pathname,read=req.method==="GET"||req.method==="HEAD";
    if(!read)assertSameOrigin(req);
    if(path.startsWith("/api/workflows")||path.startsWith("/api/pdf-templates")){if(!(read&&path==="/api/workflows"&&(url.searchParams.get("runtime")==="1"||url.searchParams.get("activity")==="1"))&&!access.builder)throw new AuthError("ผู้พัฒนาแอปเท่านั้นที่จัดการ Automation และแม่แบบ PDF ได้",403);}
+   else if(path==="/api/list-card-templates"){if(!access.builder)throw new AuthError("ผู้พัฒนาแอปเท่านั้นที่จัดการแม่แบบรายการได้",403);}
    else if(path==="/api/user-settings"){if(!read&&req.method!=="PUT"&&!access.builder)throw new AuthError("ผู้พัฒนาแอปเท่านั้นที่กำหนดค่าตั้งค่าผู้ใช้ได้",403);}
    else if(path.startsWith("/api/users")||path.startsWith("/api/backups")||path.startsWith("/api/audit-log")){if(!access.owner)throw new AuthError("ส่วนนี้สำหรับเจ้าของแอปเท่านั้น",403);}
    else if(path.startsWith("/api/excel/")){assertTablePermission(context?.params?.table,"read");if(read&&url.searchParams.get("template")!=="1")assertExcelExport(context?.params?.table);if(!read&&!access.owner&&!access.builder&&!access.tables[context?.params?.table]?.create&&!access.tables[context?.params?.table]?.update)throw new AuthError("ไม่มีสิทธิ์นำเข้าข้อมูล",403);}

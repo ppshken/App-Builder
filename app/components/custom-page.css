@@ -76,3 +76,16 @@
 @media(max-width:700px){.custom-builder-columns{display:block}.custom-library.custom-active{display:flex}.custom-library>.custom-tree{min-height:130px}.custom-library>.custom-palette{min-height:80px}.custom-inspector{padding:16px}.custom-palette{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 @media(max-width:700px){.custom-library:not(.custom-active){display:none}.custom-inspector:not(.custom-active),.custom-canvas-stage:not(.custom-active){display:none}}
+
+/* วางโครงสร้างและคลังองค์ประกอบขนานกัน เต็มความสูงของพื้นที่ออกแบบ */
+.custom-builder-columns{grid-template-columns:460px minmax(0,1fr) 300px}
+.custom-library{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;gap:10px}
+.custom-library>.custom-tree{grid-column:1;grid-row:1 / 4;min-height:0;padding:0 10px 0 0;border-bottom:0;border-right:1px solid var(--line)}
+.custom-library>.custom-palette-heading{grid-column:2;grid-row:1;margin:0}
+.custom-library>.custom-palette{grid-column:2;grid-row:2;min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start}
+.custom-library>.custom-palette+p{grid-column:2;grid-row:3}
+.custom-palette button{min-height:76px;font-size:13px;gap:6px}
+.custom-tree-label strong{font-size:13px}.custom-tree-label small{font-size:11px}
+.custom-tree .custom-tree-item>.custom-tree-select{min-height:40px}
+@media(min-width:701px) and (max-width:1100px){.custom-builder-columns{grid-template-columns:380px minmax(0,1fr) 240px}.custom-library{padding:10px;gap:8px}}
+@media(max-width:700px){.custom-builder-columns{display:block}.custom-library.custom-active{display:grid}.custom-library:not(.custom-active){display:none}}
