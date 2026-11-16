@@ -55,3 +55,10 @@ test('duplicate identities, missing column identities and missing context fail c
  const base=fixture(),draft=copy(base);draft._columns.push({...draft._columns[0]});assert.throws(()=>analyze(base,base,draft),/รหัสซ้ำ/);draft._columns=[{table_name:'orders',name:'unknown'}];assert.throws(()=>analyze(base,base,draft),/ไม่มีรหัส/);assert.throws(()=>analyze(base,base,base,{appId:'',workspaceId:''}),/ระบุแอป/);
  assert.equal(analyze(base,base,base,{...options,legacyConflict:true}).publishBlocked,true);
 });
+
+test('publication scope preserves latest unrelated metadata while keeping app-local draft changes',()=>{
+ const {mergeReleaseCatalogScope}=require('../.test-build/release-plan');const base=fixture(),desired=copy(base),live=copy(base);desired._views[0].label='Draft view';live._tables.push({name:'other_new',owner_app_id:'other'});live._columns.push({id:2,table_name:'other_new',name:'amount',type:'number'});live._table_overlays=[{table_name:'other_new',config_json:'{}'}];
+ const input=JSON.stringify([live,desired]),next=mergeReleaseCatalogScope('default',live,desired);assert.ok(next._tables.some(t=>t.name==='other_new'));assert.ok(next._columns.some(t=>t.table_name==='other_new'));assert.ok(next._table_overlays.some(t=>t.table_name==='other_new'));assert.equal(next._views[0].label,'Draft view');assert.equal(JSON.stringify([live,desired]),input);
+ assert.equal(analyze(base,live,desired).summary.liveChanged,false);live._columns[0].label='Changed own column';assert.equal(analyze(base,live,desired).summary.liveChanged,true);
+ const shared=copy(base);shared._tables.push({name:'shared_rows',owner_app_id:'other'});shared._columns.push({id:3,table_name:'shared_rows',name:'data',type:'text'});const edited=copy(shared);edited._columns[1].label='Changed shared schema';assert.equal(analyze(shared,edited,shared,{...options,tableNames:['shared_rows']}).summary.liveChanged,true);
+});

@@ -121,3 +121,11 @@ test('conversion continues protecting custom SQL views, modified managed views, 
   assert.throws(()=>applyConversion(db,'empty_local',request));assert.deepEqual(db.prepare('SELECT name,type,sql FROM sqlite_master ORDER BY name').all(),before);
  }finally{db.close();}}
 });
+
+test('COLOR to Enum skips optional empty formulas in unrelated private table metadata',()=>{
+ const d=fixture(),{withDatabase,db}=require('../.test-build/db'),{withApplication}=require('../.test-build/application-context'),{runAuthorized,accessFor}=require('../.test-build/permissions');try{
+ table(d,'source_colors',[{name:'color',label:'Color',type:'color'}],[{color:'#112233'}]);table(d,'private_blank_formulas',[{...text,...Object.fromEntries(FORMULA_FIELDS.map(f=>[f,'   ']))}],[{value:'private row'}]);
+ const owner={id:1,name:'Owner',email:'owner@example.test',role:'owner'};withDatabase(d,()=>withApplication({id:'default',datasets:{source_colors:{read:true,create:true,update:true,delete:true}}},()=>runAuthorized(owner,accessFor(owner),()=>{
+ const request={column:'color',mode:'replace',target:{type:'enum',options:'#112233,#445566'}},before=conversionFingerprint(db,'source_colors',request),report=previewConversion(db,'source_colors',request);assert.equal(report.allowed,true,JSON.stringify(report.issues));assert.equal(report.failed,0);assert.equal(report.converted,1);assert.equal(conversionFingerprint(db,'source_colors',request),before);assert.throws(()=>db.prepare('SELECT * FROM t_private_blank_formulas').all(),/ไม่ได้เชื่อม/);
+ })));}finally{d.close();}
+});

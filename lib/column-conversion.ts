@@ -145,7 +145,7 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
  const scope=currentApplication(),inScope=(name:string)=>!scope?.datasets||!!scope.datasets[name]?.read;
  // Metadata can reveal a cross-app dependency, but must never authorize reading its rows.
  // Fail closed for such dependencies instead of disclosing another app's data or ignoring the dependency.
- for(const t of all.filter(t=>!inScope(t.name))){const cols=schema[t.name];if(cols.some(c=>c.ref_table===table||FORMULA_FIELDS.some(field=>typeof c[field]==='string'&&tableReferences(c[field] as string).some(ref=>ref.table===table)))){add(table,'มีตารางนอกแอปอ้างอิงข้อมูลนี้ จึงยังตรวจความปลอดภัยของการแปลงไม่ได้ กรุณาตรวจการเชื่อมโยงตารางก่อน');return;}}
+ for(const t of all.filter(t=>!inScope(t.name))){const cols=schema[t.name];if(cols.some(c=>c.ref_table===table||FORMULA_FIELDS.some(field=>typeof c[field]==='string'&&c[field]!.trim()&&tableReferences(c[field] as string).some(ref=>ref.table===table)))){add(table,'มีตารางนอกแอปอ้างอิงข้อมูลนี้ จึงยังตรวจความปลอดภัยของการแปลงไม่ได้ กรุณาตรวจการเชื่อมโยงตารางก่อน');return;}}
  assertPartSchema(schema);
  for(const t of all.filter(t=>inScope(t.name))){const cols=schema[t.name];assertFormulas(cols,schema);
   // Check initial values against the new type without storing any calculated/default data.

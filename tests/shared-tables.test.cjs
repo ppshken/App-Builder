@@ -148,3 +148,14 @@ test('app-local Ref dereferences a virtual score using the target parent Related
  const cols=columnsOf('shared_people'),ctx=expressionContext(new Date(),owner.email,db);assert.equal(calculateRow(cols,{id:1,title:'Alice'},false,new Date(),false,owner.email,ctx).row.last_score,7);const snapshot=ctx.snapshot(cols.map(c=>c.virtual_expr||''),cols,false,{ownerTable:'shared_people',parentIds:[1]});assert.equal(snapshot.shared_orders.rows.find(r=>r.id===2).score,7);assert.equal(snapshot.shared_lines.related_scope.ownerTable,'shared_orders');assert.deepEqual(snapshot.shared_lines.rows.map(r=>r.id),[1,2,3]);assert.equal(calculateRow(cols,{id:1,title:'Alice'},false,new Date(),false,owner.email,{tables:snapshot}).row.last_score,7);d.exec("WITH RECURSIVE n(x) AS (SELECT 4 UNION ALL SELECT x+1 FROM n WHERE x<504) INSERT INTO t_shared_orders SELECT x,'Bulk',1,9,'2026-11-03T09:00:00' FROM n");const many=expressionContext(new Date(),owner.email,db).snapshot(['[last_order].[score]'],cols,false,{ownerTable:'shared_people',parentIds:[1]});assert.equal(many.shared_lines.related_scope.parentIds.length,504);assert.deepEqual(many.shared_lines.rows.map(r=>r.id),[1,2,3]);
  });
 }));
+
+test('regen accepts unused source rename and retains app-local labels by stable column ID',()=>fixture((d,id,run)=>{
+ d.exec('ALTER TABLE t_shared_people ADD COLUMN note TEXT');d.prepare("INSERT INTO _columns(table_name,name,label,type,pos) VALUES('shared_people','note','Note','text',3)").run();run(id,()=>importSharedTable('shared_people'));run(id,()=>{saveSharedSettings('shared_people',{op:'column',name:'note',label:'Local note',is_label:false});});
+ d.exec('ALTER TABLE t_shared_people RENAME COLUMN note TO renamed_note');d.prepare("UPDATE _columns SET name='renamed_note' WHERE table_name='shared_people' AND name='note'").run();run(id,()=>{const p=regenerateShared('shared_people');assert.equal(p.changed.length,1);regenerateShared('shared_people',p.token);assert.equal(columnsOf('shared_people').find(c=>c.name==='renamed_note').label,'Local note');});
+}));
+test('regen rejects broken local formulas and rolls back the old snapshot',()=>fixture((d,id,run)=>{
+ run(id,()=>importSharedTable('shared_people'));run(id,()=>{saveSharedSettings('shared_people',{op:'virtual',column:{name:'dependent',label:'Dependent',type:'text',virtual_expr:'[title]'}});});
+ const store='_'+id+'_table_overlays',before=d.prepare('SELECT config_json FROM "'+store+'"').get().config_json;
+ d.exec('ALTER TABLE t_shared_people RENAME COLUMN title TO renamed_title');d.prepare("UPDATE _columns SET name='renamed_title' WHERE table_name='shared_people' AND name='title'").run();
+ run(id,()=>{const p=regenerateShared('shared_people');assert.throws(()=>regenerateShared('shared_people',p.token),/รีเจนไม่ได้/);});assert.equal(d.prepare('SELECT config_json FROM "'+store+'"').get().config_json,before);
+}));

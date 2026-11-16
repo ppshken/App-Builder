@@ -78,10 +78,11 @@ export function regenerateShared(table:string,token?:string){const value=overlay
  const revision=createHash('sha256').update(JSON.stringify([value,latest])).digest('hex');
  const added=latest.filter(c=>!value.snapshot.some(p=>p.id===c.id)),removed=value.snapshot.filter(c=>!latest.some(p=>p.id===c.id)),changed=latest.filter(c=>{const p=value.snapshot.find(p=>p.id===c.id);return p&&JSON.stringify(p)!==JSON.stringify(c);});
  if(token===undefined)return {token:revision,added,removed,changed};if(token!==revision)throw new AuthError('โครงสร้างเปลี่ยนระหว่างตรวจ กรุณาตรวจใหม่',409);
- // Destructive source changes are blocked while shared; never guess how to repair dependencies.
- if(removed.length||changed.some(c=>{const p=value.snapshot.find(p=>p.id===c.id)!;return p.name!==c.name||p.type!==c.type||p.ref_table!==c.ref_table;}))throw new AuthError('พบการเปลี่ยนโครงสร้างที่มีผลต่อข้อมูล กรุณาตรวจการอ้างอิงก่อนรีเจน',409);
+ // Accept source changes only after validating the recipient against the new snapshot.
+ // The existing transaction below rolls back local metadata if dependencies break.
  const missing=latest.find(c=>c.ref_table&&c.ref_table!==table&&!currentApplication()?.datasets?.[c.ref_table]?.read);if(missing)throw Error('กรุณาเชื่อมตารางอ้างอิงของ '+missing.label+' ก่อนรีเจน');
- if(added.some(c=>value.virtuals.some(v=>v.name===c.name)))throw new AuthError('คอลัมน์ใหม่ชื่อซ้ำกับช่องคำนวณของแอป กรุณาแก้ก่อนรีเจน',409);
+ if(latest.some(c=>value.virtuals.some(v=>v.name===c.name)))throw new AuthError('คอลัมน์ใหม่ชื่อซ้ำกับช่องคำนวณของแอป กรุณาแก้ก่อนรีเจน',409);
+ value.overrides=Object.fromEntries(Object.entries(value.overrides).filter(([id])=>latest.some(c=>String(c.id)===id)));
  value.snapshot=latest;value.synced_at=Date.now();
  database.transaction(()=>{store(table,value);const report=inspectApp();if(report.errors)throw new AuthError('รีเจนไม่ได้: '+report.issues.filter(i=>i.severity==='error').map(i=>i.message).slice(0,3).join(' · '),409);})();return {ok:true};
 }

@@ -56,11 +56,20 @@ function snapshot(catalog:ReleaseCatalog,tables:Set<string>,origins?:{tables:Rec
 const fingerprint=(value:ReturnType<typeof snapshot>)=>createHash('sha256').update(JSON.stringify(canonical(Object.fromEntries(collections.map(c=>[c,[...value[c]]]))))).digest('hex');
 const changedFields=(a:Row|undefined,b:Row|undefined)=>[...new Set([...Object.keys(a||{}),...Object.keys(b||{})])].filter(key=>!equal(a?.[key],b?.[key])).sort(order);
 
+// Keep planning and execution on exactly the same application/shared-table boundary.
+export function releaseTableScope(appId:string,catalogs:ReleaseCatalog[],tableNames:readonly string[]=[]){
+ const tables=new Set(tableNames);for(const catalog of catalogs)for(const row of catalog._tables||[])if(String(row.owner_app_id||'default')===appId)tables.add(String(row.name));return tables;
+}
+export function mergeReleaseCatalogScope(appId:string,live:ReleaseCatalog,desired:ReleaseCatalog,tableNames:readonly string[]=[]):ReleaseCatalog{
+ const tables=releaseTableScope(appId,[live,desired],tableNames),next=structuredClone(desired);
+ for(const collection of ['_tables','_columns','_table_overlays']){const key=collection==='_tables'?'name':'table_name';next[collection]=[...(desired[collection]||[]).filter(row=>tables.has(String(row[key]))),...(live[collection]||[]).filter(row=>!tables.has(String(row[key])))].map(row=>structuredClone(row));}
+ return next;
+}
+
 export function analyzeReleasePlan(baseline:ReleaseCatalog,live:ReleaseCatalog,draft:ReleaseCatalog,options:{appId:string;workspaceId:string;tableNames?:readonly string[];sharedTables?:readonly string[];legacyConflict?:boolean;origins?:{tables:Record<string,{uid:string;sourceKey:string|null}>;columns:Record<string,{uid:string;sourceKey:string|null}>}}):ReleasePlan {
   if(!options.appId||!options.workspaceId)throw Error('กรุณาระบุแอปและฉบับร่างที่ต้องการเปรียบเทียบ');
   // Ownership and explicit application grants define the scope, never display names.
-  const tables=new Set(options.tableNames||[]);
-  for(const catalog of [baseline,live,draft])for(const row of catalog._tables||[])if(String(row.owner_app_id||'default')===options.appId)tables.add(String(row.name));
+  const tables=releaseTableScope(options.appId,[baseline,live,draft],options.tableNames);
   const shared=new Set(options.sharedTables||[]);
   for(const catalog of [baseline,live,draft])for(const row of catalog._tables||[])if(tables.has(String(row.name))&&String(row.owner_app_id||'default')!==options.appId)shared.add(String(row.name));
   const before=snapshot(baseline,tables),current=snapshot(live,tables),next=snapshot(draft,tables,options.origins);

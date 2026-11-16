@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import type Database from 'better-sqlite3';
-import type {ReleaseCatalog,ReleasePlan} from './release-plan';
+import {mergeReleaseCatalogScope,type ReleaseCatalog,type ReleasePlan} from './release-plan';
+import {currentApplication} from './application-context';
 import {assertIdentifier,calculateRow,validateRow,formState,type Column} from './columns';
 import {isBlank} from './expression';
 import {columnDefinition,syncKeyIndex,readColumns} from './schema';
@@ -9,7 +10,7 @@ import {installRealtimeTriggers} from './realtime-schema';
 import {currentDevelopment} from './development-context';
 import {verifyDevelopment} from './development-workspace';
 // Bump when the schema executor or its safety contract changes; old rehearsal proofs must expire.
-export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-15-v4';
+export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-16-v5-app-scope';
 export const REHEARSAL_SAMPLE_ROWS=100;
 export const REHEARSAL_SAMPLE_LIMIT=1000;
 // Deterministic head/tail samples; keep the complete database for Ref/formula accuracy.
@@ -101,7 +102,8 @@ export function applyPublicationSchema(database:Database.Database,plan:ReleasePl
 }
 function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void){
  const reasons=rehearsalEligibility(plan,live,desired);if(reasons.length)throw Error(reasons.join(' · '));
- const next=structuredClone(desired),created=new Set(plan.operations.filter(o=>o.kind==='create_table').map(o=>o.table!));
+ const tableNames=Object.entries(currentApplication()?.datasets||{}).filter(([,r])=>r.read).map(([name])=>name);
+ const next=mergeReleaseCatalogScope(plan.appId,live,desired,tableNames),created=new Set(plan.operations.filter(o=>o.kind==='create_table').map(o=>o.table!));
  const insert=(name:string,row:Record<string,unknown>)=>{const keys=Object.keys(row);for(const key of keys)if(!/^[a-z][a-z0-9_]*$/.test(key))throw Error('ชื่อคุณสมบัติไม่ถูกต้อง');return database.prepare('INSERT INTO '+name+'('+keys.map(k=>'"'+k+'"').join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').run(...keys.map(k=>row[k]));};
  database.transaction(()=>{
   // Reserve all table metadata first so mutually referencing new tables can be checked together.
