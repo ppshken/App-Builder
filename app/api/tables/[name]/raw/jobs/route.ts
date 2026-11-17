@@ -1,0 +1,10 @@
+import {NextResponse} from 'next/server';
+import {createReadStream} from 'node:fs';
+import {Readable} from 'node:stream';
+import {withAuth} from '@/lib/auth-api';
+import {bad,errorMessage,errorStatus,readBody} from '@/lib/api';
+import {startRawJob,getRawJob} from '@/lib/raw-data-jobs';
+export const dynamic='force-dynamic';
+export const runtime='nodejs';
+export const POST=withAuth(async(req:Request,{params}:{params:{name:string}})=>{try{return NextResponse.json(await startRawJob(params.name,await readBody(req)));}catch(e){return bad(errorMessage(e),errorStatus(e));}});
+export const GET=withAuth(async(req:Request,{params}:{params:{name:string}})=>{try{const url=new URL(req.url),id=url.searchParams.get('id')||'';if(url.searchParams.get('download')==='1'){const data=await getRawJob(params.name,id,true) as {job:{format:string};path:string};const format=data.job.format;return new Response(Readable.toWeb(createReadStream(data.path)) as ReadableStream,{headers:{'Content-Type':format==='sql'?'application/sql':format==='csv'?'text/csv; charset=utf-8':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="'+params.name+'.'+format+'"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}return NextResponse.json(await getRawJob(params.name,id),{headers:{'Cache-Control':'no-store'}});}catch(e){return bad(errorMessage(e),errorStatus(e));}});

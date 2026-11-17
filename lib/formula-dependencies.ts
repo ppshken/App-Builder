@@ -13,6 +13,7 @@ export function externalFormulaUse(table: string, column?: string): string | und
   if(column)for(const a of db.prepare("SELECT label,config_json FROM _actions WHERE kind='new_form'").all() as any[]){const config=JSON.parse(a.config_json||"{}");const target=db.prepare("SELECT table_name FROM _views WHERE name=?").get(config.view_name) as {table_name:string}|undefined;if(target?.table_name===table&&Object.hasOwn(config.initial_values||{},column))return 'ค่าตั้งต้นฟอร์มใน Action '+a.label;}
   for(const rule of db.prepare("SELECT * FROM _role_row_rules WHERE table_name=?").all(table) as any[])if(!column||references(rule.expression).includes(column))return "กฎสิทธิ์ระดับแถว กรุณาแก้กฎในหน้าบทบาทก่อน";
   const uses = (source: string, owner: string) => source.trim() && (tableReferences(source).some(r => r.table === table && (!column || r.column === column)) || referencePaths(source).some(p => schemas[p.table || owner]?.[p.column] === table && (!column || p.property === column)) || relatedReferences(source).some(r=>r.table===table&&targetColumn?.type==="ref"&&!targetColumn.is_virtual&&(r.refColumn ? r.refColumn===column : targetColumn.ref_table===(r.ownerTable||owner))));
+  for(const rule of db.prepare("SELECT name,label,create_if FROM _tables WHERE create_if<>''").all() as {name:string;label:string;create_if:string}[])if((column||rule.name!==table)&&uses(rule.create_if,rule.name))return 'เงื่อนไขเพิ่มข้อมูลของตาราง '+rule.label;
   for (const v of db.prepare("SELECT * FROM _views").all() as any[]) if ((column || v.table_name !== table) && uses(v.show_if || "", v.table_name)) return `Show_If ของ View ${v.label}`;
   for(const v of db.prepare('SELECT * FROM _views').all() as any[]){const d=JSON.parse(v.display_json||'{}');if(uses(d.display_name_expr||'',v.table_name))return 'Display Name ของ View '+v.label;}
   const columns = db.prepare("SELECT * FROM _columns").all() as StoredColumn[];
@@ -27,6 +28,7 @@ export function externalFormulaUse(table: string, column?: string): string | und
 export function renameExternalFormulas(table: string, old: string, next: string) {
   const schemas = referenceSchemas();
   const rewrite = (source: string, owner: string) => renameReference(renameDereference(source, table, old, next, schemas[owner] || {}, schemas), old, next, table);
+  for(const rule of db.prepare("SELECT name,create_if FROM _tables WHERE create_if<>''").all() as {name:string;create_if:string}[])db.prepare('UPDATE _tables SET create_if=? WHERE name=?').run(rewrite(rule.create_if,rule.name),rule.name);
   for (const c of db.prepare("SELECT * FROM _columns").all() as StoredColumn[]) {
     for(const field of PART_FORMULA_FIELDS)if(c[field]){let source=rewrite(c[field]!,c.ref_table!);if(c.ref_table===table)source=renameReference(source,old,next);if(source!==c[field])db.prepare(`UPDATE _columns SET ${field}=? WHERE table_name=? AND name=?`).run(source,c.table_name,c.name);}
     for (const field of FORMULA_FIELDS) if (c[field]) {

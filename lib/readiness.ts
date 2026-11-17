@@ -1,3 +1,4 @@
+import {validateCreateGuard} from './table-create-guard';
 import {validateListCardActions} from './list-card';
 import {validateViewDisplayName} from "./view-display-name";
 import {inspectRolePermissions} from "./readiness-permissions";
@@ -22,7 +23,7 @@ const excluded:Record<string,number>={};
 const activeSource=(table:string)=>!tableNames.has(table)||canRead(table);
 const applicable=(kind:string,rows:any[])=>rows.filter(row=>{if(['dashboard','custom'].includes(row.kind)||activeSource(row.table_name))return true;excluded[kind]=(excluded[kind]||0)+1;return false;});
 const check=(kind:string,name:string,label:string,href:string,run:()=>void)=>{checked++;try{run();}catch(e){issues.push({kind,name,label,href,severity:'error',message:e instanceof Error?e.message:'ตรวจการตั้งค่าไม่ได้'});}};
-for(const t of tables)check('table',t.name,t.label,'/t/'+t.name+'/edit',()=>{schemas[t.name]=columnsOf(t.name);});
+for(const t of tables)check('table',t.name,t.label,'/t/'+t.name+'/edit',()=>{schemas[t.name]=columnsOf(t.name);const rule=db.prepare('SELECT create_if,create_error FROM _tables WHERE name=?').get(t.name) as {create_if:string;create_error:string};validateCreateGuard(rule.create_if,rule.create_error);if(rule.create_if)checkFormula(t.name,rule.create_if);});
 for(const t of tables)if(schemas[t.name]){check('formula',t.name,t.label,'/t/'+t.name+'/edit',()=>{for(const c of schemas[t.name])if(c.ref_table&&!schemas[c.ref_table])throw Error('ไม่พบตารางอ้างอิง '+c.ref_table);const errors=formulaErrors(schemas[t.name],schemas,t.name);for(const [key,message] of Object.entries(errors)){const [name,field]=key.split(".");issues.push({kind:"formula",name:t.name+"."+key,label:t.label+" · "+(schemas[t.name].find(c=>c.name===name)?.label||name),severity:"error",message:(FORMULA_LABELS[field as keyof typeof FORMULA_LABELS]||field||"การตั้งค่าสูตร")+": "+message,href:"/t/"+t.name+"/edit"});}});if(sample)check('sample',t.name,t.label,'/t/'+t.name,()=>{const now=new Date(),email=currentUser()?.email||'';for(const raw of db.prepare('SELECT * FROM "t_'+t.name+'" ORDER BY id LIMIT 10').all() as Record<string,any>[]){const result=calculateRow(schemas[t.name],raw,false,now,false,email,expressionContext(now,email));if(Object.keys(result.errors).length)throw Error('แถว '+raw.id+': '+Object.values(result.errors).join(' · '));}});}
 let appSettings:ReturnType<typeof readAppSettings>|undefined;
 check('settings','appearance','การตั้งค่าแอป','/settings',()=>{appSettings=readAppSettings();});

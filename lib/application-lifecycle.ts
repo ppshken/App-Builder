@@ -33,7 +33,7 @@ export function copyApplicationDatabase(actor:AuthUser,sourceDb:Database.Databas
   if(mode==='new')for(const [i,name] of tables.entries())mapping[name]='c_'+target.id.slice(2,10)+'_'+i+'_'+name.slice(0,24);
   if(mode==='shared'&&tables.some(name=>externalTable(sourceDb,name)))throw new AuthError('Live API แบ่งปันข้ามแอปไม่ได้ กรุณา Clone ฐานข้อมูลชุดใหม่');
  if(mode==='new'){
-   for(const name of tables){const original=sourceDb.prepare('SELECT * FROM _tables WHERE name=?').get(name) as Row;insert(db,'_tables',{...original,label:tableOverlay(sourceDb,name,sourceId)?.label||original.label,name:mapping[name],owner_app_id:target.id});}
+   for(const name of tables){const original=sourceDb.prepare('SELECT * FROM _tables WHERE name=?').get(name) as Row;insert(db,'_tables',{...original,create_if:remapExpressionTables(original.create_if||'',mapping),label:tableOverlay(sourceDb,name,sourceId)?.label||original.label,name:mapping[name],owner_app_id:target.id});}
    for(const name of tables)for(const original of exportedColumnRows(sourceDb,name,sourceId)){if(original.ref_table&&!mapping[original.ref_table])throw new AuthError('ตารางอ้างอิง '+original.ref_table+' ยังไม่ได้เชื่อมกับแอพต้นฉบับ');const {id,...column}=original;insert(db,'_columns',transformApplicationRow({...column,table_name:mapping[name]},mapping,'_columns'));}
    if(includeData)for(const name of tables)for(const row of sourceDb.prepare('SELECT * FROM _auto_numbers WHERE table_name=?').all(name) as Row[])insert(db,'_auto_numbers',{...row,table_name:mapping[name]});
    Object.assign(sourceIds,copyExternalDefinitions(sourceDb,db,mapping,target.id,actor.id,includeData,sourceId));

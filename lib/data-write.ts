@@ -1,3 +1,4 @@
+import {assertTableCreateAllowed} from './table-create-guard';
 import {publishMedia} from './media-location';
 import {writeColumns} from './shared-table-columns';
 import {allocateAutoNumbers} from './auto-number';
@@ -30,6 +31,7 @@ export function writeRecord(table: string, body: Record<string, any>, id?: numbe
     if (id && Object.hasOwn(body, "id") && Number(body.id) !== id)
         throw Error("เปลี่ยน id ไม่ได้ เพราะใช้เชื่อมข้อมูล กรุณาแก้รหัสในคอลัมน์ Key แทน");
     return db.transaction(() => {
+        if(!id)assertTableCreateAllowed(table);
         const old = id ? db.prepare(`SELECT * FROM "t_${table}" WHERE id=?`).get(id) as Record<string, any> | undefined : undefined;
         if(old)assertRowAllowed(table,old,"update");
         if(id)assertRowVersion(table,cols,old,body.__version);

@@ -25,6 +25,7 @@ COPY --from=build /app/.rehearsal-worker ./.rehearsal-worker
 COPY --from=build /app/public ./public
 COPY --from=build /app/app/fonts.css ./app/fonts.css
 COPY --from=build /app/next.config.mjs ./next.config.mjs
+COPY --from=build /app/scripts/raw-data-worker.cjs ./scripts/raw-data-worker.cjs
 COPY deploy/healthcheck.cjs deploy/setup-owner.cjs deploy/start-app.sh ./deploy/
 RUN mkdir -p /data /app/.next/cache && chown -R node:node /data /app/.next/cache && chmod 0700 /data
 USER node

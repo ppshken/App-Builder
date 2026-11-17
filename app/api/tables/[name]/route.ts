@@ -1,3 +1,5 @@
+import {validateCreateGuard} from '@/lib/table-create-guard';
+import {checkFormula} from '@/lib/automation';
 import {assertInternalTable} from '@/lib/external-storage';
 import {dataColumnOrder} from '@/lib/data-column-order';
 import {customTargets} from '@/lib/custom-page';
@@ -29,6 +31,11 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
     const b = await readBody(req), cols = columnsOf(t);
     const found = cols.find(c => c.name === b.name);
     switch (b.op) {
+      case "create_guard": {
+        const rule=validateCreateGuard(b.create_if,b.create_error);if(rule.create_if)checkFormula(t,rule.create_if);
+        if(b.label!==undefined&&(typeof b.label!=="string"||!b.label.trim()||b.label.length>100))throw Error("กรุณาระบุชื่อตารางไม่เกิน 100 ตัวอักษร");
+        db.prepare("UPDATE _tables SET create_if=?,create_error=?,label=COALESCE(?,label) WHERE name=?").run(rule.create_if,rule.create_error,b.label?.trim()??null,t);break;
+      }
       case "realtime": {
         if(typeof b.enabled!=="boolean")return bad("กรุณาระบุเปิดหรือปิด Realtime");
         db.prepare("UPDATE _tables SET realtime_enabled=? WHERE name=?").run(b.enabled?1:0,t);

@@ -120,11 +120,14 @@ export function initializeDatabase(db: Database.Database, path: string) {
   const needSourceKind=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==='source_kind');
   const needAutoNumbers=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_auto_numbers' AND type='table'").get();
   const needExcelPermission=!(db.pragma("table_info('_role_tables')") as {name:string}[]).some(c=>c.name==="can_export");
+  const tableRuleFields=new Set((db.pragma("table_info('_tables')") as {name:string}[]).map(c=>c.name)),missingTableRules=['create_if','create_error'].filter(n=>!tableRuleFields.has(n));
   const needRealtime=!(db.pragma("table_info('_tables')") as {name:string}[]).some(c=>c.name==="realtime_enabled");
   const existing = new Set((db.pragma("table_info('_columns')") as { name: string }[]).map(c => c.name));
   const missing = ["part_invalid_value_error", "invalid_value_error", "auto_number_json", "scan_enabled", "related_required", "ref_delete_cascade", "ref_allow_add", "input_mode", "button_limit", "is_virtual", ...FORMULA_FIELDS, "is_key", "is_label", "list_limit", "is_editable", "is_unique", "image_path", "file_path", "gps_auto", "max_length", "is_part_of", "part_show_if", "part_add_if", "part_valid_if", "reset_on_edit", "reset_columns_json"].filter(name => !existing.has(name));
   const needWorkflows=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automation_jobs'").get();
   const needUsageError=!!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_app_usage'").get()&&!(db.pragma('table_info(_app_usage)') as {name:string}[]).some(c=>c.name==='error_detail');
+  const usageFields=new Set((db.pragma('table_info(_app_usage)') as {name:string}[]).map(c=>c.name));
+  const missingUsageFields=usageFields.size?['request_json','duration_ms'].filter(name=>!usageFields.has(name)):[];
   const needAudit=!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_audit_log'").get();
   const needRowRules=!db.prepare("SELECT 1 FROM sqlite_master WHERE name='_role_row_rules'").get();
   const actionFields=new Set((db.pragma("table_info('_actions')") as {name:string}[]).map(c=>c.name));
@@ -166,7 +169,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
     assertIdentifier(name); readColumns(db, name);
     if ((db.pragma(`table_info('t_${name}')`) as { notnull: number; pk: number }[]).some(c => c.notnull && !c.pk)) rebuild.push(name);
   }
-  if (needUsageError || needPush || needMediaFolders || needRoleAuto || needSystemViews || needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
+  if (missingTableRules.length || missingUsageFields.length || needUsageError || needPush || needMediaFolders || needRoleAuto || needSystemViews || needExternal || needSourceKind || needAutoNumbers || needIdentity || needBuilderSecurity || needApplicationOwners || needApplicationGrants || needApplicationLocalRoles || needApplications || needProfile || needExcelPermission || needRealtime || needTablelessDashboard || needWorkflows || needFiles || needAudit || needImagePath || needRowRules || needActionConfig || needUserSettings || needRoles || needAuth || missing.length || rebuild.length || needViews || needFeatures || needSliceSource || needSettings || needImages || missingViewOptions.length || needDisplay || needVisibility || needInline || missingSettingsOptions.length || needListReferences) {
     // VACUUM INTO captures a consistent database including WAL; retained on migration failure.
     if ((tables.length || !needSettings) && path !== ":memory:") {
       const folder = join(dirname(path), "backups");
@@ -179,6 +182,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
       if(needSourceKind){db.exec("ALTER TABLE _tables ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'INTERNAL_DATABASE'");db.exec("ALTER TABLE _tables ADD COLUMN source_id TEXT");}
       db.exec(EXTERNAL_SCHEMA);
       if(needApplicationOwners)db.exec("ALTER TABLE _tables ADD COLUMN owner_app_id TEXT NOT NULL DEFAULT 'default'");
+      for(const name of missingTableRules)db.exec('ALTER TABLE _tables ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''");
       if(needRealtime)db.exec("ALTER TABLE _tables ADD COLUMN realtime_enabled INTEGER NOT NULL DEFAULT 0");
       if(needWorkflows)db.exec(WORKFLOW_SCHEMA);
       if (needProfile || needFiles || needAuth || needUserSettings || needRowRules) db.exec(AUTH_SCHEMA);
@@ -226,6 +230,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   db.exec("CREATE INDEX IF NOT EXISTS _automation_actor_activity ON _automation_jobs(actor_id,updated_at)");
   db.exec(BULK_ACTION_SCHEMA);
   db.exec(AUDIT_SCHEMA);if(needUsageError)db.exec("ALTER TABLE _app_usage ADD COLUMN error_detail TEXT NOT NULL DEFAULT ''");db.exec(PUSH_SCHEMA);
+  for(const name of missingUsageFields)db.exec('ALTER TABLE _app_usage ADD COLUMN '+name+(name==='request_json'?" TEXT NOT NULL DEFAULT ''":' REAL'));
   if(!(db.pragma("table_info('_media_catalog')") as {name:string}[]).some(c=>c.name==='published'))db.exec('ALTER TABLE _media_catalog ADD COLUMN published INTEGER NOT NULL DEFAULT 0 CHECK(published IN(0,1))');
   for(const name of ['folder','original_name','copy_path'])if(!(db.pragma("table_info('_media_catalog')") as {name:string}[]).some(c=>c.name===name))db.exec('ALTER TABLE _media_catalog ADD COLUMN '+name+" TEXT NOT NULL DEFAULT ''");
   db.exec(REALTIME_SCHEMA);

@@ -55,3 +55,4 @@ server-backups
 /.rehearsal-worker/
 
 .backup-management/
+**/.raw-data-jobs/

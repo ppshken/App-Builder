@@ -22,6 +22,27 @@ async function upload(){const form=new FormData();form.append('table','product_i
  await api('/api/tables/product_image','PATCH',{op:'rename_column',name:'image',new_name:'photo'});
  let meta=(await api('/api/tables')).find(t=>t.name==='products');assert.equal(meta.columns.find(c=>c.name==='images').virtual_expr,'[Related_product_image][photo]');
  assert.deepEqual((await api('/api/data/products?id='+first))[0].images,images.slice(0,2));
+ await api('/api/tables','POST',{name:'image_categories',columns:[{name:'name',type:'text'}]});
+ await api('/api/tables/product_image','PATCH',{op:'add_column',column:{name:'category',type:'ref',ref_table:'image_categories'}});
+ // Related must work in persisted Action values as in virtual columns.
+ await api('/api/tables/products','PATCH',{op:'add_column',column:{name:'saved_count',label:'Saved count',type:'number'}});
+ for(const mode of ['snapshot','sequential']){
+  const action={name:'related_count_'+mode,label:'Related count '+mode,table_name:'products',kind:'set',condition_expr:'TRUE',values:{saved_count:'COUNT([Related_product_image])'},confirmation:'',config:{value_mode:mode}};
+  await api('/api/actions','POST',action);
+  await api('/api/actions','POST',{op:'execute',name:action.name,id:first});
+  assert.equal((await api('/api/data/products?id='+first))[0].saved_count,2);
+  await api('/api/actions','POST',{op:'execute',name:action.name,id:second});
+  assert.equal((await api('/api/data/products?id='+second))[0].saved_count,1);
+ }
+ for(const name of ['groups_weight','groups_score','inspection_categories_id'])await api('/api/tables/product_image','PATCH',{op:'add_column',column:{name,type:'number'}});
+ const children=await api('/api/data/product_image?sort=id&dir=asc');
+ for(const [index,child] of children.entries())await api('/api/data/product_image?id='+child.id,'PUT',{groups_weight:2,groups_score:index===0?1:2,inspection_categories_id:1});
+ await api('/api/tables/products','PATCH',{op:'add_column',column:{name:'saved_score',type:'decimal'}});
+ const denominator='SUM(SELECT([Related_product_image][groups_weight], [inspection_categories_id] = 1))',numerator='SUM(SELECT([Related_product_image][groups_score], [inspection_categories_id] = 1))',score='IF('+denominator+' = 0, 0, '+numerator+' / '+denominator+')';
+ await api('/api/tables/products','PATCH',{op:'add_column',column:{name:'virtual_score',type:'decimal',is_virtual:true,virtual_expr:score}});
+ await api('/api/actions','POST',{name:'related_score',label:'Related score',table_name:'products',kind:'set',condition_expr:'TRUE',values:{saved_score:score},confirmation:''});
+ for(const id of [first,second]){await api('/api/actions','POST',{op:'execute',name:'related_score',id});const record=(await api('/api/data/products?id='+id))[0];assert.equal(record.saved_score,record.virtual_score);assert.equal(record.saved_score,id===first?0.75:1);}
+ const empty=(await api('/api/data/products','POST',{name:'No children'})).id;await api('/api/actions','POST',{op:'execute',name:'related_score',id:empty});assert.equal((await api('/api/data/products?id='+empty))[0].saved_score,0);
  const browser=await chromium.launch({channel:process.env.NOCODE_BROWSER_CHANNEL||'msedge',headless:true}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  try{
   await page.goto(base+'/t/products');await page.getByRole('button',{name:'แก้ไข First Product',exact:true}).click();

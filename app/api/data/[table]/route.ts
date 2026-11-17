@@ -1,3 +1,4 @@
+import {tableCreateEligibility,assertTableCreateAllowed} from '@/lib/table-create-guard';
 import {parseProjection,projectionColumns} from '@/lib/view-projection';
 import {rowVersion} from '@/lib/row-version';
 import {rowRule} from '@/lib/row-access';
@@ -38,8 +39,10 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     if (!tableExists(t)) return bad("ไม่พบตาราง", 404);
     await refreshExternalTable(t,new URL(req.url).searchParams.get("refresh_source")==="1");
     const cols = columnsOf(t), now = new Date(), userEmail = previewEmail(req), u = new URL(req.url), context = expressionContext(now, userEmail);
+    if(u.searchParams.get("create_check")==="1")return NextResponse.json(tableCreateEligibility(t),{headers:{"Cache-Control":"no-store"}});
     if(u.searchParams.has("options_for"))return NextResponse.json(viewFilterOptions(t,u.searchParams,userEmail));
     if (u.searchParams.get("defaults") === "1") {
+      assertTableCreateAllowed(t);
       const defaultColumns=writeColumns(db,t);
       const { row, errors } = calculateRow(defaultColumns, {}, true, now, true, userEmail, context);
       const firstError = defaultColumns.find(c => !c.is_virtual && errors[c.name]);

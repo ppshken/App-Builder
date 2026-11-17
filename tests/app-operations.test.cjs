@@ -25,3 +25,28 @@ test('usage migration preserves old rows and initializes empty error details',()
  db.exec("ALTER TABLE _app_usage DROP COLUMN error_detail;INSERT INTO _app_usage(app_id,actor_id,actor_name,event,target,status,occurred_at) VALUES('default',1,'Owner','update','table',400,1)");
  initializeDatabase(db,':memory:');const row=db.prepare('SELECT * FROM _app_usage').get();assert.equal(row.error_detail,'');assert.equal(row.status,400);
 }));
+
+test('ประวัติคำขอเก็บค่าใช้งานและซ่อนข้อมูลลับพร้อมจำกัดขนาด JSON',()=>{
+ const {sanitizeUsageRequest}=require('../.test-build/app-usage.js');
+ const stored=sanitizeUsageRequest({method:'POST',body:{status:3,amount:12,flag:false,password:'synthetic-password',nested:{access_token:'synthetic-token',email:'synthetic@example.test'},file:'data:image/png;base64,AAAA',note:'Bearer synthetic-bearer'}});
+ const parsed=JSON.parse(stored);assert.equal(parsed.body.status,3);assert.equal(parsed.body.flag,false);assert.equal(parsed.body.amount,12);for(const text of ['synthetic-password','synthetic-token','synthetic@example.test','AAAA','synthetic-bearer'])assert.ok(!stored.includes(text));
+ assert.ok(Buffer.byteLength(sanitizeUsageRequest({rows:Array.from({length:200},()=>({note:'ก'.repeat(1000)}))}))<=8192);
+});
+test('อ่าน JSON แบบมีขอบเขตโดยไม่กิน body เดิม และไม่นำ binary มาเก็บ',async()=>{
+ const {usageRequest}=require('../.test-build/app-usage.js');const req=new Request('http://localhost/api/data/demo?id=7',{method:'PUT',headers:{'Content-Type':'application/json','Authorization':'Bearer hidden'},body:JSON.stringify({status:3,password:'synthetic-password'})});
+ const json=await usageRequest(req);assert.equal(json.body.status,3);assert.equal(json.query.id,'7');assert.ok(!JSON.stringify(json).includes('synthetic-password'));assert.equal((await req.json()).password,'synthetic-password');
+ const multipart=new Request('http://localhost/api/images',{method:'POST',headers:{'Content-Type':'multipart/form-data; boundary=x'},body:'synthetic-binary'});assert.ok(!JSON.stringify(await usageRequest(multipart)).includes('synthetic-binary'));assert.equal(await multipart.text(),'synthetic-binary');
+ const large=new Request('http://localhost/api/data/demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note:'x'.repeat(100000)})});assert.ok(JSON.stringify(await usageRequest(large)).length<8192);assert.equal((await large.json()).note.length,100000);
+});
+test('ระยะเวลาคำขอครอบคลุมการทำงานจนส่ง response และรายการเดิมไม่มีค่าปลอม',async()=>{
+ const {withUsageRequest}=require('../.test-build/app-usage.js'),db=new Database(':memory:');try{initializeDatabase(db,':memory:');await withUsageRequest(new Request('http://localhost/api/data/demo',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"status":3}'}),async()=>{recordAppUsage(db,owner,'default','create','/api/data/demo');await new Promise(resolve=>setTimeout(resolve,25));return Response.json({ok:true});});const row=readAppUsage(db,new URLSearchParams()).rows[0];assert.equal(JSON.parse(row.request_json).body.status,3);assert.ok(row.duration_ms>=20);recordAppUsage(db,owner,'default','open_app','legacy');const legacy=db.prepare('SELECT * FROM _app_usage ORDER BY id DESC LIMIT 1').get();assert.equal(legacy.duration_ms,null);assert.equal(legacy.request_json,'');}finally{db.close();}
+});
+test('อัปเกรดประวัติเก่าโดยไม่เสียข้อมูลและไม่สร้างเวลา/JSON ย้อนหลัง',()=>fixture(db=>{
+ db.exec("ALTER TABLE _app_usage DROP COLUMN request_json;ALTER TABLE _app_usage DROP COLUMN duration_ms;INSERT INTO _app_usage(app_id,actor_id,actor_name,event,target,status,occurred_at) VALUES('default',1,'Owner','update','table',200,1)");initializeDatabase(db,':memory:');const row=db.prepare('SELECT * FROM _app_usage').get();assert.equal(row.request_json,'');assert.equal(row.duration_ms,null);assert.equal(row.status,200);
+}));
+test('การวัดเวลาในพื้นที่พัฒนาไม่เขียนกลับไปยังประวัติเวอร์ชันจริง',async()=>{
+ const {withUsageRequest}=require('../.test-build/app-usage.js'),{db:proxy}=require('../.test-build/db.js'),live=new Database(':memory:'),draft=new Database(':memory:');try{initializeDatabase(live,':memory:');initializeDatabase(draft,':memory:');recordAppUsage(live,owner,'default','create','live',200,'',{durationMs:999});await withDatabase(live,()=>withUsageRequest(new Request('http://localhost/api/data/demo'),async()=>{withDatabase(draft,()=>recordAppUsage(proxy,owner,'default','create','draft'));await new Promise(resolve=>setTimeout(resolve,25));return Response.json({ok:true});}));assert.equal(live.prepare('SELECT duration_ms FROM _app_usage').get().duration_ms,999);assert.ok(draft.prepare('SELECT duration_ms FROM _app_usage').get().duration_ms>=20);}finally{live.close();draft.close();}
+});
+test('คำขอที่เก็บ body ไม่ได้ยังดำเนินงานเดิมได้ตามปกติ',async()=>{
+ const {withUsageRequest}=require('../.test-build/app-usage.js'),req=new Request('http://localhost/api/demo',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});await req.json();const response=await withUsageRequest(req,async()=>Response.json({ok:true}));assert.equal((await response.json()).ok,true);
+});

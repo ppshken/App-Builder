@@ -42,7 +42,7 @@ export function executeAction(name: string, id: number, userEmail: string, slice
   assertDevelopmentAction(a.kind);
   const t = a.table_name, cols = columnsOf(t), now = new Date(), slice = sliceFor(sliceName, t);
   return db.transaction(() => {
-    const context = expressionContext(now, userEmail);
+    const context = { ...expressionContext(now, userEmail), tableName:t };
     const old = db.prepare(`SELECT * FROM "t_${t}" WHERE id=?`).get(id) as Record<string, any> | undefined;
     if (!old) throw new Error("ไม่พบแถวข้อมูล อาจถูกลบไปแล้ว");
     assertRowAllowed(t,old,["copy","add","new_form"].includes(a.kind)?"read":actionPermission(a.kind));

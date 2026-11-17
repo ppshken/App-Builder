@@ -1,2 +1,2 @@
-import RuleManager from "../components/RuleManager";
-export default function Page() { return <RuleManager kind="slices"/>; }
+import SliceManager from "../components/SliceManager";
+export default function Page() { return <SliceManager/>; }

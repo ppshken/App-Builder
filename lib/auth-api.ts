@@ -1,7 +1,7 @@
 import {DevelopmentIsolationError} from './development-context';
 import {setSessionCookie} from "./auth-response";
 import {externalTable} from './external-storage';
-import {recordAppUsage,usageResponseError} from './app-usage';
+import {recordAppUsage,usageResponseError,withUsageRequest} from './app-usage';
 import {platformDatabase} from './db';
 import {applicationCookie,withApplication,ApplicationBoundaryError} from './application-context';
 import {applicationScopeFor} from './applications';
@@ -13,7 +13,7 @@ import {db} from "./db";
 import {cookieToken,requestUser,assertSameOrigin,AuthError} from "./auth";
 import {accessFor,runAuthorized,assertExcelExport,assertTablePermission,canExecuteAction,assertFileAccess,assertImageAccess} from "./permissions";
 import {beginSystemRequest} from './system-metrics';
-export function withAuth(handler:(...args:any[])=>Promise<Response>){return async(req:Request,context:any)=>{
+export function withAuth(handler:(...args:any[])=>Promise<Response>){return async(req:Request,context:any)=>withUsageRequest(req,async()=>{
  let finish:((status:number)=>void)|undefined,status=500;
  try{
   // Resolve Next async route parameters before permission checks and handlers.
@@ -49,11 +49,11 @@ export function withAuth(handler:(...args:any[])=>Promise<Response>){return asyn
    else if(!read&&!access.builder)throw new AuthError("ไม่มีสิทธิ์แก้ไขแอป",403);
    else if(path.startsWith("/api/tables/")&&!access.builder)throw new AuthError("ไม่มีสิทธิ์แก้ไขแอป",403);
    const headers=new Headers(req.headers);headers.set("x-nocode-preview-email",user.email);
-   if(path.startsWith('/api/tables/')){const table=context?.params?.name;if(!read&&externalTable(db,table))throw new AuthError('Live / Cached API แก้โครงสร้างผ่าน Data Source เท่านั้น',403);assertTablePermission(table,'read');if(!read&&application){const owner=(db.prepare('SELECT owner_app_id FROM _tables WHERE name=?').get(table) as {owner_app_id:string}|undefined)?.owner_app_id;if(owner!==application.id)throw new AuthError('แก้โครงสร้างตารางร่วมจากแอปเจ้าของตารางเท่านั้น',403);const shared=!!db.prepare('SELECT 1 FROM _application_datasets WHERE table_name=? AND app_id<>? AND can_read=1').get(table,application.id);if(shared&&req.method==='DELETE'&&path==='/api/tables/'+table)throw new AuthError('ตารางนี้มีแอปอื่นเชื่อมอยู่ กรุณายกเลิกการเชื่อมก่อนลบทั้งตาราง',409);}}
+   if(path.startsWith('/api/tables/')){const table=context?.params?.name,rawJob=path==='/api/tables/'+table+'/raw/jobs';if(!read&&!rawJob&&externalTable(db,table))throw new AuthError('Live / Cached API แก้โครงสร้างผ่าน Data Source เท่านั้น',403);assertTablePermission(table,'read');if(!read&&!rawJob&&application){const owner=(db.prepare('SELECT owner_app_id FROM _tables WHERE name=?').get(table) as {owner_app_id:string}|undefined)?.owner_app_id;if(owner!==application.id)throw new AuthError('แก้โครงสร้างตารางร่วมจากแอปเจ้าของตารางเท่านั้น',403);const shared=!!db.prepare('SELECT 1 FROM _application_datasets WHERE table_name=? AND app_id<>? AND can_read=1').get(table,application.id);if(shared&&req.method==='DELETE'&&path==='/api/tables/'+table)throw new AuthError('ตารางนี้มีแอปอื่นเชื่อมอยู่ กรุณายกเลิกการเชื่อมก่อนลบทั้งตาราง',409);}}
 
    const usageBody=path==='/api/applications'&&!read?await req.clone().json().catch(()=>null):null;
    const response=await withAuditActor(user,(application&&application.id!=='default'?'app:'+application.id+' ':'')+path,()=>handler(new Request(req,{headers}),context));if((!read&&(/^\/api\/(data|excel|actions|files|images)(?:\/|$)/.test(path)||path==='/api/applications'&&usageBody?.op==='select'))||(read&&path.startsWith('/api/excel/')&&url.searchParams.get('template')!=='1')){try{const event=path==='/api/applications'?'open_app':path.startsWith('/api/excel')?(read?'export':'import'):path==='/api/actions'?'action':req.method==='DELETE'?'delete':req.method==='POST'?'create':'update';recordAppUsage(platformDatabase(),user,path==='/api/applications'?usageBody.id:application?.id||null,event,path,response.status,await usageResponseError(response));}catch(error){console.error('Usage log failed',error);}}
    response.headers.set("Cache-Control",response.headers.get("Content-Type")?.startsWith("text/event-stream")?"private, no-store, no-transform":"private, no-store");if(application)response.headers.set('X-Nocode-App',application.id);response.headers.set("X-Nocode-Workspace",access.builder?(draftCookie(req)||"live"):"live");return response;
   }));};const result=application?await withApplication(application,run):await run();status=result.status;if(result.status!==401)setSessionCookie(result,req,cookieToken(req.headers.get("cookie")));return result;
  }catch(e){status=(e instanceof AuthError||e instanceof ApplicationBoundaryError||e instanceof DevelopmentIsolationError)?e.status:500;if(!(e instanceof AuthError))console.error(e);return NextResponse.json({error:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.message:"ตรวจสิทธิ์ไม่ได้ กรุณาลองใหม่"},{status:(e instanceof AuthError||e instanceof ApplicationBoundaryError)?e.status:500,headers:{"Cache-Control":"no-store"}});}finally{finish?.(status);}
-};}
+});}

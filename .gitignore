@@ -46,3 +46,4 @@ out/
 /.rehearsal-worker/
 
 .backup-management/
+.raw-data-jobs/

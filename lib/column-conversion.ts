@@ -148,6 +148,7 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
  // Fail closed for such dependencies instead of disclosing another app's data or ignoring the dependency.
  for(const t of all.filter(t=>!inScope(t.name))){const cols=schema[t.name];if(cols.some(c=>c.ref_table===table||FORMULA_FIELDS.some(field=>typeof c[field]==='string'&&c[field]!.trim()&&tableReferences(c[field] as string).some(ref=>ref.table===table)))){add(table,'มีตารางนอกแอปอ้างอิงข้อมูลนี้ จึงยังตรวจความปลอดภัยของการแปลงไม่ได้ กรุณาตรวจการเชื่อมโยงตารางก่อน');return;}}
  assertPartSchema(schema);
+ for(const rule of database.prepare("SELECT name,label,create_if FROM _tables WHERE create_if<>''").all() as {name:string;label:string;create_if:string}[]){try{assertFormulas([...(schema[rule.name]||[]),{name:'create_rule_check',label:rule.label,type:'yesno',show_if:rule.create_if}],schema);}catch(e){add(rule.name,'เงื่อนไขเพิ่มข้อมูล: '+(e as Error).message);}}
  for(const t of all.filter(t=>inScope(t.name))){const cols=schema[t.name];assertFormulas(cols,schema);
   // Check initial values against the new type without storing any calculated/default data.
   if(t.name===table)calculateRow(cols,{},true,now,false,"",context);

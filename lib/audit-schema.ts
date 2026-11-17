@@ -4,7 +4,7 @@ import type Database from "better-sqlite3";
 import {randomUUID} from "node:crypto";
 import {auditContext,withoutAudit} from "./audit-context";
 import {auditDiff,type AuditCategory} from "./audit-display";
-export const AUDIT_SCHEMA=`CREATE TABLE IF NOT EXISTS _app_usage(id INTEGER PRIMARY KEY AUTOINCREMENT,app_id TEXT,actor_id INTEGER NOT NULL,actor_name TEXT NOT NULL,event TEXT NOT NULL,target TEXT NOT NULL,status INTEGER NOT NULL,occurred_at INTEGER NOT NULL,error_detail TEXT NOT NULL DEFAULT '');
+export const AUDIT_SCHEMA=`CREATE TABLE IF NOT EXISTS _app_usage(id INTEGER PRIMARY KEY AUTOINCREMENT,app_id TEXT,actor_id INTEGER NOT NULL,actor_name TEXT NOT NULL,event TEXT NOT NULL,target TEXT NOT NULL,status INTEGER NOT NULL,occurred_at INTEGER NOT NULL,error_detail TEXT NOT NULL DEFAULT '',request_json TEXT NOT NULL DEFAULT '',duration_ms REAL);
 CREATE INDEX IF NOT EXISTS _app_usage_app_time ON _app_usage(app_id,occurred_at);
 CREATE INDEX IF NOT EXISTS _app_usage_actor_time ON _app_usage(actor_id,occurred_at);
 CREATE TABLE IF NOT EXISTS _media_catalog(kind TEXT NOT NULL,id TEXT NOT NULL,app_id TEXT NOT NULL,user_id INTEGER NOT NULL,created_at INTEGER NOT NULL,folder TEXT NOT NULL DEFAULT '',original_name TEXT NOT NULL DEFAULT '',copy_path TEXT NOT NULL DEFAULT '',published INTEGER NOT NULL DEFAULT 0 CHECK(published IN(0,1)),PRIMARY KEY(kind,id));
