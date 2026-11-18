@@ -19,8 +19,8 @@ async function run(d,hash){return api('/api/releases','POST',{op:'rehearse',id:d
  // Introduce a metadata ID collision in another app after workspace creation, without changing this app.
  const other=await api('/api/applications','POST',{label:'Rehearsal other app'},owner,201),otherCookie=owner+'; nocode_app='+other.id;
  await api('/api/tables','POST',{name:'rehearsal_other',label:'Other app table',columns:[{name:'title',type:'text'}]},otherCookie);
- // Global catalog drift is conservatively blocked by phase 1, so start a fresh workspace for the success case.
- const blocked=await run(d);assert.equal(blocked.status,'blocked',JSON.stringify(blocked));
+ // App-scoped publication permits unrelated changes in another app; they must not invalidate this workspace.
+ const unrelated=await run(d);assert.equal(unrelated.status,'passed',JSON.stringify(unrelated));assert.equal((await review(d)).plan.summary.liveChanged,false);
  const fresh=await create('Rehearsal final'),freshCookie=draftCookie(fresh);
  await api('/api/tables/rehearsal_rows','PATCH',{op:'add_column',column:{name:'memo',label:'Memo',type:'text'}},freshCookie);
  await api('/api/tables','POST',{name:'rehearsal_new',label:'Rehearsal new',columns:[{name:'title',type:'text'}]},freshCookie);
@@ -28,8 +28,8 @@ async function run(d,hash){return api('/api/releases','POST',{op:'rehearse',id:d
  await api('/api/data/rehearsal_rows','POST',{title:'Newest live row'});
  const before=JSON.stringify(live.prepare('SELECT * FROM t_rehearsal_rows').all());
  const result=await run(fresh);assert.equal(result.status,'passed',JSON.stringify(result));assert.equal(result.publishAllowed,false);assert.ok(result.checks.every(c=>c.passed));
- assert.deepEqual(result.tables.find(t=>t.table==='rehearsal_rows'),{table:'rehearsal_rows',before:3,after:3});assert.deepEqual(result.tables.find(t=>t.table==='rehearsal_new'),{table:'rehearsal_new',before:0,after:0});
- assert.ok(!JSON.stringify(result).includes('private fixture'));assert.equal((await review(fresh)).rehearsal.stale,false);
+ assert.deepEqual(result.tables.find(t=>t.table==='rehearsal_rows'),{table:'rehearsal_rows',before:3,after:3,checked:3});assert.deepEqual(result.tables.find(t=>t.table==='rehearsal_new'),{table:'rehearsal_new',before:0,after:1,checked:1});
+ assert.equal(result.seedData.find(t=>t.table==='rehearsal_new').included,1);assert.ok(!JSON.stringify(result).includes('private fixture'));assert.equal((await review(fresh)).rehearsal.stale,false);
  assert.equal(JSON.stringify(live.prepare('SELECT * FROM t_rehearsal_rows').all()),before);assert.ok(!live.prepare("SELECT 1 FROM sqlite_master WHERE name='t_rehearsal_new'").get());assert.ok(!live.pragma('table_info(t_rehearsal_rows)').some(c=>c.name==='memo'));
  const dir=path.join(path.dirname(dbPath),'.app-releases',fresh.id);assert.ok(!fs.readdirSync(dir).some(n=>n.startsWith('rehearsal-')),'scratch database must be removed');
  const reportFile=path.join(path.dirname(dbPath),'.app-releases',fresh.id+'.rehearsal.json'),saved=JSON.parse(fs.readFileSync(reportFile,'utf8'));fs.writeFileSync(reportFile,JSON.stringify({...saved,expiresAt:Date.now()-1}));assert.equal((await review(fresh)).rehearsal.stale,true);fs.writeFileSync(reportFile,JSON.stringify(saved));
@@ -61,6 +61,6 @@ async function run(d,hash){return api('/api/releases','POST',{op:'rehearse',id:d
  const large=await create('Bounded rehearsal');const limited=await run(large);assert.equal(limited.status,'failed');assert.equal(live.prepare('SELECT count(*) n FROM t_rehearsal_large').get().n,2001);assert.ok(!fs.readdirSync(path.join(path.dirname(dbPath),'.app-releases',large.id)).some(n=>n.startsWith('rehearsal-')));
  const role=await api('/api/users','POST',{op:'create_role',label:'Rehearsal denied',builder:false,tables:{},actions:[]});await api('/api/users','POST',{op:'create_user',name:'Rehearsal staff',email:'rehearsal-staff@example.test',password:'SyntheticPassword123',role:role.name,active:true});
  const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'rehearsal-staff@example.test',password:'SyntheticPassword123'})});assert.equal(login.status,200);const staff=login.headers.get('set-cookie').split(';')[0];await api('/api/releases','POST',{op:'rehearse',id:fresh.id,rehearsal_hash:staleHash},staff,403);
- console.log('PASS latest-row snapshot, zero experimental data, schema/data preservation, private aggregate reports, failed/blocked states, stale plans/data, authentication/CSRF, UI and scratch cleanup');
+ console.log('PASS latest-row snapshot, independent new-table seed data, schema/data preservation, private aggregate reports, failed/blocked states, stale plans/data, authentication/CSRF, UI and scratch cleanup');
  }finally{live.close();await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

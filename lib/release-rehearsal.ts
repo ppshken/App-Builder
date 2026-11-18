@@ -1,3 +1,6 @@
+import {importReleaseSeedData,type ReleaseSeedData,type SeedSummary} from './release-seed-data';
+import {assertPartValues} from './part-validation';
+import {assertPartSchema} from './part-of-config';
 import {createHash} from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {mergeReleaseCatalogScope,type ReleaseCatalog,type ReleasePlan} from './release-plan';
@@ -10,7 +13,7 @@ import {installRealtimeTriggers} from './realtime-schema';
 import {currentDevelopment} from './development-context';
 import {verifyDevelopment} from './development-workspace';
 // Bump when the schema executor or its safety contract changes; old rehearsal proofs must expire.
-export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-16-v5-app-scope';
+export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-18-v6-child-seed';
 export const REHEARSAL_SAMPLE_ROWS=100;
 export const REHEARSAL_SAMPLE_LIMIT=1000;
 // Deterministic head/tail samples; keep the complete database for Ref/formula accuracy.
@@ -20,25 +23,27 @@ export function rehearsalRows(table:string,limit?:number,fields='*'){
 }
 export const PUBLICATION_VALIDATION_LIMIT=2000;
 /** Evaluates existing formulas without persisting calculated values or exposing row values. */
-export type ReleaseRowIssue={table:string;tableLabel:string;column:string|null;columnLabel:string;kind:'calculation'|'required'|'validation'|'unknown';count:number};
+export type ReleaseRowIssue={table:string;tableLabel:string;column:string|null;columnLabel:string;kind:'calculation'|'required'|'validation'|'related'|'unknown';count:number};
 export function validateReleaseRows(database:Database.Database,names:string[],options:{limit:number;deadline:number;email:string;now:Date;checkpoint?:(checked:number)=>void;collectIssues?:boolean;samplePerTable?:number}){
  let checked=0,invalid=0,omittedIssueRows=0;const issues=new Map<string,ReleaseRowIssue>();
  for(const table of [...new Set(names)].sort()){
   assertIdentifier(table);const cols=readColumns(database,table);
   const tableLabel=options.collectIssues?String((database.prepare('SELECT label FROM _tables WHERE name=?').get(table) as {label:string}|undefined)?.label||table):table;
-  const record=(column:string|null,kind:ReleaseRowIssue['kind'])=>{if(!options.collectIssues)return;const key=JSON.stringify([table,column,kind]),existing=issues.get(key);if(existing){existing.count++;return;}if(issues.size>=200){omittedIssueRows++;return;}issues.set(key,{table,tableLabel,column,columnLabel:cols.find(c=>c.name===column)?.label||column||'ไม่สามารถระบุคอลัมน์',kind,count:1});};
+  const record=(column:string|null,kind:ReleaseRowIssue['kind'],label?:string)=>{if(!options.collectIssues)return;const key=JSON.stringify([table,column,kind]),existing=issues.get(key);if(existing){existing.count++;return;}if(issues.size>=200){omittedIssueRows++;return;}issues.set(key,{table,tableLabel,column,columnLabel:label||cols.find(c=>c.name===column)?.label||column||'ไม่สามารถระบุคอลัมน์',kind,count:1});};
+  const parts=(database.prepare("SELECT table_name,name FROM _columns WHERE type='ref' AND is_virtual=0 AND ref_table=? AND (related_required=1 OR (is_part_of=1 AND part_valid_if IS NOT NULL AND part_valid_if<>''))").all(table) as {table_name:string;name:string}[]).map(p=>{assertIdentifier(p.table_name);assertIdentifier(p.name);return {table:p.table_name,link:readColumns(database,p.table_name).find(c=>c.name===p.name)!,query:database.prepare('SELECT id FROM "t_'+p.table_name+'" WHERE "'+p.name+'"=? ORDER BY id')};});
   const context=expressionContext(options.now,options.email,database),query=rehearsalRows(table,options.samplePerTable===undefined?undefined:Math.min(options.samplePerTable,Math.max(0,options.limit-checked)));
   for(const raw of database.prepare(query.sql).iterate(...query.args) as Iterable<Record<string,unknown>>){
    if(++checked>options.limit||Date.now()>options.deadline)throw Error('ข้อมูลเกินขีดจำกัดการตรวจสูตร กรุณาแบ่งแผนเผยแพร่');
    if(checked%100===0)options.checkpoint?.(checked);
    try{
-    const calculated=calculateRow(cols,raw,false,options.now,false,options.email,context),column=Object.keys(calculated.errors)[0];
-    if(column){invalid++;record(column,'calculation');}
+    let rowInvalid=false;const calculated=calculateRow(cols,raw,false,options.now,false,options.email,context),column=Object.keys(calculated.errors)[0];
+    if(column){rowInvalid=true;invalid++;record(column,'calculation');}
     else if(options.collectIssues){
      // Same first-error order as validateRow; never persist exception text or row values.
      const state=formState(cols,calculated.row,options.now,options.email,context),error=Object.keys(state.errors)[0],validation=Object.keys(state.validation)[0];
-     if(error||validation){invalid++;const name=error||validation;record(name,error?'calculation':state.required[name]&&isBlank(state.row[name])?'required':'validation');}
+     if(error||validation){rowInvalid=true;invalid++;const name=error||validation;record(name,error?'calculation':state.required[name]&&isBlank(state.row[name])?'required':'validation');}
     }else validateRow(cols,calculated.row,options.now,options.email,context);
+    if(!rowInvalid)for(const part of parts){try{const ids=(part.query.all(raw.id as number) as {id:number}[]).map(r=>r.id);assertPartValues(part.link,part.table,ids,calculated.row,cols,context,options.email);}catch{invalid++;record('Related_'+part.table,'related','รายการลูก · '+part.table+' · '+part.link.label);break;}}
    }catch{
     invalid++;
     if(options.collectIssues){
@@ -53,7 +58,7 @@ export function validateReleaseRows(database:Database.Database,names:string[],op
  options.checkpoint?.(checked);return {checked,invalid,...(options.collectIssues?{issues:[...issues.values()],omittedIssueRows}:{})};
 }
 
-export type RehearsalResult={id:string;workspaceId:string;appId:string;status:'passed'|'failed'|'blocked';createdAt:number;expiresAt:number;durationMs:number;planHash:string;dataHash?:string;tables:{table:string;before:number;after:number;checked?:number}[];checks:{code:string;passed:boolean;count?:number}[];rowIssues?:ReleaseRowIssue[];omittedIssueRows?:number;reasons:string[];publishAllowed:false;coverage?:{mode:"sample"|"full";checked:number;total:number;perTableLimit?:number;foreignKeysChecked:boolean}};
+export type RehearsalResult={id:string;workspaceId:string;appId:string;status:'passed'|'failed'|'blocked';createdAt:number;expiresAt:number;durationMs:number;planHash:string;dataHash?:string;tables:{table:string;before:number;after:number;checked?:number}[];checks:{code:string;passed:boolean;count?:number}[];seedData?:SeedSummary[];rowIssues?:ReleaseRowIssue[];omittedIssueRows?:number;reasons:string[];publishAllowed:false;coverage?:{mode:"sample"|"full";checked:number;total:number;perTableLimit?:number;foreignKeysChecked:boolean}};
 export function rehearsalEligibility(plan:Pick<ReleasePlan,'appId'|'operations'|'conflicts'|'summary'>&Partial<Pick<ReleasePlan,'blockers'>>,live:ReleaseCatalog,next:ReleaseCatalog){
  const reasons:string[]=[];
  if(plan.summary.liveChanged||plan.conflicts.length||plan.blockers?.some(b=>['LIVE_CHANGED','CONFLICT'].includes(b.code)))reasons.push('การตั้งค่าจริงเปลี่ยนหรือมีข้อขัดแย้ง กรุณาสร้างพื้นที่พัฒนาใหม่');
@@ -89,23 +94,24 @@ export function dataFingerprint(database:Database.Database,names:string[],limit=
  checkpoint?.(total);return {hash:digest.digest('hex'),tables};
 }
 /** Only a verified development copy can reach DDL. No SQL or row values come from the client. */
-export function applyRehearsalSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void){
+export function applyRehearsalSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void,seed?:ReleaseSeedData){
  const context=currentDevelopment();
  if(!context||database.name!==context.databaseFile)throw Error('การซ้อมต้องใช้ฐานข้อมูลสำเนาที่ตรวจสอบแล้ว');
  verifyDevelopment(database,context.id,context.sourceAppId);
  if(context.sourceAppId!==plan.appId)throw Error('แอปของแผนซ้อมไม่ตรงกัน');
- return applyAdditiveSchema(database,plan,live,desired,applyConfiguration);
+ return applyAdditiveSchema(database,plan,live,desired,applyConfiguration,seed);
 }
-export function applyPublicationSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void){
+export function applyPublicationSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void,seed?:ReleaseSeedData){
  if(!database.inTransaction||currentDevelopment())throw Error('การเผยแพร่ต้องอยู่ในธุรกรรมที่ยืนยันแล้ว');
- return applyAdditiveSchema(database,plan,live,desired,applyConfiguration);
+ return applyAdditiveSchema(database,plan,live,desired,applyConfiguration,seed);
 }
-function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void){
+function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:ReleaseCatalog,desired:ReleaseCatalog,applyConfiguration:(catalog:ReleaseCatalog)=>void,seed?:ReleaseSeedData){
  const reasons=rehearsalEligibility(plan,live,desired);if(reasons.length)throw Error(reasons.join(' · '));
  const tableNames=Object.entries(currentApplication()?.datasets||{}).filter(([,r])=>r.read).map(([name])=>name);
  const next=mergeReleaseCatalogScope(plan.appId,live,desired,tableNames),created=new Set(plan.operations.filter(o=>o.kind==='create_table').map(o=>o.table!));
  const insert=(name:string,row:Record<string,unknown>)=>{const keys=Object.keys(row);for(const key of keys)if(!/^[a-z][a-z0-9_]*$/.test(key))throw Error('ชื่อคุณสมบัติไม่ถูกต้อง');return database.prepare('INSERT INTO '+name+'('+keys.map(k=>'"'+k+'"').join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').run(...keys.map(k=>row[k]));};
  database.transaction(()=>{
+  assertPartSchema(Object.fromEntries(next._tables.map(t=>[String(t.name),next._columns.filter(c=>c.table_name===t.name) as unknown as Column[]])));
   // Reserve all table metadata first so mutually referencing new tables can be checked together.
   for(const name of created){assertIdentifier(name);insert('_tables',next._tables.find(t=>t.name===name)!);}
   for(const op of plan.operations.filter(o=>o.kind==='create_column')){
@@ -116,6 +122,8 @@ function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:Re
   for(const op of plan.operations.filter(o=>o.kind==='create_column'&&!created.has(o.table!))){const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;assertIdentifier(op.table);if(!c.is_virtual)database.exec('ALTER TABLE "t_'+op.table+'" ADD COLUMN '+columnDefinition(c as unknown as Column));}
   for(const name of created){syncKeyIndex(database,name);installRealtimeTriggers(database,name);}
   for(const op of plan.operations.filter(o=>o.kind==='create_column'&&!created.has(o.table!))){const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;if(c.type==='ref'&&!c.is_virtual)database.exec('CREATE INDEX IF NOT EXISTS "_ref_'+op.table+'_'+c.name+'" ON "t_'+op.table+'"("'+c.name+'")');}
+  if(seed){database.pragma('defer_foreign_keys=ON');importReleaseSeedData(database,seed,plan);}
   applyConfiguration(next);
+  if(seed&&(database.pragma('foreign_key_check') as unknown[]).length)throw Error('ข้อมูลตารางใหม่อ้างอิงไม่ครบ ยกเลิกการเผยแพร่');
  })();
 }

@@ -1,3 +1,4 @@
+import {formSubmission} from './form-submission';
 import {resolveImageFolder,imagePathIsExpression} from "./media-settings";
 import {expressionContext} from "./expression-context";
 import {calculateRow,refTablesOf} from "./columns";
@@ -16,8 +17,8 @@ import {mediaReferences} from './media-inventory';
 import {FORM_IMAGE_TOKEN,MAX_FORM_IMAGE_BYTES,MAX_FORM_IMAGE_COUNT,type FormImageDescriptor} from './form-image-protocol';
 
 export type FormImageUpload=FormImageDescriptor&{bytes:Buffer;originalName?:string};
-export function saveFormWithImages(table:string,values:Record<string,any>,id:number|undefined,view:string|null,email:string,images:FormImageUpload[],storagePath=databasePath){
-  if(!images.length)return saveFormRecord(table,values,id,view,email);
+export function saveFormWithImages(table:string,values:Record<string,any>,id:number|undefined,view:string|null,email:string,images:FormImageUpload[],storagePath=databasePath,submissionKey?:string){
+  if(!images.length)return submissionKey&&!id?db.transaction(()=>formSubmission(table,view,email,values,images,submissionKey,()=>saveFormRecord(table,values,id,view,email))).immediate():saveFormRecord(table,values,id,view,email);
   const user=currentUser();if(!user)throw new AuthError('กรุณาเข้าสู่ระบบก่อนบันทึกรูป',401);
   if(images.length>MAX_FORM_IMAGE_COUNT||images.reduce((sum,image)=>sum+image.bytes.length,0)>MAX_FORM_IMAGE_BYTES)throw new AuthError('รูปทั้งหมดในฟอร์มต้องไม่เกิน 200 รูป และรวมกันไม่เกิน 50 MB',413);
   const settings=readAppSettings(),placements=new Map<string,{table:string;column:string}[]>(),seen=new Set<string>();
@@ -56,7 +57,7 @@ export function saveFormWithImages(table:string,values:Record<string,any>,id:num
   const copies=new Map<string,ReturnType<typeof copyImageFile>>(),unused=new Set<string>();
   const discard=(copy:ReturnType<typeof copyImageFile>)=>{try{copy.discard();}catch{console.error('Could not remove an unused form image copy');}};
   function replace(value:any):any{if(typeof value==='string')return mapping[value]||value;if(Array.isArray(value))return value.map(replace);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>key!=='__display').map(([key,item])=>[key,replace(item)]));return value;}
-  try{const result=db.transaction(()=>{
+  try{const result=db.transaction(()=>formSubmission(table,view,email,values,images,id?undefined:submissionKey,()=>{
     for(const image of prepared){
       db.prepare('INSERT INTO _images(id,mime,data,storage_path) VALUES(?,?,?,?)').run(image.id,image.mime,image.bytes,'');
       db.prepare('INSERT INTO _image_uploads(image_id,user_id) VALUES(?,?)').run(image.id,user.id);
@@ -86,7 +87,7 @@ export function saveFormWithImages(table:string,values:Record<string,any>,id:num
       db.prepare('UPDATE _images SET storage_path=? WHERE id=?').run(copy.relative,image.id);recordMediaLocation(db,'image',image.id,image.folder,image.originalName||image.id,copy.relative);
     }
     return {...saved,image_urls:mapping};
-  }).immediate();
+  })).immediate();
     return result;
   }catch(error){for(const copy of copies.values())discard(copy);throw error;}
 }

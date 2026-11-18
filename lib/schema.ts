@@ -1,3 +1,4 @@
+import {FORM_SUBMISSION_SCHEMA} from './form-submission-schema';
 import {PUSH_SCHEMA} from "./push-schema";
 import {installReleaseRevisionTracking} from './release-data-revisions';
 import {SHARED_TABLE_SCHEMA} from './shared-table-schema';
@@ -77,7 +78,7 @@ export function syncKeyIndex(db: Database.Database, table: string) {
 }
 export function createDefaultViews(db: Database.Database, table: string, label: string) {
   installRealtimeTriggers(db,table);
-  for (const [kind, position, suffix] of [["list", "primary", ""], ["detail", "ref", " · รายละเอียด"], ["form", "ref", " · ฟอร์ม"]]) {
+  for (const [kind, position, suffix] of [["table", "primary", ""], ["detail", "ref", " · รายละเอียด"], ["form", "ref", " · ฟอร์ม"]]) {
     if(kind==="form"&&externalTable(db,table))continue;
     let i = 1; while (db.prepare("SELECT 1 FROM _views WHERE name=?").get(`view_${i}`)) i++;
     const provenance=(db.pragma("table_info('_views')") as {name:string}[]).some(c=>c.name==="system_generated");
@@ -229,6 +230,7 @@ export function initializeDatabase(db: Database.Database, path: string) {
   db.exec("CREATE TABLE IF NOT EXISTS _app_versions(id TEXT PRIMARY KEY,owner INTEGER NOT NULL,label TEXT NOT NULL,created_at INTEGER NOT NULL,config_json TEXT NOT NULL,before_json TEXT NOT NULL)");
   db.exec("CREATE INDEX IF NOT EXISTS _automation_actor_activity ON _automation_jobs(actor_id,updated_at)");
   db.exec(BULK_ACTION_SCHEMA);
+  db.exec(FORM_SUBMISSION_SCHEMA);
   db.exec(AUDIT_SCHEMA);if(needUsageError)db.exec("ALTER TABLE _app_usage ADD COLUMN error_detail TEXT NOT NULL DEFAULT ''");db.exec(PUSH_SCHEMA);
   for(const name of missingUsageFields)db.exec('ALTER TABLE _app_usage ADD COLUMN '+name+(name==='request_json'?" TEXT NOT NULL DEFAULT ''":' REAL'));
   if(!(db.pragma("table_info('_media_catalog')") as {name:string}[]).some(c=>c.name==='published'))db.exec('ALTER TABLE _media_catalog ADD COLUMN published INTEGER NOT NULL DEFAULT 0 CHECK(published IN(0,1))');

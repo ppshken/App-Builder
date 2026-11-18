@@ -1,3 +1,4 @@
+import {FORM_SUBMISSION_HEADER,type FormSubmission} from './form-submission-client';
 import {createUuid} from './uuid';
 import {MAX_FORM_IMAGE_BYTES,MAX_FORM_IMAGE_COUNT,type FormImageDescriptor} from './form-image-protocol';
 
@@ -45,8 +46,13 @@ export function createPendingImages(urls:Pick<typeof URL,'createObjectURL'|'revo
 }
 export type PendingImages=ReturnType<typeof createPendingImages>;
 
-export async function submitFormWithImages(url:string,method:string,values:Record<string,any>,headers:HeadersInit,store:PendingImages):Promise<Response>{
+export async function submitFormWithImages(url:string,method:string,values:Record<string,any>,headers:HeadersInit,store:PendingImages,submission?:FormSubmission):Promise<Response>{
   const prepared=store.prepare(values),requestHeaders=new Headers(headers);
+  if(method==='POST'&&submission){
+    if(!submission.context){const defaults=await fetch(url.split('?')[0]+'?defaults=1',{headers:requestHeaders,cache:'no-store'}),result=await defaults.json();if(!defaults.ok)throw Error(result.error||'โหลดบริบทฟอร์มไม่สำเร็จ');submission.context=result.submission_context;}
+    if(!submission.context)throw Error('กรุณาโหลดฟอร์มใหม่ก่อนบันทึก');
+    submission.key??=submission.context+'.'+createUuid();requestHeaders.set(FORM_SUBMISSION_HEADER,submission.key);
+  }
   let body:BodyInit;
   if(prepared.images.length){const form=new FormData();form.append('values',JSON.stringify(prepared.values));form.append('images',JSON.stringify(prepared.images.map(({token,table,column})=>({token,table,column}))));prepared.images.forEach((image,index)=>form.append('file_'+index,image.file!));requestHeaders.delete('Content-Type');body=form;}
   else{requestHeaders.set('Content-Type','application/json');body=JSON.stringify(prepared.values);}

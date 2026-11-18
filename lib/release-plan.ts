@@ -90,7 +90,7 @@ export function analyzeReleasePlan(baseline:ReleaseCatalog,live:ReleaseCatalog,d
       const structural=collection==='_tables'&&(!base||!desired||localFields.some(field=>['owner_app_id','source_kind','source_id'].includes(field)))||collection==='_columns'&&(!base||!desired||localFields.some(field=>structuralFields.has(field)));
       const category:ReleaseOperation['category']=structural?'schema':collection==='_table_overlays'?'shared':'configuration';
       const kind=collection==='_tables'&&!base?'create_table':collection==='_tables'&&!desired?'delete_table':collection==='_columns'&&!base?'create_column':collection==='_columns'&&!desired?'delete_column':structural?(collection==='_tables'?'alter_table':'alter_column'):!base?'create_configuration':!desired?'delete_configuration':'update_configuration';
-      const dataValidation=structural||collection==='_columns'&&localFields.some(f=>['required','required_if','valid_if','default_expr','virtual_expr','reset_on_edit','reset_columns'].includes(f));
+      const dataValidation=structural||collection==='_columns'&&localFields.some(f=>['required','required_if','valid_if','default_expr','virtual_expr','reset_on_edit','reset_columns','is_part_of','related_required','part_valid_if','part_show_if','part_add_if'].includes(f));
       const impacts:string[]=[];
       if(structural)impacts.push(['create_table','create_column'].includes(kind)?'เพิ่มโครงสร้างใหม่ ต้องซ้อมกับข้อมูลล่าสุดและยืนยันผลกระทบก่อนเผยแพร่':'เปลี่ยนโครงสร้างหรือรหัสคอลัมน์ ยังไม่รองรับการเผยแพร่การเปลี่ยนนี้');
       if(structural&&table&&shared.has(table))impacts.push('ตารางใช้ร่วมกับแอปอื่น ต้องตรวจผลกระทบทุกแอปและสิทธิ์เจ้าของก่อนเปลี่ยนโครงสร้าง');

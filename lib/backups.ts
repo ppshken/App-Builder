@@ -27,7 +27,7 @@ import {DEFAULT_SETTINGS,validateSettings} from "./app-settings";
 import {validateDisplay} from "./view-display";
 import {migrateListReferences,assertStoredListReferences} from "./list-reference-migration";
 
-const META = ["_release_data_versions","_table_shares","_table_overlays","_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
+const META = ["_form_submissions","_release_data_versions","_table_shares","_table_overlays","_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
 export type BackupInfo={name:string;size:number;created:string;reason:string};
@@ -78,7 +78,7 @@ export function inspectBackup(sourceFile:string,stageFile:string,current?:Databa
    for(const row of source.prepare(`SELECT * FROM "${name}"`).iterate() as Iterable<Record<string,any>>)insert.run(...selected.map(n=>row[n]));
   };
   foreignKeyTransaction(destination,()=>{
-   for(const name of META)if(!['_release_data_versions','_bulk_action_state','_bulk_action_runs'].includes(name))copyMeta(name); // Never restore execution receipts into a new data timeline.
+   for(const name of META)if(!['_form_submissions','_release_data_versions','_bulk_action_state','_bulk_action_runs'].includes(name))copyMeta(name); // Never restore execution receipts into a new data timeline.
    for(const id of restoreApplications(destination))createApplicationConfig(destination,id);
    for(const name of restoreConfigTables(destination))copyMeta(name);
    for(const name of AUTH_TABLES.filter(n=>!['_sessions','_auth_attempts'].includes(n)))copyMeta(name);

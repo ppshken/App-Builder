@@ -103,7 +103,7 @@ test('disconnect refuses owned tables and queued Automation jobs',()=>fixture((d
 }));
 test('disconnect protects notification/header View references and other app Builders',()=>fixture((d,id,run)=>{
  const {previewSharedDisconnect}=require('../.test-build/shared-table-disconnect'),{applicationTable}=require('../.test-build/application-context');run(id,()=>importSharedTable('shared_people'));
- const settings=applicationTable(id,'_app_settings'),header=JSON.parse(d.prepare('SELECT header_json FROM "'+settings+'"').get().header_json),view=d.prepare('SELECT name FROM "'+applicationTable(id,'_views')+'" WHERE kind=\'list\'').get().name;d.prepare('UPDATE "'+settings+'" SET header_json=?').run(JSON.stringify({...header,notifications_view:view}));
+ const settings=applicationTable(id,'_app_settings'),header=JSON.parse(d.prepare('SELECT header_json FROM "'+settings+'"').get().header_json),view=d.prepare('SELECT name FROM "'+applicationTable(id,'_views')+'" WHERE position=\'primary\'').get().name;d.prepare('UPDATE "'+settings+'" SET header_json=?').run(JSON.stringify({...header,notifications_view:view}));
  run(id,()=>{const preview=previewSharedDisconnect(['shared_people']);assert.equal(preview.allowed,false);assert.ok(preview.blockers.some(b=>b.kind==='settings'));});
  withApplication(applicationScopeFor(owner,id),()=>runAuthorized({id:42,name:'No management',email:'fixture42@example.test',role:'unknown'},{owner:false,builder:true,tables:{},actions:[]},()=>assert.throws(()=>previewSharedDisconnect(['shared_people']))));
 }));

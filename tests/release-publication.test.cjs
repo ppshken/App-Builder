@@ -55,3 +55,19 @@ test('publication revisions detect same/external connection writes, ignore unrel
  try{initializeDatabase(a,file);a.exec('CREATE TABLE t_fixture(id INTEGER PRIMARY KEY,value TEXT);CREATE TABLE noise(value TEXT)');installReleaseTrackingFor(a,'t_fixture');b=new D(file);let stamp=releaseRevisionStamp(a,['fixture']);a.exec("INSERT INTO noise VALUES('irrelevant')");assert.equal(releaseRevisionStamp(a,['fixture']),stamp);a.exec("INSERT INTO t_fixture VALUES(1,'one')");assert.notEqual(releaseRevisionStamp(a,['fixture']),stamp);stamp=releaseRevisionStamp(a,['fixture']);b.exec("UPDATE t_fixture SET value='two'");assert.notEqual(releaseRevisionStamp(a,['fixture']),stamp);stamp=releaseRevisionStamp(a,['fixture']);assert.throws(()=>a.transaction(()=>{a.exec("UPDATE t_fixture SET value='rolled back'");throw Error('rollback');})());assert.equal(releaseRevisionStamp(a,['fixture']),stamp);a.exec('DROP TRIGGER "'+releaseRevisionTriggers('t_fixture')[0].name+'"');assert.throws(()=>releaseRevisionStamp(a,['fixture']),/ติดตาม/);
  }finally{b?.close();a.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('publication supports child rules only with an owned unshared parent',()=>{
+ const next=structuredClone(base);next._tables.push({name:'children',owner_app_id:'app',source_kind:'INTERNAL_DATABASE'});next._columns.push({table_name:'children',name:'parent',type:'ref',ref_table:'orders',is_part_of:1,related_required:1,part_valid_if:'COUNT([_THIS]) = 2'});
+ const create={id:'_columns:new',kind:'create_column',category:'schema',table:'children',name:'parent',fields:[]};
+ assert.deepEqual(publicationBlockers(plan([create]),base,next,[],0),[]);
+ assert.ok(publicationBlockers(plan([create]),base,next,['orders'],0).length);
+ const previous=structuredClone(next);previous._columns[1].is_part_of=0;previous._columns[1].related_required=0;
+ const edit={...create,kind:'update_configuration',category:'configuration',fields:['is_part_of','related_required']};
+ assert.deepEqual(publicationBlockers(plan([edit]),previous,next,[],0),[]);
+ next._tables[0].owner_app_id='other';assert.ok(publicationBlockers(plan([edit]),previous,next,[],0).length);
+});
+
+test('new ordinary columns keep default disabled child flags without being rejected as child rules',()=>{
+ const next=structuredClone(base);next._columns.push({table_name:'orders',name:'note',type:'text',is_part_of:0,related_required:0});
+ assert.deepEqual(publicationBlockers(plan([{id:'_columns:new',kind:'create_column',category:'schema',table:'orders',name:'note',fields:['type','is_part_of','related_required']}]),base,next,[],0),[]);
+});

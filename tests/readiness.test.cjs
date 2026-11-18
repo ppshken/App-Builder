@@ -11,7 +11,7 @@ test('pre-publish checks report every formula, stale View fields and navigation 
  const d=readinessFixture(),{inspectApp}=require('../.test-build/readiness.js');try{withDatabase(d,()=>{
   assert.equal(inspectApp().errors,0);
   d.prepare("UPDATE _columns SET default_expr='[missing]' WHERE table_name='ready'").run();
-  d.prepare("UPDATE _views SET sort_column='gone' WHERE table_name='ready' AND kind='list'").run();
+  d.prepare("UPDATE _views SET sort_column='gone' WHERE table_name='ready' AND position='primary'").run();
   d.prepare("UPDATE _app_settings SET home_view='gone'").run();
   const before=d.serialize();const report=inspectApp(true);
   assert.equal(report.status,'blocked');assert(report.issues.filter(i=>i.kind==='formula').length>=2);
@@ -56,7 +56,7 @@ test('health checks exclude retained views and source configuration on unreadabl
   const datasets={ready:{read:false,create:false,update:false,delete:false},parents:{read:true,create:true,update:true,delete:true}},user={id:1,name:'Owner',email:'owner@example.test',role:'owner'};
   const inspect=()=>withApplication({id:'default',datasets},()=>runAuthorized(user,{owner:true,builder:true,tables:{},actions:[],datasets},()=>inspectApp()));
   const before=d.serialize(),report=inspect();assert.equal(report.errors,0);assert.equal(report.excluded.View,3);assert.equal(report.excluded.Action,1);assert.equal(report.excluded.Slice,1);assert.deepEqual(d.serialize(),before);
-  const hidden=d.prepare("SELECT name FROM _views WHERE table_name='ready' AND kind='list'").get().name;
+  const hidden=d.prepare("SELECT name FROM _views WHERE table_name='ready' AND position='primary'").get().name;
   d.prepare("INSERT INTO _actions(name,label,table_name,kind,config_json) VALUES('visible_link','Visible link','parents','open_view',?)").run(JSON.stringify({view_name:hidden}));
   assert(inspect().issues.some(i=>i.name==='visible_link'&&i.kind==='action'));
  });}finally{d.close();}

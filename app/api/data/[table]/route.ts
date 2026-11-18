@@ -1,3 +1,5 @@
+import {formSubmissionContext} from '@/lib/form-submission';
+import {FORM_SUBMISSION_HEADER} from '@/lib/form-submission-client';
 import {tableCreateEligibility,assertTableCreateAllowed} from '@/lib/table-create-guard';
 import {parseProjection,projectionColumns} from '@/lib/view-projection';
 import {rowVersion} from '@/lib/row-version';
@@ -48,7 +50,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const { row, errors } = calculateRow(defaultColumns, {}, true, now, true, userEmail, context);
       const firstError = defaultColumns.find(c => !c.is_virtual && errors[c.name]);
       if (firstError) throw new Error(`ค่าเริ่มต้นของ "${firstError.label}": ${errors[firstError.name]}`);
-      return NextResponse.json({ values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
+      return NextResponse.json({ submission_context:formSubmissionContext(userEmail),values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? 0 : row[c.name]])) });
     }
     return db.transaction(()=>{
     // Capture before synchronous reads: a later write must never be marked as covered.
@@ -114,7 +116,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     })();
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
 }
-async function handlePOST(req:Request,{params}:{params:{table:string}}){try{const submission=await readFormImageRequest(req);return NextResponse.json(saveFormWithImages(params.table,submission.values,undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req),submission.images));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
+async function handlePOST(req:Request,{params}:{params:{table:string}}){try{const submission=await readFormImageRequest(req);return NextResponse.json(saveFormWithImages(params.table,submission.values,undefined,new URL(req.url).searchParams.get("form_view"),previewEmail(req),submission.images,undefined,req.headers.get(FORM_SUBMISSION_HEADER)||undefined));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
 async function handlePUT(req:Request,{params}:{params:{table:string}}){try{const id=new URL(req.url).searchParams.get("id");if(!id||!/^[1-9]\d*$/.test(id))return bad("ไม่พบข้อมูล",404);const submission=await readFormImageRequest(req);return NextResponse.json(saveFormWithImages(params.table,submission.values,Number(id),new URL(req.url).searchParams.get("form_view"),previewEmail(req),submission.images));}catch(e){return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e));}}
 async function handleDELETE(req: Request, { params }: { params: { table: string } }) {
   const t = params.table, id = new URL(req.url).searchParams.get("id");

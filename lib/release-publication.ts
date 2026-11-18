@@ -1,3 +1,4 @@
+import {releaseSeedData} from './release-seed-data';
 import {releaseRevisionTriggers,releaseTrackedGlobals} from './release-data-revisions';
 import type Database from 'better-sqlite3';
 import {publicationDataStamp,validatePublicationInWorker,PublicationValidationError} from './publication-validation';
@@ -55,7 +56,7 @@ export function publicationReview(id:string,owner:number,verified?:RehearsalResu
  if(untrustedMetadataTrigger(platformDatabase()))blockers.push('พบ Trigger นอกระบบในตารางตั้งค่า กรุณาตรวจก่อนเผยแพร่');
  const permissions={datasets:app.datasets,auto,builders:db.prepare('SELECT user_id FROM _application_builders WHERE app_id=? ORDER BY user_id').all(app.id),roles:db.prepare('SELECT * FROM _application_local_roles WHERE app_id=? ORDER BY name').all(app.id),grants:['_roles','_role_tables','_role_actions','_role_row_rules'].map(t=>db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()),localGrants:['_application_role_tables','_application_role_actions','_application_role_rows'].map(t=>db.prepare('SELECT * FROM '+t+' WHERE app_id=? ORDER BY rowid').all(app.id))};
  const intentHash=hash({workspace:id,app:app.id,owner,planHash,reviewHash:review.review_hash,physical:physical(platformDatabase()),permissions});
- return {eligible:!blockers.length,blockers:[...new Set(blockers)],intentHash,rehearsalId,planHash,reviewHash:review.review_hash,validatesRows,validationLimit:1000000,automaticGrants,committed:null};
+ return {eligible:!blockers.length,blockers:[...new Set(blockers)],intentHash,rehearsalId,planHash,reviewHash:review.review_hash,validatesRows,validationLimit:1000000,automaticGrants,seedData:review.seedData?.tables,committed:null};
 }
 export async function publishDevelopment(id:string,owner:number,intent:string,reauth:()=>AuthUser|null,aborted:()=>boolean,automaticGrantsAck=false){
  const appId=currentApplication()!.id,done=committed(id,owner,intent);if(done)return done;
@@ -91,14 +92,15 @@ export async function publishDevelopment(id:string,owner:number,intent:string,re
     if(verifiedStamp&&publicationDataStamp(raw,stampTables)!==verifiedStamp)throw new AuthError('มีข้อมูลเปลี่ยนก่อน commit กรุณากดเผยแพร่อีกครั้งเพื่อตรวจล่าสุด',409);
     assertPublicationLease(journal,attempt!);const already=committed(id,owner,intent);if(already){finishPublication(journal,attempt!,'committed',backup);return already;}
     const fresh=publicationReview(id,owner,verifiedResult);if(!fresh.eligible||fresh.intentHash!==intent)throw new AuthError('การตั้งค่า โครงสร้าง หรือสิทธิ์เปลี่ยนระหว่างสำรอง ยกเลิกการเผยแพร่',409);
-    const before=catalog(),review=draftDiff(id,owner),desired=catalog(opened);if(hash(desired)!==fresh.reviewHash)throw new AuthError('พื้นที่พัฒนาเปลี่ยนระหว่างเผยแพร่ กรุณาตรวจใหม่',409);
+    const before=catalog(),review=draftDiff(id,owner),desired=catalog(opened),seed=releaseSeedData(opened,review.plan,before,desired);
+   if(seed.hash!==review.seedData?.hash)throw new AuthError('ข้อมูลตารางใหม่เปลี่ยน กรุณาตรวจและซ้อมใหม่',409);if(hash(desired)!==fresh.reviewHash)throw new AuthError('พื้นที่พัฒนาเปลี่ยนระหว่างเผยแพร่ กรุณาตรวจใหม่',409);
     const extra=review.plan.operations.filter(o=>o.kind==='create_table').map(o=>o.table!);const scoped={...latestApplication,datasets:{...latestApplication.datasets}};for(const table of extra)scoped.datasets[table]={read:true,create:true,update:true,delete:true,export:true};
     const receipt:Receipt={kind:'additive-v1',executor_version:RELEASE_EXECUTOR_VERSION,plan_hash:fresh.planHash!,attempt_id:attempt!.id,intent_hash:intent,backup:backup!,rehearsal_id:initial.rehearsalId!,validation_id:validationId,published_at:Date.now()};let saved:ReleaseCatalog|undefined;
     withApplication(scoped,()=>runAuthorized(latestActor,accessFor(latestActor),()=>applyPublicationSchema(raw,review.plan,before,desired,next=>{
      applyReleaseCatalog(next,true);
 
      saved=next;
-    })));
+    },seed)));
     assertPublicationLease(journal,attempt!);db.prepare('INSERT INTO _app_versions(id,owner,label,created_at,config_json,before_json) VALUES(?,?,?,?,?,?)').run(id,owner,review.manifest.label,receipt.published_at,JSON.stringify({...saved,_publication:[receipt]}),JSON.stringify(before));
     return {status:'committed' as const,versionId:id,backup:backup!,publishedAt:receipt.published_at,replayed:false};
     }));
