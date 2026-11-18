@@ -12494,6 +12494,19 @@ body:has(.runtime-app:not(.runtime-desktop)) {
 .action-column-expression .formula-code-editor {
   min-height: 42px;
 }
+.action-column-expression .formula-code-editor textarea.formula-code-textarea {
+  height: calc(5 * 1.45em + 20px);
+  max-height: calc(5 * 1.45em + 20px);
+  overflow-y: auto;
+}
+.action-column-expression .formula-code-gutter {
+  position: relative;
+  min-height: 0;
+}
+.action-column-expression .formula-code-gutter > div {
+  position: absolute;
+  inset: 0 0 auto;
+}
 .action-column-step .field {
   margin: 0;
 }
@@ -15819,6 +15832,10 @@ textarea::placeholder {
 .columns-settings-header .column-grid-help {
   margin: 0 0 7px;
   font-size: calc(11px * var(--font-scale, 1));
+}
+.columns-settings-page .virtual-column-row button[aria-label^="แก้ไขคอลัมน์ "] svg,
+.columns-settings-page .virtual-column-row button[aria-label^="ตั้งค่าคอลัมน์ร่วม "] svg {
+  color: var(--accent);
 }
 .related-formula-reference {
   display: flex;

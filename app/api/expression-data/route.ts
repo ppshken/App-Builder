@@ -28,12 +28,12 @@ async function handleGET(req: Request) {
       for (const a of db.prepare("SELECT condition_expr,values_json,config_json FROM _actions WHERE table_name=?").all(table) as {condition_expr:string;values_json:string;config_json:string}[]) sources.push(a.condition_expr,...(fields?[]:[...actionConfigExpressions(JSON.parse(a.config_json||"{}")), ...Object.values(JSON.parse(a.values_json)) as string[]]));
       for (const s of db.prepare("SELECT filter_expr FROM _slices WHERE table_name=?"+(fields?" AND name=?":"")).all(...(fields?[table,u.searchParams.get("slice")||""]:[table])) as {filter_expr:string}[]) sources.push(s.filter_expr);
     }
-    let relatedScope:{ownerTable:string;parentIds:number[];deferBlank?:boolean}|undefined;
+    let relatedScope:{ownerTable:string;parentIds:number[];deferBlank?:boolean;referenceOnly?:boolean}|undefined;
     const parentIds=u.searchParams.get('related_parent_ids');
     if(parentIds!==null){
       const ids=JSON.parse(parentIds);if(!table||!Array.isArray(ids)||ids.length>500||ids.some(id=>!Number.isSafeInteger(id)||id<1))return bad('Related ต้องระบุรหัสแถวแม่ไม่เกิน 500 รายการ');
       const raw=db.prepare('SELECT * FROM "t_'+table+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(ids)) as Record<string,any>[];
-      relatedScope={ownerTable:table,parentIds:visibleRawRows(table,raw).map(r=>Number(r.id)),deferBlank:ids.length>0||u.searchParams.get("display")==="1"};
+      relatedScope={ownerTable:table,parentIds:visibleRawRows(table,raw).map(r=>Number(r.id)),deferBlank:ids.length>0||u.searchParams.get("display")==="1",referenceOnly:u.searchParams.get("display")==="1"&&u.searchParams.get("ref_scope")==="1"};
     }
     const snapshot=(extras:string[])=>expressionContext(new Date(),userEmail.toLowerCase()).snapshot([...sources,...extras],table?columnsOf(table):[],source===null,relatedScope);
     try{return NextResponse.json(snapshot(additional));}catch(error){if(!additional.length)throw error;return NextResponse.json(snapshot([]),{headers:{"X-Nocode-Optional-Expressions-Skipped":"1"}});}

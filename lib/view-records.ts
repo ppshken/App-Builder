@@ -1,11 +1,15 @@
 import {externalTable} from './external-storage';
 import {rowVersion} from "./row-version";
 import {db} from './db';import {labelTextColumn,labelImageColumn,calculateRow,Column} from './columns';import {visibleRawRows,rowAllowed} from './row-access';import {expressionContext} from './expression-context';import {listPage} from './lists';type Row=Record<string,any>;
-export function readRows(table: string, cols: Column[], now: Date, userEmail = "", context = expressionContext(now, userEmail), rawRows?: Row[],projection?:{allColumns:Column[]}): Row[] {
+export type PreparedReadRow=ReturnType<typeof calculateRow>;
+export function readRows(table: string, cols: Column[], now: Date, userEmail = "", context = expressionContext(now, userEmail), rawRows?: Row[],projection?:{allColumns:Column[]},prepared?:ReadonlyMap<number,PreparedReadRow>): Row[] {
   const readonly=externalTable(db,table);
   const metadata=projection?.allColumns||cols,label = labelTextColumn(metadata),image=labelImageColumn(metadata);
   return visibleRawRows(table,rawRows ?? db.prepare(`SELECT * FROM "t_${table}"`).all() as Row[]).map(raw => {
-    const { row, errors } = calculateRow(cols, raw, false, now, true, userEmail, context);
+    const prior=prepared?.get(Number(raw.id)),seed=prior?Object.fromEntries(cols.filter(c=>c.is_virtual&&Object.hasOwn(prior.row,c.name)).map(c=>[c.name,prior.row[c.name]])):undefined;
+    const calculationColumns=seed?cols.map(c=>Object.hasOwn(seed,c.name)?{...c,is_virtual:0}:c):cols;
+    const { row, errors } = calculateRow(calculationColumns, seed?{...raw,...seed}:raw, false, now, true, userEmail, context);
+    if(prior)for(const [name,error]of Object.entries(prior.errors))if(cols.some(c=>c.name===name))errors[name]=error;
     for (const c of cols.filter(c=>c.type === "list" && c.ref_table)) {
       try { row[`${c.name}__labels`] = listPage(c.ref_table!,new URLSearchParams({limit:String(c.list_limit ?? 5)}),userEmail,row[c.name] || []).rows.map(r=>r.label); }
       catch(e) { errors[c.name]=(e as Error).message; }

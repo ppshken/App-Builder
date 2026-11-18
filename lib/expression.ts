@@ -330,10 +330,10 @@ export function renameReference(source: string, oldName: string, newName: string
 const parsedCache = new Map<string, Node>();
 // Formatting rules are fixed; values are still evaluated with this call's clock.
 const bangkokDateFormatter = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
-export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
+export type ExpressionTable = { columns: string[]; key: string; rows: Record<string, Value>[]; labels: Record<string, string>; labelImages?:Record<string,string>; refs?: Record<string, string>; relatedRefs?: Record<string, string>; reference_scope?:{ownerTable:string;parentIds:number[]};related_scope?:{ownerTable:string;parentIds:number[];refColumns?:string[];blankRefColumns?:string[]} };
 export type ExpressionUser = {userId?:number;userName?:string;userRole?:string;userRoleKey?:string;userSettings?:Record<string,Value>};
 export type RelatedReadScope = {ownerTable?:string;parentIds:(string|number)[];refColumn?:string;columns?:string[];includeBlank?:boolean};
-export type ExpressionContext = ExpressionUser & { getAggregate?:AggregateReader;metrics?:FormulaEvalMetrics;enableSelectMemo?:boolean; getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
+export type ExpressionContext = ExpressionUser & { getAggregate?:AggregateReader;metrics?:FormulaEvalMetrics;enableSelectMemo?:boolean; getEqualityRows?:(data:ExpressionTable,column:string,value:Value)=>Record<string,Value>[]|undefined; tableName?: string; columnTypes?:Record<string,string>;tables?: Record<string, ExpressionTable>; getReferenceTable?:(name:string,column:string,id:number)=>ExpressionTable;getTable?: (name: string, columns?: string[]) => ExpressionTable; getRelatedTable?: (name: string, column: string, scope?:RelatedReadScope) => ExpressionTable; getSelectTable?:(name:string,columns:string[],scope:RelatedReadScope)=>ExpressionTable|undefined; refTables?: Record<string, string> };
 export type ExpressionOptions = ExpressionContext & { now?: Date; resolve?: (name: string) => Value; userEmail?: string; referenceListTable?: string };
 export function evaluateExpression(source: string | Node, row: Record<string, Value> = {}, options: ExpressionOptions = {}): Value {
   let node: Node;
@@ -369,6 +369,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     const data = options.getTable ? options.getTable(name,columns) : options.tables && Object.hasOwn(options.tables, name) ? options.tables[name] : undefined;
     if (!data) fail(`ไม่พบข้อมูลตาราง ${name} กรุณาตรวจชื่อในระบบหรือโหลดข้อมูลใหม่`);
     if(data.related_scope&&!allowScoped)fail("ข้อมูลนี้มีเฉพาะ Related ของแถวแม่ ไม่ใช่ข้อมูลทั้งตาราง กรุณาโหลดสูตรใหม่");
+    if(data.reference_scope&&!allowScoped)fail("ข้อมูลนี้มีเฉพาะ Ref ของแถวที่แสดง ไม่ใช่ข้อมูลทั้งตาราง กรุณาโหลดสูตรใหม่");
     return data;
   }
   function tableValue(data: ExpressionTable, name: string, candidate: Record<string, Value>) {
@@ -382,6 +383,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
   function relatedDataset(n:Extract<Node,{kind:'related'}>,columns:string[],scope?:Scope){
     const owner=scope?.table||options.tableName,id=scope?scope.row.id:options.resolve?options.resolve('id'):row.id;
     const data=options.getRelatedTable?options.getRelatedTable(n.table,n.name,{ownerTable:owner,parentIds:typeof id==='number'||typeof id==='string'?[id]:[],refColumn:n.refColumn,columns}):dataset(n.table,columns,true);
+    if(data.reference_scope&&!data.related_scope)fail('ข้อมูล Ref ไม่ครอบคลุมรายการ Related กรุณาโหลดสูตรใหม่');
     if(data.related_scope&&owner&&owner!==data.related_scope.ownerTable)fail('ข้อมูล Related ไม่ตรงตารางแม่ กรุณาโหลดข้อมูลใหม่');
     if(data.related_scope&&!isBlank(id)&&!data.related_scope.parentIds.includes(Number(id)))fail('ข้อมูล Related ไม่ครอบคลุมแถวแม่ กรุณาโหลดข้อมูลใหม่');
     if(!data.columns.includes(n.name))fail('ไม่พบคอลัมน์ ['+n.name+'] ในตาราง '+n.table);
@@ -432,7 +434,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       const id = run({ kind: "column", name: n.column, start: n.refStart, end: n.refEnd }, scope);
       if (isBlank(id)) result = null;
       else {
-        const data = dataset(table,[n.name]);
+        const data = options.getReferenceTable?options.getReferenceTable(table,n.name,Number(id)):dataset(table,[n.name],true);
         if (!data.columns.includes(n.name)) fail(`ไม่พบคอลัมน์ [${n.name}] ในตาราง ${table}`);
         if(options.metrics&&options.getEqualityRows)options.metrics.indexLookups++;
         const target = options.getEqualityRows?.(data,"id",Number(id))?.find(r=>r.id===Number(id)) ?? data.rows.find(r => r.id === Number(id));

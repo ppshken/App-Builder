@@ -200,7 +200,7 @@ test('Related ORDERBY loads scoped sort fields and mixed whole-table snapshots n
 
 test('Scoped Related cache is request-local and bounded across many parent rows',()=>fixture(db=>{
  const original=db.prepare;let reads=0;db.prepare=function(sql){if(sql.includes('json_each(?)'))reads++;return original.call(this,sql);};
- try{const ctx={...expressionContext(now,'',db),tableName:'products'},formula='COUNT([Related_product_image])';assert.equal(evaluateExpression(formula,{id:7},ctx),1);const first=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,first);for(let id=100;id<400;id++)assert.equal(evaluateExpression(formula,{id},ctx),0);const before=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,before+1);}finally{db.prepare=original;}
+ try{const ctx={...expressionContext(now,'',db),tableName:'products'},formula='COUNT([Related_product_image])';assert.equal(evaluateExpression(formula,{id:7},ctx),1);const first=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,first);for(let id=100;id<1200;id++)assert.equal(evaluateExpression(formula,{id},ctx),0);const before=reads;assert.equal(evaluateExpression(formula,{id:7},ctx),1);assert.equal(reads,before+1);}finally{db.prepare=original;}
 }));
 
 test('SQL-scoped Related retains explicit Ref disambiguation and separates caches for each link',()=>fixture(db=>{

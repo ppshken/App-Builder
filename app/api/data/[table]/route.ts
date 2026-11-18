@@ -11,6 +11,7 @@ import {mapViewScope,scopedMapRows} from '@/lib/map-view-scope';
 import {viewFilterOptions} from '@/lib/view-filter-options';
 import {sqlPageWindow} from '@/lib/sql-page-window';
 import {sliceSql} from '@/lib/slice-sql';
+import {sliceMemoryPage} from '@/lib/slice-memory-page';
 import {saveFormWithImages} from '@/lib/form-images';
 import {readFormImageRequest} from '@/lib/form-image-request';
 import {deleteRecord} from "@/lib/delete-record";
@@ -84,8 +85,13 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     // safe Slice pushdown; permissions and the interpreter checks still run below.
     if(slicePlan&&rawRows===undefined)rawRows=db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'" WHERE '+slicePlan.where).all(...slicePlan.args) as Row[];
     if(selected&&rawRows===undefined)rawRows=db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'"').all() as Row[];
-    let rows = readRows(t, needed, now, userEmail, context,rawRows,selected?{allColumns:cols}:undefined);
-    if (slice) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
+    let memoryPage=false,prepared:ReturnType<typeof sliceMemoryPage>['prepared']|undefined;
+    if(paged&&!fast&&slice&&!mapScope&&!grouping&&!wanted&&!search){
+      const window=sliceMemoryPage(t,cols,slice.filter_expr,rawRows??db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'"').all() as Row[],now,userEmail,context,{page:requested,size,sort:requestedSort?.name||'id',direction:u.searchParams.get('dir')==='asc'?1:-1,filters});
+      rawRows=window.rawRows;prepared=window.prepared;total=window.total;page=window.page;memoryPage=true;
+    }
+    let rows = readRows(t, needed, now, userEmail, context,rawRows,selected?{allColumns:cols}:undefined,prepared);
+    if (slice&&!memoryPage) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
     if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
     const wantedId = u.searchParams.get("id");
     if (wantedId) {
@@ -93,17 +99,17 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       rows = rows.filter(r => r.id === Number(wantedId));
     }
     rows = withReferenceLabels(t, needed, rows, now, userEmail, context);
-    if(!fast)rows=rows.filter(row=>matchesFilters(row,filters,cols));
+    if(!fast&&!memoryPage)rows=rows.filter(row=>matchesFilters(row,filters,cols));
     const q = (u.searchParams.get("q") || "").toLocaleLowerCase();
     if (q&&!fast) rows = rows.filter(r => cols.some(c => String(c.type === "ref" ? r[`${c.name}__label`] ?? "" : r[c.name] ?? "").toLocaleLowerCase().includes(q)));
     const sort = cols.find(c => c.name === u.searchParams.get("sort"))?.name ?? "id", direction = u.searchParams.get("dir") === "asc" ? 1 : -1;
-    if(!fast)rows.sort((a, b) => {
+    if(!fast&&!memoryPage)rows.sort((a, b) => {
       const left = a[sort], right = b[sort];
       const comparison = left == null ? right == null ? 0 : -1 : right == null ? 1 : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "th");
       return direction * (comparison || a.id - b.id);
     });
     const responseRows=(items:Row[])=>{if(!selected||!items.length)return items;const originals=sqlFields==='*'&&rawRows?rawRows:db.prepare('SELECT * FROM "t_'+t+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(items.map(r=>r.id))) as Row[],byId=new Map(originals.map(r=>[r.id,r]));return items.map(row=>({...row,__version:rowVersion(t,cols,byId.get(row.id)!)}));};
-    if(paged){if(grouping&&!fast){groupResult=groupedMemoryPage(rows,grouping.levels,grouping.path,cols,requested,size);rows=groupResult.rows;total=groupResult.total;page=groupResult.page;}else if(!fast){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows:responseRows(rows),total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size)),...(groupResult?{groups:groupResult.groups,group_total:groupResult.group_total,group_path:groupResult.group_path}:{})},{headers:realtimeHeaders});}
+    if(paged){if(grouping&&!fast){groupResult=groupedMemoryPage(rows,grouping.levels,grouping.path,cols,requested,size);rows=groupResult.rows;total=groupResult.total;page=groupResult.page;}else if(!fast&&!memoryPage){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows:responseRows(rows),total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size)),...(groupResult?{groups:groupResult.groups,group_total:groupResult.group_total,group_path:groupResult.group_path}:{})},{headers:realtimeHeaders});}
     return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500),{headers:realtimeHeaders});
     })();
   } catch (e) { return bad(errorMessage(e),errorStatus(e),uniqueErrorFields(e)); }
