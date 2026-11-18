@@ -246,7 +246,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
 
     createOpening.current=true;const controller=new AbortController();createAbort.current=controller;setCreateChecking(true);setErr("");
     try {
-      if(!draftValues?.id){await checkCreateBeforeOpen(table,requestHeaders,controller.signal);if(controller.signal.aborted)return;if(onNavigate&&formView&&runtimeView?.kind!=="form"){onNavigate(formView);return;}}
+      if(!draftValues?.id&&!reopening){await checkCreateBeforeOpen(table,requestHeaders,controller.signal);if(controller.signal.aborted)return;if(onNavigate&&formView&&runtimeView?.kind!=="form"){onNavigate(formView);return;}}
       editOrigin.current=null;leaving.current=false;setBusy(true);setAttempted(false);
       const [defaults,expressionData] = await Promise.all([draftValues?.id ? Promise.resolve({values:{}}) : fetch(`/api/data/${table}?defaults=1`, { headers: requestHeaders }).then(async r=>{const j=await r.json();if(!r.ok)throw new Error(j.error);return j;}),fetchExpressionTables(false,draftValues?.id?[Number(draftValues.id)]:[])]);
       const j=defaults;setExpressionTables(expressionData);
@@ -274,8 +274,9 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
       if (!r.ok) { if(r.status===409)setSaveConflict(true);if(j.errors)setUniqueResult({signature:uniqueDraft,errors:j.errors});throw new Error(j.error); }
       clearRuntimeCache("data");
       let savedRow:Record<string,any>|undefined;
-      // Publish and reuse one authoritative record read after saving.
-      if(!j.action?.deleted){try{const latest=await fetch('/api/data/'+table+'?id='+Number(j.id||form.id),{headers:requestHeaders});const fresh=await latest.json();if(latest.ok&&fresh.length){savedRow=fresh[0];rememberRead(latest);publishRuntimeRow(table,Number(j.id||form.id),previewEmail,fresh[0]);}}catch{/* Background revalidation still reconciles the view. */}}
+      // Reuse the saved record for detail/edit returns. A newly created row that
+      // reopens the form needs fresh defaults and expressions, not this read.
+      if(!j.action?.deleted&&!(formDisplay.form_reopen&&rights.create&&!form.id)){try{const latest=await fetch('/api/data/'+table+'?id='+Number(j.id||form.id),{headers:requestHeaders});const fresh=await latest.json();if(latest.ok&&fresh.length){savedRow=fresh[0];rememberRead(latest);publishRuntimeRow(table,Number(j.id||form.id),previewEmail,fresh[0]);}}catch{/* Background revalidation still reconciles the view. */}}
       if(j.action?.url){leaving.current=true;location.assign(j.action.url);return;}
       if(j.action?.navigate){const target=relatedViews.find(v=>v.name===j.action.navigate.name);if(target&&onNavigate){leaving.current=true;onDataChange?.();onNavigate(target,j.action.navigate.id,j.action.navigate.initialValues);}else{leaving.current=true;location.assign(actionNavigationUrl(j.action.navigate.name,j.action.navigate.id,j.action.navigate.initialValues));}return;}
       if(formDisplay.form_reopen&&rights.create){editOrigin.current=null;setReopenPending(true);onDataChange?.();const opened=await add(true);setSaved(opened?"บันทึกข้อมูลแล้ว · พร้อมเพิ่มรายการใหม่":"บันทึกข้อมูลแล้ว");return;}
