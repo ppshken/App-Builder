@@ -82,3 +82,35 @@ test('rehearsal validates child cardinality in parent context without exposing d
  withDatabase(database,()=>{const result=validateReleaseRows(database,['parents'],{limit:10,deadline:Date.now()+10000,email:'',now:new Date(),collectIssues:true});assert.equal(result.invalid,1);assert.ok(!JSON.stringify(result).includes('private error'));database.exec('INSERT INTO t_children VALUES(3,2),(4,2)');assert.equal(validateReleaseRows(database,['parents'],{limit:10,deadline:Date.now()+10000,email:'',now:new Date()}).invalid,0);database.exec('INSERT INTO t_children VALUES(5,2)');assert.equal(validateReleaseRows(database,['parents'],{limit:10,deadline:Date.now()+10000,email:'',now:new Date()}).invalid,1);});
  }finally{database.close();}
 });
+
+test('rehearsal and publication accept Text to Enum without rewriting live values',()=>{
+ const {publicationBlockers,requiresPublicationRowValidation}=require('../.test-build/release-publication-policy');
+ const next=structuredClone(base);next._columns[0].type='enum';next._columns[0].options='A,B';
+ const op={id:'_columns:1',kind:'alter_column',category:'schema',table:'orders',name:'title',fields:['type','options']},p=plan([op]);
+ assert.deepEqual(rehearsalEligibility(p,base,next),[]);assert.deepEqual(publicationBlockers(p,base,next,[],0),[]);
+ assert.equal(requiresPublicationRowValidation(p,next),true);assert.ok(publicationBlockers(p,base,next,['orders'],0).length);
+ for(const change of [{type:'number'},{name:'renamed'},{is_virtual:1},{is_key:1},{ref_table:'another'}]){const bad=structuredClone(next);Object.assign(bad._columns[0],change);assert.ok(rehearsalEligibility(p,base,bad).length,JSON.stringify(change));}
+});
+
+test('preserving type executor keeps data and SQL objects, rolls metadata back and validates Enum values',()=>{
+ const {initializeDatabase,readColumns}=require('../.test-build/schema'),{initializeDevelopment}=require('../.test-build/development-workspace'),{withDevelopment}=require('../.test-build/development-context'),{withDatabase}=require('../.test-build/db'),{applyRehearsalSchema,validateReleaseRows}=require('../.test-build/release-rehearsal');
+ const database=new Database(':memory:');try{
+ initializeDatabase(database,':memory:');database.prepare("INSERT INTO _tables(name,label,owner_app_id,source_kind) VALUES('orders','Orders','app','INTERNAL_DATABASE')").run();
+ const id=Number(database.prepare("INSERT INTO _columns(table_name,name,label,type) VALUES('orders','title','Title','text')").run().lastInsertRowid);
+ database.exec("CREATE TABLE t_orders(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT);INSERT INTO t_orders(title) VALUES('A'),('B');CREATE INDEX keep_title ON t_orders(title);CREATE TRIGGER keep_trigger AFTER UPDATE ON t_orders BEGIN SELECT 1; END");
+ initializeDevelopment(database,'scratch_types','app',['orders']);
+ const live={_tables:database.prepare("SELECT * FROM _tables WHERE name='orders'").all(),_columns:database.prepare("SELECT * FROM _columns WHERE table_name='orders'").all()},next=structuredClone(live);next._columns[0].type='enum';next._columns[0].options='A,B';
+ const p=plan([{id:'_columns:'+id,kind:'alter_column',category:'schema',table:'orders',name:'title',fields:['type','options']}]);
+ const before=database.prepare('SELECT * FROM t_orders ORDER BY id').all(),physical=database.prepare("SELECT name,sql FROM sqlite_master WHERE tbl_name='t_orders' ORDER BY name").all();
+ withDatabase(database,()=>withDevelopment({id:'scratch_types',sourceAppId:'app',databaseFile:':memory:'},()=>{
+ assert.throws(()=>applyRehearsalSchema(database,p,live,next,()=>{throw Error('config failed');}),/config failed/);
+ assert.equal(database.prepare('SELECT type FROM _columns WHERE id=?').get(id).type,'text');
+ applyRehearsalSchema(database,p,live,next,c=>database.prepare('UPDATE _columns SET options=? WHERE id=?').run(c._columns[0].options,id));
+ assert.equal(readColumns(database,'orders')[0].type,'enum');
+ assert.deepEqual(database.prepare('SELECT * FROM t_orders ORDER BY id').all(),before);assert.deepEqual(database.prepare("SELECT name,sql FROM sqlite_master WHERE tbl_name='t_orders' ORDER BY name").all(),physical);
+ const options={limit:100,deadline:Date.now()+10000,now:new Date(),email:'',collectIssues:true};assert.equal(validateReleaseRows(database,['orders'],options).invalid,0);
+ database.prepare('UPDATE _columns SET options=? WHERE id=?').run('A',id);const invalid=validateReleaseRows(database,['orders'],options);assert.equal(invalid.invalid,1);assert.equal(invalid.issues[0].column,'title');
+ assert.deepEqual(database.prepare('SELECT * FROM t_orders ORDER BY id').all(),before);
+ }));
+ }finally{database.close();}
+});

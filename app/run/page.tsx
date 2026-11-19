@@ -1,4 +1,5 @@
 "use client";
+import {runtimeAccessInvalidates} from '@/lib/access';
 import type {DataRefreshReceipt} from '@/lib/data-refresh';
 import RuntimePwa from "@/app/components/RuntimePwa";
 import {runtimePath} from "@/lib/pwa";
@@ -29,8 +30,8 @@ export default function RunApp() {
   const { settings } = useAppSettings();
   const {user,access,expressionUser,application}=useAuth();
   useEffect(()=>{if(!user||window.parent!==window)return;const abort=new AbortController();const timer=setTimeout(()=>{fetch('/api/app-activity',{method:'POST',headers:{'x-nocode-route-app':application,'x-nocode-app':application},signal:abort.signal}).catch(()=>{});},300);return()=>{clearTimeout(timer);abort.abort();};},[user?.id,application]);
-  const permissionSignature=JSON.stringify(access),permissionState=useRef({signature:permissionSignature,epoch:0});
-  if(permissionState.current.signature!==permissionSignature)permissionState.current={signature:permissionSignature,epoch:permissionState.current.epoch+1};
+  const permissionSignature=JSON.stringify(access),permissionState=useRef({signature:permissionSignature,access,epoch:0});
+  if(permissionState.current.signature!==permissionSignature)permissionState.current={signature:permissionSignature,access,epoch:permissionState.current.epoch+(runtimeAccessInvalidates(permissionState.current.access,access)?1:0)};
   const permissionEpoch=permissionState.current.epoch;
   const [profileOpen,setProfileOpen]=useState(false);
   const [userSettingsOpen,setUserSettingsOpen]=useState(false),[notificationsOpen,setNotificationsOpen]=useState(false);
@@ -73,7 +74,7 @@ export default function RunApp() {
     const initialUrl=new URL(location.href);if(application!=='default')initialUrl.searchParams.set('app',application);history.replaceState({ ...history.state, nocodeDepth: history.state?.nocodeDepth || 0 }, "", initialUrl.href); sync(); window.addEventListener("popstate", sync);
     return () => {window.removeEventListener("popstate", sync);history.scrollRestoration=previousScrollRestoration;};
   }, []);
-  useEffect(() => { let active=true; runtimeJSON("/api/views?runtime=1",email,15000).then(j=>{if(!active)return;setViews(j.views);setHidden(j.hidden);setErr(j.errors.join(" · "));setLoaded(true);}).catch(e=>{if(active){setViews([]);setErr(e.message);setLoaded(true);}});return ()=>{active=false;};},[email,revision,visibilityRevision,permissionEpoch]);
+  useEffect(() => { let active=true; runtimeJSON("/api/views?runtime=1",email,15000).then(j=>{if(!active)return;setViews(j.views);setHidden(j.hidden);setErr(j.errors.join(" · "));setLoaded(true);}).catch(e=>{if(active){setViews([]);setErr(e.message);setLoaded(true);}});return ()=>{active=false;};},[email,revision,visibilityRevision,permissionSignature]);
   const [previewDraft,setPreviewDraft]=useState<{view:AppView;visible:boolean}|null>(null);
   useEffect(()=>{if(!access.builder||window.parent===window)return;const receive=(event:MessageEvent)=>{if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=="nocode:preview-draft")return;setPreviewDraft(event.data.view?{view:event.data.view,visible:event.data.visible===true}:null);};window.addEventListener("message",receive);window.parent.postMessage({type:"nocode:preview-ready"},location.origin);return()=>window.removeEventListener("message",receive);},[access.builder]);
   const runtimeViews=previewDraft?[...views.filter(v=>v.name!==previewDraft.view.name),...(previewDraft.visible?[previewDraft.view]:[])].sort((a,b)=>a.pos-b.pos):views;

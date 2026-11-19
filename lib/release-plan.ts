@@ -92,7 +92,7 @@ export function analyzeReleasePlan(baseline:ReleaseCatalog,live:ReleaseCatalog,d
       const kind=collection==='_tables'&&!base?'create_table':collection==='_tables'&&!desired?'delete_table':collection==='_columns'&&!base?'create_column':collection==='_columns'&&!desired?'delete_column':structural?(collection==='_tables'?'alter_table':'alter_column'):!base?'create_configuration':!desired?'delete_configuration':'update_configuration';
       const dataValidation=structural||collection==='_columns'&&localFields.some(f=>['required','required_if','valid_if','default_expr','virtual_expr','reset_on_edit','reset_columns','is_part_of','related_required','part_valid_if','part_show_if','part_add_if'].includes(f));
       const impacts:string[]=[];
-      if(structural)impacts.push(['create_table','create_column'].includes(kind)?'เพิ่มโครงสร้างใหม่ ต้องซ้อมกับข้อมูลล่าสุดและยืนยันผลกระทบก่อนเผยแพร่':'เปลี่ยนโครงสร้างหรือรหัสคอลัมน์ ยังไม่รองรับการเผยแพร่การเปลี่ยนนี้');
+      if(structural)impacts.push(['create_table','create_column'].includes(kind)?'เพิ่มโครงสร้างใหม่ ต้องซ้อมกับข้อมูลล่าสุดและยืนยันผลกระทบก่อนเผยแพร่':'เปลี่ยนโครงสร้างหรือรหัสคอลัมน์ ต้องตรวจขอบเขตที่รองรับและซ้อมกับข้อมูลล่าสุดก่อนเผยแพร่');
       if(structural&&table&&shared.has(table))impacts.push('ตารางใช้ร่วมกับแอปอื่น ต้องตรวจผลกระทบทุกแอปและสิทธิ์เจ้าของก่อนเปลี่ยนโครงสร้าง');
       if(dataValidation)impacts.push('ต้องตรวจสูตรและข้อมูลจริงล่าสุดก่อนใช้ ไม่คัดลอกข้อมูลทดลองมาทับข้อมูลจริง');
       if(collection==='_table_overlays')impacts.push('เป็นการตั้งค่าตารางร่วมเฉพาะแอป ต้องตรวจโครงสร้างต้นทางและการรีเจน');
@@ -119,7 +119,7 @@ export function analyzeReleasePlan(baseline:ReleaseCatalog,live:ReleaseCatalog,d
   const pending=new Map(operations.map(o=>[o.id,o])),sorted:ReleaseOperation[]=[],done=new Set<string>();
   while(pending.size){const available=[...pending.values()].filter(o=>o.dependencies.every(id=>done.has(id))).sort((a,b)=>order(a.id,b.id));if(!available.length)throw Error('ลำดับการเปลี่ยนแปลงพึ่งพาวนกัน กรุณาตรวจแผน');for(const operation of available){sorted.push(operation);done.add(operation.id);pending.delete(operation.id);}}
   const liveChanged=hashes.baseline!==hashes.live;
-  if(liveChanged||options.legacyConflict)blockers.push({code:'LIVE_CHANGED',message:'การตั้งค่าจริงเปลี่ยนหลังสร้างฉบับร่าง รุ่นนี้ยังไม่รวมการแก้ไขอัตโนมัติ กรุณาสร้างฐานตั้งต้นใหม่'});
+  if(liveChanged||options.legacyConflict)blockers.push({code:'LIVE_CHANGED',message:'การตั้งค่าจริงเปลี่ยนหลังสร้างฉบับร่าง กรุณาตรวจการอัปเดตฐานตั้งต้นก่อนเผยแพร่'});
   if(conflicts.length)blockers.push({code:'CONFLICT',message:'พบการแก้ไขรายการเดียวกันต่างค่าระหว่างแอปจริงและฉบับร่าง'});
   return {version:1,mode:'read-only',appId:options.appId,workspaceId:options.workspaceId,fingerprints:hashes,operations:sorted,conflicts,blockers,notices:['แผนนี้อ่านเฉพาะการตั้งค่า ไม่อ่านหรือย้ายแถวข้อมูลธุรกิจ และไม่มีการรัน SQL อัปเดต','คงสมาชิก รหัสผ่าน และสิทธิ์จริงไว้ การเปรียบเทียบนี้ไม่ใช่การอนุมัติสิทธิ์ใหม่','สิ่งที่ระบุว่าเผยแพร่ได้ยังต้องผ่านการตรวจสุขภาพและเงื่อนไขของระบบเผยแพร่เดิม'],summary:{schema:operations.filter(o=>o.category==='schema').length,configuration:operations.filter(o=>o.category==='configuration').length,shared:operations.filter(o=>o.category==='shared').length,unsupported:operations.filter(o=>!o.supported).length,conflicts:conflicts.length,liveChanged},publishBlocked:!!blockers.length};
 }

@@ -4621,6 +4621,10 @@ tbody tr:hover {
   border-radius: 50%;
   overflow: hidden;
 }
+.runtime-content .record-list .record-card-main > .record-avatar,
+.runtime-content .record-list .record-card-main .row-label-image {
+  align-self: start;
+}
 .runtime-content .record-avatar .data-image {
   width: 100%;
   height: 100%;
@@ -4827,6 +4831,18 @@ tbody tr:hover {
 }
 .icon-picker-current .hint {
   margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.icon-picker-current > svg {
+  flex-shrink: 0;
+}
+.icon-picker-current > strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .icon-picker-tools {
   display: grid;
@@ -17555,3 +17571,59 @@ input:is(
 .formula-performance{padding:16px 0}.formula-performance h3,.formula-performance h4{margin:0 0 12px}.formula-performance ul{padding-inline-start:20px;line-height:1.8;margin:12px 0}.formula-cost{display:inline-block;padding:5px 10px;border-radius:8px;font-size:13px;font-weight:600;background:var(--accent-soft);color:var(--accent)}.formula-cost-review{background:color-mix(in srgb,#f59e0b 14%,var(--panel));color:var(--ink)}.formula-measurement{border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}.formula-metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}.formula-metric-grid>div{min-width:0;background:var(--input);border-radius:8px;padding:12px}.formula-metric-grid dt{font-size:12px;color:var(--mute);overflow-wrap:anywhere}.formula-metric-grid dd{font-size:18px;font-weight:600;margin:6px 0 0;overflow-wrap:anywhere}.formula-measurement details{font-size:13px;margin:12px 0}.formula-measurement summary{cursor:pointer}@media(max-width:600px){.formula-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.formula-measurement{padding:12px}}
 
 .formula-cost-details{margin-top:20px}
+
+/* ตัวเลือกไอคอนเต็มจอ ใช้ร่วมกันทุกหน้าตั้งค่า */
+.icon-picker-controls{display:grid;gap:10px;min-width:0}
+.editor-dialog.icon-picker-fullscreen{inset:0;margin:0;width:100%;height:100dvh;max-width:100%;max-height:100dvh;border:0;border-radius:0}
+.icon-picker-fullscreen .dialog-header{padding:16px 20px;align-items:center}
+.icon-picker-fullscreen .dialog-body{display:flex;flex:1;min-height:0;overflow:hidden;padding:16px 20px}
+.icon-picker-expanded{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;width:100%}
+.icon-picker-expanded .icon-picker-tools{grid-template-columns:minmax(0,1fr) minmax(140px,240px)}
+.icon-picker-expanded .icon-picker-style{margin:0;grid-template-columns:auto minmax(140px,240px);align-items:center}
+.icon-picker-expanded .icon-picker-grid{flex:1;min-height:0;max-height:none;align-content:start;grid-template-columns:repeat(auto-fill,minmax(88px,1fr))}
+.icon-picker-expanded .icon-picker-grid button{min-height:76px}
+.icon-picker-expanded>.hint{flex-shrink:0}
+@media(max-width:600px){.icon-picker-fullscreen .dialog-header{padding:12px}.icon-picker-fullscreen .dialog-body{padding:12px}.icon-picker-expanded .icon-picker-tools{grid-template-columns:minmax(0,1fr) 120px}.icon-picker-expanded .icon-picker-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr))}}
+
+/* Embedded Dashboard pagination belongs to its scrollable panel, never the viewport. */
+.runtime-app .dashboard-panel-body .data-pagination,
+.runtime-app.runtime-desktop .dashboard-panel-body .data-pagination,
+.runtime-app.runtime-desktop.runtime-bottom-nav .dashboard-panel-body .data-pagination{
+ position:static;inset:auto;transform:none;width:100%;max-width:100%;margin:8px 0 0;flex-shrink:0;
+}
+
+/* Sticky form tabs must meet the scroll edge; top padding exposes fields above them. */
+.runtime-form-actions > .runtime-screen-body:has(> .form-tabs),
+.runtime-form-actions > .dialog-body:has(> .form-tabs){padding-top:0}
+
+/* Tabbed dashboards scroll within the selected panel on compact screens. */
+.runtime-app:not(.runtime-desktop) > main:has(.runtime-route:not([hidden]) > .dashboard-view[data-dashboard-layout="tabs"]) {
+  overflow-y: hidden;
+}
+.dashboard-panels.layout-tabs > .dashboard-panel > .dashboard-panel-body {
+  overscroll-behavior-y: contain;
+}
+
+/* Keep the embedded View footer outside its scrolling records. */
+.dashboard-panel-body:has(> .runtime-content > .dashboard-record-shell:not([hidden])) {
+  overflow: hidden;
+}
+.dashboard-panel-body > .runtime-content:has(> .dashboard-record-shell:not([hidden])),
+.dashboard-record-shell:not([hidden]),
+.dashboard-record-shell > .data-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.dashboard-panel-body > .runtime-content:has(> .dashboard-record-shell:not([hidden])) { height: 100%; }
+.dashboard-record-shell:not([hidden]),
+.dashboard-record-shell > .data-panel,
+.dashboard-record-shell > .data-panel > .runtime-group-layout { flex: 1; min-height: 0; }
+.dashboard-record-shell > .data-panel > .runtime-group-layout:not(:has(> .runtime-group-desktop)) {
+  display: block;
+}
+.dashboard-record-shell > .data-panel > .runtime-group-layout {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.dashboard-record-shell > .data-panel > .data-pagination { background: var(--panel); }

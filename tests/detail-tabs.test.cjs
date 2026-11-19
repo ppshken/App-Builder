@@ -32,3 +32,16 @@ test('cloning an application remaps Related tab fields while preserving labels',
  const cloned=remapApplicationConfig(original,{child:'copied_child'});
  assert.deepEqual(cloned.detail_tabs[0].fields,['name','related:copied_child:parent']);assert.equal(cloned.detail_tabs[0].label,'related:child:parent');
 });
+
+
+test('form tabs validate independently and follow column rename, deletion and clone references',()=>{
+ assert.equal(displaySettings({}).form_tabs_enabled,false);
+ const config={form_tabs_enabled:true,form_tabs_style:'pills',form_tabs:tabs};
+ assert.deepEqual(validateDisplay(config,cols),config);
+ for(const bad of [{form_tabs_enabled:'yes'},{form_tabs_style:'bad'},{form_tabs:[...tabs,{...tabs[0]}]},{form_tabs:[{id:'tab_bad',label:'Bad',fields:['missing']}]}])assert.throws(()=>validateDisplay(bad,cols));
+ assert(displayColumnNames(config).includes('amount'));
+ assert.deepEqual(changeDisplayColumn(config,'amount','total').form_tabs[1].fields,['total']);
+ assert.deepEqual(changeDisplayColumn(config,'amount').form_tabs[1].fields,[]);
+ const {remapApplicationConfig}=require('../.test-build/application-clone-config.js');
+ assert.deepEqual(remapApplicationConfig({form_tabs:[{id:'tab_related',label:'Related',fields:['related:child:parent']}]},{child:'copied_child'}).form_tabs[0].fields,['related:copied_child:parent']);
+});

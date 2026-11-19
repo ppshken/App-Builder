@@ -1,0 +1,41 @@
+const assert = require('node:assert/strict');
+const base = process.env.NOCODE_TEST_URL, owner = process.env.NOCODE_TEST_COOKIE;
+if (!base || !process.env.NOCODE_TEST_DB?.includes('integration-')) throw Error('Isolated database required');
+async function api(path, method='GET', body, cookie=owner, status=200) {
+  const response = await fetch(base+path,{method,headers:{cookie,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const result = await response.json();
+  assert.equal(response.status,status,JSON.stringify(result));
+  return result;
+}
+(async()=>{
+  const columns = [{name:'title',label:'Title',type:'text'}];
+  await api('/api/tables','POST',{name:'rebase_rows',label:'Rows',columns});
+  const views = await api('/api/views');
+  const table = views.find(v=>v.table_name==='rebase_rows'&&v.kind==='table');
+  const detail = views.find(v=>v.table_name==='rebase_rows'&&v.kind==='detail');
+  const draft = await api('/api/releases','POST',{op:'create',label:'Rebase test',mode:'development'});
+  const cookie = owner+'; nocode_draft='+draft.id;
+  const command = (op, extra={},status=200)=>api('/api/releases','POST',{op,id:draft.id,...extra},owner,status);
+  await api('/api/views','PUT',{...table,label:'Draft title'},cookie);
+  await api('/api/tables','POST',{name:'rebase_new',label:'Draft table',columns},cookie);
+  await api('/api/data/rebase_new','POST',{title:'Preserved row'},cookie);
+  await api('/api/views','PUT',{...detail,label:'Live detail'});
+  const old = await command('preview_rebase');
+  assert.equal(old.conflicts.length,0);
+  await api('/api/views','PUT',{...table,label:'Live title'});
+  await command('apply_rebase',{token:old.token,choices:{}},409);
+  const preview = await command('preview_rebase');
+  const conflict = preview.conflicts.find(c=>c.field==='label'&&c.draft==='Draft title');
+  assert.ok(conflict);
+  await command('apply_rebase',{token:preview.token,choices:{}},409);
+  await command('apply_rebase',{token:preview.token,choices:Object.fromEntries(preview.conflicts.map(c=>[c.id,'draft']))});
+  const merged = await api('/api/views','GET',undefined,cookie);
+  assert.equal(merged.find(v=>v.name===table.name).label,'Draft title');
+  assert.equal(merged.find(v=>v.name===detail.name).label,'Live detail');
+  assert.equal((await api('/api/data/rebase_new?all=1','GET',undefined,cookie))[0].title,'Preserved row');
+  assert.equal((await api('/api/views')).find(v=>v.name===table.name).label,'Live title');
+  assert.equal((await api('/api/releases?id='+draft.id)).conflict,false);
+  await api('/api/tables','POST',{name:'live_structure',label:'Live structure',columns});
+  await command('preview_rebase',{},409);
+  console.log('PASS draft rebase, conflicts, stale preview, isolated rows and live structure guard');
+})().catch(e=>{console.error(e);process.exitCode=1;});

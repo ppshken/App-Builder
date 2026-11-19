@@ -1,0 +1,55 @@
+﻿.column-dialog .dialog-body:has(> .column-editor-settings) {
+  padding-block-start: 0;
+  scrollbar-gutter: stable;
+}
+.column-editor-settings {
+  --column-editor-scroll-offset: 56px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.column-editor-nav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  padding-block: 9px;
+  overflow-x: auto;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+.column-editor-nav button {
+  flex: none;
+  padding: 5px 10px;
+  min-height: 32px;
+  font-size: 12px;
+}
+.column-editor-settings > .column-editor-card {
+  margin: 0;
+  padding: 14px 16px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  scroll-margin-block-start: var(--column-editor-scroll-offset);
+}
+.column-editor-card > h3 { margin: 0 0 12px; }
+.column-editor-basics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.column-editor-basics > .field { min-width: 0; margin: 0; }
+.column-editor-basics > .column-editor-type { grid-column: 1 / -1; }
+.column-editor-card .toggle-setting > span { min-width: 0; }
+.column-editor-card .toggle-setting > input { flex-shrink: 0; }
+.column-editor-rules > details.settings-section {
+  margin: 0;
+  padding: 10px 0;
+}
+.column-editor-settings + .settings-section.advanced { margin-top: 14px; }
+@media (max-width: 620px) {
+  .column-editor-basics { grid-template-columns: minmax(0, 1fr); }
+  .column-editor-settings > .column-editor-card { padding: 12px; }
+}

@@ -28,5 +28,6 @@ const paths: Partial<Record<IconName, React.ReactNode>> = {
 };
 export default function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: IconName }) {
   const solid=solidPaths.get(name);
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill={solid?"currentColor":"none"} stroke={solid?"none":"currentColor"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{solid?<path d={solid} fillRule="evenodd" clipRule="evenodd"/>:paths[name] || <path d={extraPaths.get(name)}/> }</svg>;
+  const fillRule=name.startsWith('tabler-')?'nonzero':'evenodd';
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill={solid?"currentColor":"none"} stroke={solid?"none":"currentColor"} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{solid?<path d={solid} fillRule={fillRule} clipRule={fillRule}/>:paths[name] || <path d={extraPaths.get(name)}/> }</svg>;
 }

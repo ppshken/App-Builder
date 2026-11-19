@@ -1,11 +1,12 @@
 import {importReleaseSeedData,type ReleaseSeedData,type SeedSummary} from './release-seed-data';
+import {preservingColumnTypeChange} from './release-column-types';
 import {assertPartValues} from './part-validation';
 import {assertPartSchema} from './part-of-config';
 import {createHash} from 'node:crypto';
 import type Database from 'better-sqlite3';
 import {mergeReleaseCatalogScope,type ReleaseCatalog,type ReleasePlan} from './release-plan';
 import {currentApplication} from './application-context';
-import {assertIdentifier,calculateRow,validateRow,formState,type Column} from './columns';
+import {assertIdentifier,calculateRow,validateRow,formState,SQLTYPE,type Column} from './columns';
 import {isBlank} from './expression';
 import {columnDefinition,syncKeyIndex,readColumns} from './schema';
 import {expressionContext} from './expression-context';
@@ -13,7 +14,7 @@ import {installRealtimeTriggers} from './realtime-schema';
 import {currentDevelopment} from './development-context';
 import {verifyDevelopment} from './development-workspace';
 // Bump when the schema executor or its safety contract changes; old rehearsal proofs must expire.
-export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-18-v6-child-seed';
+export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-19-v7-preserving-types';
 export const REHEARSAL_SAMPLE_ROWS=100;
 export const REHEARSAL_SAMPLE_LIMIT=1000;
 // Deterministic head/tail samples; keep the complete database for Ref/formula accuracy.
@@ -67,7 +68,7 @@ export function rehearsalEligibility(plan:Pick<ReleasePlan,'appId'|'operations'|
   if(op.category!=='schema')continue;
   const table=next._tables.find(t=>t.name===op.table);
   if(!table||table.owner_app_id!==plan.appId||table.source_kind!=='INTERNAL_DATABASE'){reasons.push('ซ้อมโครงสร้างได้เฉพาะตารางภายในที่แอปนี้เป็นเจ้าของ');continue;}
-  if(!['create_table','create_column'].includes(op.kind)){reasons.push('รุ่นนี้ยังไม่ซ้อมการลบ เปลี่ยนชื่อ หรือเปลี่ยนชนิดโครงสร้าง');continue;}
+  if(!['create_table','create_column'].includes(op.kind)&&!preservingColumnTypeChange(op,live,next)){reasons.push('ยังไม่รองรับการลบ เปลี่ยนชื่อ หรือเปลี่ยนชนิดที่ต้องแปลงค่าข้อมูล รองรับ Text/Longtext/Enum และ Number/Decimal ที่คงค่าเดิมเท่านั้น');continue;}
   if(op.kind==='create_column'&&!created.has(op.table)){
    const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name);
    if(!c||!c.is_virtual&&(c.is_key||c.is_unique||c.auto_number_json&&c.auto_number_json!=='null'))reasons.push('คอลัมน์จริงที่เพิ่มในตารางเดิมต้องไม่มี Key/ห้ามซ้ำ/เลขรัน');
@@ -112,6 +113,14 @@ function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:Re
  const insert=(name:string,row:Record<string,unknown>)=>{const keys=Object.keys(row);for(const key of keys)if(!/^[a-z][a-z0-9_]*$/.test(key))throw Error('ชื่อคุณสมบัติไม่ถูกต้อง');return database.prepare('INSERT INTO '+name+'('+keys.map(k=>'"'+k+'"').join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').run(...keys.map(k=>row[k]));};
  database.transaction(()=>{
   assertPartSchema(Object.fromEntries(next._tables.map(t=>[String(t.name),next._columns.filter(c=>c.table_name===t.name) as unknown as Column[]])));
+  for(const op of plan.operations.filter(o=>o.kind==='alter_column')){
+   if(!preservingColumnTypeChange(op,live,next))throw Error('การเปลี่ยนชนิดคอลัมน์ไม่คงค่าข้อมูลเดิม');
+   const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!,old=live._columns.find(previous=>previous.table_name===op.table&&previous.id===c.id)!;
+   assertIdentifier(op.table);assertIdentifier(op.name);
+   const physical=(database.pragma('table_info("t_'+op.table+'")') as {name:string;type:string}[]).find(p=>p.name===op.name);
+   if(physical?.type.toUpperCase()!==SQLTYPE[String(old.type)])throw Error('โครงสร้างจริงไม่ตรงกับชนิดคอลัมน์ที่ตรวจไว้');
+   if(database.prepare('UPDATE _columns SET type=? WHERE id=? AND table_name=? AND name=? AND type=?').run(c.type,c.id,op.table,op.name,old.type).changes!==1)throw Error('คอลัมน์เปลี่ยนหลังตรวจ ยกเลิกการเผยแพร่');
+  }
   // Reserve all table metadata first so mutually referencing new tables can be checked together.
   for(const name of created){assertIdentifier(name);insert('_tables',next._tables.find(t=>t.name===name)!);}
   for(const op of plan.operations.filter(o=>o.kind==='create_column')){

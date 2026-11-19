@@ -13,7 +13,7 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const live=new Database(dbPath,{readonly:true});let development;
  try{
-  await page.goto(base+'/releases');await page.getByRole('textbox').first().fill('Structural development');await page.getByRole('checkbox',{name:'พื้นที่พัฒนาโครงสร้าง · แยกข้อมูลจากแอปจริง',exact:true}).check();await page.getByRole('button',{name:'สร้างฉบับร่างจากเวอร์ชันจริง',exact:true}).click();
+  await page.goto(base+'/releases');await page.getByText('สร้างฉบับร่างใหม่',{exact:true}).click();await page.getByLabel('ชื่อฉบับร่าง',{exact:true}).fill('Structural development');await page.getByRole('radio',{name:/พื้นที่พัฒนาโครงสร้าง/}).check();await page.getByRole('button',{name:'สร้างฉบับร่างจากเวอร์ชันจริง',exact:true}).click();
   await expect(page.getByText('Structural development',{exact:true})).toBeVisible();
   const draft=(await api('/api/releases')).items.find(x=>x.label==='Structural development');assert.equal(draft.workspace_mode,'development');assert.equal(draft.source_app_id,'default');assert.equal(draft.format_version,2);assert.ok(draft.expires_at>Date.now());const cookie=cookieFor(draft);
   const file=path.join(path.dirname(dbPath),'.app-releases',draft.id,'workspace.db');development=new Database(file);development.function('nocode_audit_enabled',()=>0);development.function('nocode_audit_entries',{varargs:true},()=> '[]');

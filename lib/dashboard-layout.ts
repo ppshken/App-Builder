@@ -6,8 +6,8 @@ export function validateDashboardLayout(d:ViewDisplay){
  if(d.dashboard_min_width!==undefined&&(!Number.isInteger(d.dashboard_min_width)||d.dashboard_min_width<240||d.dashboard_min_width>640))throw Error('ความกว้างขั้นต่ำของช่องแดชบอร์ดต้องเป็นจำนวนเต็ม 240–640');
  if(d.dashboard_panel_sizes!==undefined){const sizes=d.dashboard_panel_sizes;if(!sizes||typeof sizes!=='object'||Array.isArray(sizes)||Object.keys(sizes).length>8||Object.entries(sizes).some(([name,size])=>! /^[a-z][a-z0-9_]{0,40}$/.test(name)||!DASHBOARD_PANEL_SIZES.some(([key])=>key===size)))throw Error('ขนาดช่องแดชบอร์ดไม่ถูกต้อง');}
 }
-export function dashboardLayout(d:ViewDisplay,width:number){
- const mobile=width<=600,requested=d.dashboard_layout||'stack',mode=mobile&&d.dashboard_mobile_tabs?'tabs':requested==='auto'?'grid':requested;
+export function dashboardLayout(d:ViewDisplay,width:number,touchLayout=false){
+ const mobile=width<=600,requested=d.dashboard_layout||'stack',mode=(mobile||touchLayout)&&d.dashboard_mobile_tabs?'tabs':requested==='auto'?'grid':requested;
  const max=d.dashboard_columns||2,gap=d.dashboard_gap??16,min=d.dashboard_min_width??320;
  const columns=mode!=='grid'?1:requested==='auto'?Math.max(1,Math.min(max,Math.floor((Math.max(0,width)+gap)/(min+gap)))):width<=760?1:max;
  return {mode,columns,mobile};

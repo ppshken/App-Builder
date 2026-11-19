@@ -129,3 +129,71 @@ test('COLOR to Enum skips optional empty formulas in unrelated private table met
  const request={column:'color',mode:'replace',target:{type:'enum',options:'#112233,#445566'}},before=conversionFingerprint(db,'source_colors',request),report=previewConversion(db,'source_colors',request);assert.equal(report.allowed,true,JSON.stringify(report.issues));assert.equal(report.failed,0);assert.equal(report.converted,1);assert.equal(conversionFingerprint(db,'source_colors',request),before);assert.throws(()=>db.prepare('SELECT * FROM t_private_blank_formulas').all(),/ไม่ได้เชื่อม/);
  })));}finally{d.close();}
 });
+
+test('conversion evaluates Slice and Action Related expressions in their owner table context',()=>{
+ for(const explicit of [false,true]){const d=fixture();try{
+  table(d,'cars',[text],[{value:'A'}]);table(d,'drivers',[text],[{value:'D'}]);
+  table(d,'inspection',[{name:'car',type:'ref',ref_table:'cars'},{name:'driver',type:'ref',ref_table:'drivers'},{name:'inspection_type',type:'number'},{name:'created_at',type:'datetime'}],[{car:1,driver:1,inspection_type:1,created_at:'2026-11-19T10:00:00'}]);
+  const related=explicit?'[Related_inspection:car][id]':'[Related_inspection][id]';
+  const expression=`ISNOTBLANK(INDEX(ORDERBY(SELECT(${related},OR([inspection_type]=1,[inspection_type]=4)),[created_at],TRUE),1))`;
+  d.prepare('INSERT INTO _slices(name,label,table_name,filter_expr) VALUES(?,?,?,?)').run('checked','Checked cars','cars',expression);
+  d.prepare("INSERT INTO _actions(name,label,table_name,kind,condition_expr) VALUES('check_car','Check car','cars','set',?)").run(expression);
+  const request={column:'value',mode:'replace',target:{type:'enum',options:'A'}};
+  const report=previewConversion(d,'cars',request);assert.equal(report.allowed,true,JSON.stringify(report.issues));assert.equal(report.failed,0);
+  applyConversion(d,'cars',request,conversionFingerprint(d,'cars',request));assert.equal(d.prepare('SELECT value FROM t_cars WHERE id=1').get().value,'A');
+ }finally{d.close();}}
+});
+
+test('conversion still rejects genuinely ambiguous Related links to the same parent',()=>{
+ const d=fixture();try{table(d,'cars',[text],[{value:'A'}]);table(d,'inspection',[{name:'car',type:'ref',ref_table:'cars'},{name:'other_car',type:'ref',ref_table:'cars'}],[{car:1,other_car:1}]);
+ d.prepare('INSERT INTO _slices(name,label,table_name,filter_expr) VALUES(?,?,?,?)').run('checked','Checked cars','cars','COUNT([Related_inspection][id])>0');
+ const report=previewConversion(d,'cars',{column:'value',mode:'replace',target:{type:'enum',options:'A'}});assert.equal(report.allowed,false);assert.ok(report.failed>0);
+ }finally{d.close();}
+});
+
+test('conversion blocks application row-rule dependencies and fingerprints rule edits',()=>{
+ const d=fixture();try{table(d,'role_conversion',[text],[{value:'true'}]);d.prepare("INSERT INTO _application_local_roles(app_id,name,label) VALUES('default','test_reader','Test reader')").run();
+ const request={column:'value',mode:'replace',target:{type:'yesno'}},before=conversionFingerprint(d,'role_conversion',request);
+ d.prepare("INSERT INTO _application_role_rows(app_id,role_name,table_name,operation,expression) VALUES('default','test_reader','role_conversion','read','[value] = 1')").run();
+ assert.notEqual(conversionFingerprint(d,'role_conversion',request),before);assert.throws(()=>previewConversion(d,'role_conversion',request));assert.throws(()=>applyConversion(d,'role_conversion',request));
+ assert.equal(d.prepare('SELECT value FROM t_role_conversion').get().value,'true');
+ const copy={...request,mode:'copy',target:{name:'copied',label:'Copied',type:'yesno'}};assert.equal(previewConversion(d,'role_conversion',copy).allowed,true);
+ }finally{d.close();}
+});
+
+test('conversion validates User membership using the supplied isolated database',()=>{
+ const d=fixture();try{table(d,'user_conversion',[text],[{value:'999999'}]);const request={column:'value',mode:'replace',target:{type:'user'}};
+ const p=previewConversion(d,'user_conversion',request);assert.equal(p.allowed,false,JSON.stringify(p));assert.ok(p.failed>0);assert.throws(()=>applyConversion(d,'user_conversion',request));assert.equal(d.prepare('SELECT value FROM t_user_conversion').get().value,'999999');
+ }finally{d.close();}
+});
+
+test('Ref conversion validates the new parent child-count rule before accepting the preview',()=>{
+ const d=fixture();try{table(d,'parent_old',[{name:'expected',type:'number'}],[{expected:1}]);table(d,'parent_new',[{name:'expected',type:'number'}],[{expected:2}]);table(d,'children_conversion',[{name:'parent',type:'ref',ref_table:'parent_old'}],[{parent:1}]);
+ d.prepare("UPDATE _columns SET is_part_of=1,part_valid_if='COUNT([_THIS]) = [expected]' WHERE table_name='children_conversion' AND name='parent'").run();
+ const request={column:'parent',mode:'replace',target:{type:'ref',ref_table:'parent_new'},ref_match:'id'},p=previewConversion(d,'children_conversion',request);assert.equal(p.allowed,false,JSON.stringify(p));assert.ok(p.issues.some(i=>i.table==='parent_new'));
+ assert.equal(d.prepare("SELECT ref_table FROM _columns WHERE table_name='children_conversion' AND name='parent'").get().ref_table,'parent_old');assert.equal(d.prepare('SELECT parent FROM t_children_conversion').get().parent,1);
+ }finally{d.close();}
+});
+
+test('User conversion accepts eligible users and blanks, rejects inactive or denied members, and fences stale previews',()=>{
+ for(const [value,allowed] of [['1',true],['2',false],['3',false],[null,true]]){const d=fixture();try{
+ d.prepare("INSERT INTO _roles(name,label,builder) VALUES('reader','Reader',0)").run();
+ const insert=d.prepare('INSERT INTO _users(id,name,email,password_hash,role,active,created_at,username,nickname,department) VALUES(?,?,NULL,?,?,?,?,?,?,?)');
+ insert.run(1,'Owner','synthetic','owner',1,0,'test_owner','Owner','QA');insert.run(2,'Denied','synthetic','reader',1,0,'test_denied','Denied','QA');insert.run(3,'Inactive','synthetic','reader',0,0,'test_inactive','Inactive','QA');
+ d.prepare("INSERT INTO _application_members(app_id,user_id,can_use) VALUES('default',2,0)").run();table(d,'user_cases',[text],[{value}]);const request={column:'value',mode:'replace',target:{type:'user'}},p=previewConversion(d,'user_cases',request);assert.equal(p.allowed,allowed,JSON.stringify(p));
+ if(allowed){const fingerprint=conversionFingerprint(d,'user_cases',request);if(value){d.prepare('UPDATE _users SET active=0 WHERE id=1').run();assert.notEqual(conversionFingerprint(d,'user_cases',request),fingerprint);assert.throws(()=>applyConversion(d,'user_cases',request,fingerprint));d.prepare('UPDATE _users SET active=1 WHERE id=1').run();}applyConversion(d,'user_cases',request,conversionFingerprint(d,'user_cases',request));assert.equal(d.prepare('SELECT value FROM t_user_cases').get().value,value===null?null:1);}else assert.throws(()=>applyConversion(d,'user_cases',request));
+ }finally{d.close();}}
+});
+
+test('Ref Apply rolls back metadata, rows and inline definitions if the new parent is invalid',()=>{
+ const d=fixture();try{table(d,'rollback_parent_a',[{name:'expected',type:'number'}],[{expected:1}]);table(d,'rollback_parent_b',[{name:'expected',type:'number'}],[{expected:2}]);table(d,'rollback_child',[{name:'parent',type:'ref',ref_table:'rollback_parent_a'}],[{parent:1}]);d.prepare("UPDATE _columns SET is_part_of=1,part_valid_if='COUNT([_THIS]) = [expected]' WHERE table_name='rollback_child' AND name='parent'").run();
+ const request={column:'parent',mode:'replace',target:{type:'ref',ref_table:'rollback_parent_b'},ref_match:'id'},before={columns:d.prepare('SELECT * FROM _columns ORDER BY id').all(),views:d.prepare('SELECT * FROM _views ORDER BY name').all(),rows:d.prepare('SELECT * FROM t_rollback_child').all()};
+ assert.throws(()=>applyConversion(d,'rollback_child',request));assert.deepEqual({columns:d.prepare('SELECT * FROM _columns ORDER BY id').all(),views:d.prepare('SELECT * FROM _views ORDER BY name').all(),rows:d.prepare('SELECT * FROM t_rollback_child').all()},before);
+ d.prepare('UPDATE t_rollback_parent_b SET expected=1').run();assert.equal(previewConversion(d,'rollback_child',request).allowed,true);applyConversion(d,'rollback_child',request);assert.deepEqual(d.prepare('SELECT * FROM t_rollback_child').all(),[{id:1,parent:1}]);assert.equal(d.pragma('foreign_key_check').length,0);
+ }finally{d.close();}
+});
+
+test('converting another column does not reassign or revalidate an unchanged legacy User field',()=>{
+ const d=fixture();try{table(d,'legacy_user',[text,{name:'assignee',type:'user'}],[{value:'A',assignee:999999}]);const request={column:'value',mode:'replace',target:{type:'enum',options:'A'}};const p=previewConversion(d,'legacy_user',request);assert.equal(p.allowed,true,JSON.stringify(p));applyConversion(d,'legacy_user',request);assert.deepEqual(d.prepare('SELECT value,assignee FROM t_legacy_user').get(),{value:'A',assignee:999999});
+ }finally{d.close();}
+});

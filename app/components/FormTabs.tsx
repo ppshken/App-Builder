@@ -1,0 +1,14 @@
+"use client";
+import {forwardRef,useId,useImperativeHandle,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
+import {detailTabGroups,type DetailTab} from '@/lib/detail-tabs';
+export type FormTabsHandle={next:()=>boolean;previous:()=>void;showErrors:(keys:string[])=>void};
+export default forwardRef<FormTabsHandle,{items:{key:string;node:ReactNode}[];tabs:DetailTab[];appearance:'underline'|'pills';className:string;style:CSSProperties;busy:boolean;validate:(keys:string[])=>boolean;onStepChange:(state:{first:boolean;last:boolean})=>void}>(function FormTabs({items,tabs,appearance,className,style,busy,validate,onStepChange},ref){
+ const [selected,setSelected]=useState(''),id=useId(),buttons=useRef<(HTMLButtonElement|null)[]>([]);
+ const groups=detailTabGroups(items,tabs),enabled=tabs.length>0&&groups.length>0,index=Math.max(0,groups.findIndex(t=>t.id===selected)),last=!enabled||index>=groups.length-1;
+ useLayoutEffect(()=>{if(selected&&!groups.some(g=>g.id===selected))setSelected('');},[selected,JSON.stringify(groups.map(g=>g.id))]);
+ useLayoutEffect(()=>{onStepChange({first:!enabled||index===0,last});},[index,last,enabled,onStepChange]);
+ const move=(target:number)=>{if(busy||target<0||target>=groups.length)return false;if(target>index){for(let i=0;i<target;i++){if(!validate(groups[i].items.map(item=>item.key))){setSelected(groups[i].id);return false;}}}setSelected(groups[target].id);return true;};
+ useImperativeHandle(ref,()=>({next:()=>{if(!enabled)return true;for(let i=0;i<=index;i++){if(!validate(groups[i].items.map(item=>item.key))){setSelected(groups[i].id);return false;}}if(!last){move(index+1);return false;}return true;},previous:()=>{move(index-1);},showErrors:keys=>{const group=groups.find(g=>g.items.some(item=>keys.includes(item.key)));if(group)setSelected(group.id);}}));
+ if(!enabled)return <div className={className} style={style}>{items.map(item=>item.node)}</div>;
+ return <div className={'detail-tabs form-tabs detail-tabs-'+appearance}><div className="detail-tab-bar" role="tablist" aria-label="ขั้นตอนฟอร์ม">{groups.map((tab,i)=><button type="button" role="tab" key={tab.id} id={id+'-tab-'+tab.id} aria-controls={id+'-panel-'+tab.id} aria-selected={i===index} tabIndex={i===index?0:-1} disabled={busy} ref={el=>{buttons.current[i]=el;}} onClick={()=>move(i)} onKeyDown={e=>{const next=e.key==='ArrowRight'?Math.min(i+1,groups.length-1):e.key==='ArrowLeft'?Math.max(i-1,0):e.key==='Home'?0:e.key==='End'?groups.length-1:-1;if(next>=0){e.preventDefault();if(move(next))buttons.current[next]?.focus({preventScroll:true});}}}>{tab.label}</button>)}</div>{groups.map((tab,i)=><section role="tabpanel" key={tab.id} id={id+'-panel-'+tab.id} aria-labelledby={id+'-tab-'+tab.id} hidden={i!==index}><div className={className} style={style}>{tab.items.map(item=>item.node)}</div></section>)}</div>;
+});

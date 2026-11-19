@@ -1,7 +1,9 @@
 import {MODERN_OUTLINE_ICONS,MODERN_SOLID_ICONS} from "./modern-icons";
+import {EXPANDED_OUTLINE_ICONS,EXPANDED_SOLID_ICONS} from './expanded-icons';
 // Static, local SVG catalog. No network requests or added packages.
 export const EXTRA_ICONS = [
   ...MODERN_OUTLINE_ICONS,
+  ...EXPANDED_OUTLINE_ICONS,
   [
     "user",
     "บุคคล",
@@ -835,6 +837,7 @@ export const EXTRA_ICONS = [
 ] as const;
 export const SOLID_ICONS = [
   ...MODERN_SOLID_ICONS,
+  ...EXPANDED_SOLID_ICONS,
   [
     "home-solid",
     "บ้าน · Solid",
@@ -1424,6 +1427,7 @@ export const SOLID_ICONS = [
     "M1 4l7-3v19l-7 3ZM10 1l5 3v19l-5-3ZM17 4l6-3v19l-6 3Z"
   ]
 ] as const;
-export const ICON_CATALOG = [...[["grid","ภาพรวม"],["table","ตาราง"],["settings","ตั้งค่า"],["plus","เพิ่ม"],["search","ค้นหา"],["chevron","ถัดไป"],["back","ย้อนกลับ"],["close","ปิด"],["edit","ฟอร์ม"],["trash","ลบ"],["check","เครื่องหมายถูก"],["menu","เมนู"],["list","รายการ"],["database","ข้อมูล"],["formula","สูตร"],["eye","รายละเอียด"],["phone","มือถือ"],["tablet","แท็บเล็ต"],["monitor","จอคอมพิวเตอร์"],["refresh","รีเฟรช"],["external","เปิดหน้าต่าง"],["home","บ้าน"],["users","ผู้ใช้"],["calendar","ปฏิทิน"],["folder","แฟ้ม"],["tag","ป้ายกำกับ"]].map(([name,label]) => ({name,label,category:"พื้นฐาน"})), ...EXTRA_ICONS.map(([name,label,category]) => ({name,label,category})), ...SOLID_ICONS.map(([name,label,category]) => ({name,label,category}))];
+const catalogItem = ([name,label,category,,keywords]:readonly string[])=>({name,label,category,keywords:keywords||""});
+export const ICON_CATALOG = [...[["grid","ภาพรวม"],["table","ตาราง"],["settings","ตั้งค่า"],["plus","เพิ่ม"],["search","ค้นหา"],["chevron","ถัดไป"],["back","ย้อนกลับ"],["close","ปิด"],["edit","ฟอร์ม"],["trash","ลบ"],["check","เครื่องหมายถูก"],["menu","เมนู"],["list","รายการ"],["database","ข้อมูล"],["formula","สูตร"],["eye","รายละเอียด"],["phone","มือถือ"],["tablet","แท็บเล็ต"],["monitor","จอคอมพิวเตอร์"],["refresh","รีเฟรช"],["external","เปิดหน้าต่าง"],["home","บ้าน"],["users","ผู้ใช้"],["calendar","ปฏิทิน"],["folder","แฟ้ม"],["tag","ป้ายกำกับ"]].map(([name,label]) => ({name,label,category:"พื้นฐาน",keywords:""})), ...EXTRA_ICONS.map(catalogItem), ...SOLID_ICONS.map(catalogItem)];
 export const ICON_NAMES = new Set(ICON_CATALOG.map(i => i.name));
 export type IconName = "grid" | "table" | "settings" | "plus" | "search" | "chevron" | "back" | "close" | "edit" | "trash" | "check" | "menu" | "list" | "database" | "formula" | "eye" | "phone" | "tablet" | "monitor" | "refresh" | "external" | "home" | "users" | "calendar" | "folder" | "tag" | typeof EXTRA_ICONS[number][0] | typeof SOLID_ICONS[number][0];

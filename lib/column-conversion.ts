@@ -1,4 +1,6 @@
 import {validateListCardActions} from './list-card';
+import {createUserFieldValidator} from './user-fields';
+import {assertPartValues} from './part-validation';
 import {normalizeDecimalOptions} from './decimal-format';
 import {isRemoteImageSource} from "./image-source";
 import {assertInternalTable,createExternalReadView} from './external-storage';
@@ -27,7 +29,11 @@ export type ConversionReport={allowed:boolean;total:number;converted:number;fail
 // Hash logical conversion inputs, never SQLite pages, sessions, audit or queue progress.
 export function conversionFingerprint(database:Database.Database,table?:string,request?:ConversionRequest){
  const hash=createHash('sha256');const add=(name:string,rows:unknown)=>hash.update(JSON.stringify([name,rows]));
- const metadata=['_tables','_columns','_views','_slices','_actions','_pdf_templates','_role_row_rules','_user_setting_defs'];
+ const metadata=['_tables','_columns','_views','_slices','_actions','_pdf_templates','_role_row_rules','_application_role_rows','_user_setting_defs'];
+ if(request?.target.type==='user'){
+  metadata.push('_application_members','_application_builders','_application_roles','_builder_security');
+  add('user_membership',database.prepare('SELECT id,role,active FROM _users ORDER BY id').all());
+ }
  for(const name of metadata)if(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name)){const rows=database.prepare('SELECT * FROM "'+name+'"').all();add(name,rows.map(row=>JSON.stringify(row)).sort());}
  if(database.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_automations'").get())add('_automations',database.prepare('SELECT name,label,table_name,enabled,event,config_json,owner_id FROM _automations ORDER BY name').all());
  const tables=(database.prepare('SELECT name FROM _tables ORDER BY name').all() as {name:string}[]).map(t=>t.name);const names=table?[table,request?.target.ref_table].filter((name):name is string=>!!name):tables;
@@ -84,7 +90,7 @@ function managedExternalViews(database:Database.Database,objects:{name:string;ty
 }
 function prepare(database:Database.Database,table:string,request:ConversionRequest){
  assertIdentifier(table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(table))throw Error("ไม่พบตาราง");
- if(request.mode==="replace"&&(database.prepare("SELECT expression FROM _role_row_rules WHERE table_name=?").all(table) as {expression:string}[]).some(r=>references(r.expression).includes(request.column)))throw Error("คอลัมน์นี้ใช้ในกฎสิทธิ์ระดับแถว กรุณาแก้กฎก่อนแปลงชนิดข้อมูล หรือเลือกคัดลอกไปคอลัมน์ใหม่");
+ if(request.mode==="replace"&&['_role_row_rules','_application_role_rows'].some(name=>(database.prepare('SELECT expression FROM '+name+' WHERE table_name=?').all(table) as {expression:string}[]).some(r=>references(r.expression).includes(request.column))))throw Error("คอลัมน์นี้ใช้ในกฎสิทธิ์ระดับแถว กรุณาแก้กฎก่อนแปลงชนิดข้อมูล หรือเลือกคัดลอกไปคอลัมน์ใหม่");
  assertInternalTable(database,table);const cols=readColumns(database,table),source=cols.find(c=>c.name===request.column);if(!source)throw Error("ไม่พบคอลัมน์ที่ต้องการแปลง");if(source.auto_number)throw Error("กรุณาปิดเลขรันอัตโนมัติก่อนเปลี่ยนชนิดหรือคัดลอกคอลัมน์");
  if(source.is_virtual)throw Error("ช่องคำนวณไม่เก็บข้อมูลจริง กรุณาแก้สูตรหรือสร้างคอลัมน์ข้อมูลใหม่");
  const objects=database.prepare("SELECT name,type,sql FROM sqlite_master WHERE tbl_name=? OR type='view'").all(`t_${table}`) as {name:string;type:string;sql:string|null}[];
@@ -140,6 +146,31 @@ function rowProblem(database:Database.Database,cols:Column[],raw:Record<string,u
    if(c.type==="list"&&c.ref_table){if(database.prepare(`SELECT value FROM json_each(?) WHERE NOT EXISTS(SELECT 1 FROM "t_${c.ref_table}" WHERE CAST(id AS TEXT)=CAST(json_each.value AS TEXT)) LIMIT 1`).get(JSON.stringify(value||[])))return `List "${c.label}" อ้างอิงรหัสที่ไม่มีอยู่`;} }
  }catch(e){return (e as Error).message;}return "";
 }
+function conversionPartParents(database:Database.Database,table:string){
+ const parents=new Map<string,Set<string>>();
+ for(const link of readColumns(database,table).filter(c=>c.type==='ref'&&!c.is_virtual&&(c.related_required||c.is_part_of&&c.part_valid_if?.trim()))){
+  assertIdentifier(link.name);assertIdentifier(link.ref_table);
+  const ids=parents.get(link.ref_table!)||new Set<string>();parents.set(link.ref_table!,ids);
+  for(const row of database.prepare('SELECT DISTINCT "'+link.name+'" AS parent FROM "t_'+table+'" WHERE "'+link.name+'" IS NOT NULL').iterate() as Iterable<{parent:unknown}>)if(row.parent!=='')ids.add(String(row.parent));
+ }
+ return parents;
+}
+function mergePartParents(into:Map<string,Set<string>>,from:Map<string,Set<string>>){for(const [table,ids] of from){const existing=into.get(table)||new Set<string>();for(const id of ids)existing.add(id);into.set(table,existing);}return into;}
+function validateConversionParts(database:Database.Database,table:string,parents:Map<string,Set<string>>,now:Date,onIssue:(table:string,message:string,id:number)=>void){
+ const schema=database.prepare('SELECT name,label FROM _tables').all() as {name:string;label:string}[],context=expressionContext(now,'',database),scope=currentApplication();
+ for(const parent of schema){const ids=parents.get(parent.name);if(parent.name!==table&&!ids?.size)continue;
+  if(scope?.datasets&&!scope.datasets[parent.name]?.read)throw Error('รายการลูกอ้างอิงตารางแม่นอกขอบเขตแอป จึงยังตรวจการแปลงไม่ได้');
+  const links=(database.prepare("SELECT table_name,name FROM _columns WHERE type='ref' AND is_virtual=0 AND ref_table=? AND (related_required=1 OR (is_part_of=1 AND part_valid_if IS NOT NULL AND part_valid_if<>''))").all(parent.name) as {table_name:string;name:string}[]).map(p=>{
+   if(scope?.datasets&&!scope.datasets[p.table_name]?.read)throw Error('มีรายการลูกนอกขอบเขตแอป จึงยังตรวจการแปลงไม่ได้');
+   assertIdentifier(p.table_name);assertIdentifier(p.name);return {table:p.table_name,link:readColumns(database,p.table_name).find(c=>c.name===p.name)!,query:database.prepare('SELECT id FROM "t_'+p.table_name+'" WHERE "'+p.name+'"=? ORDER BY id')};
+  });if(!links.length)continue;
+  assertIdentifier(parent.name);const cols=readColumns(database,parent.name),query=parent.name===table?database.prepare('SELECT * FROM "t_'+parent.name+'" ORDER BY id'):database.prepare('SELECT * FROM "t_'+parent.name+'" WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id');
+  for(const raw of query.iterate(...(parent.name===table?[]:[JSON.stringify([...ids!])])) as Iterable<Record<string,unknown>>){try{
+   const row=calculateRow(cols,raw,false,now,false,'',context).row;
+   for(const part of links)assertPartValues(part.link,part.table,(part.query.all(raw.id as number) as {id:number}[]).map(r=>r.id),row,cols,{...context,tableName:parent.name},'');
+  }catch(e){onIssue(parent.label,(e as Error).message,Number(raw.id));}}
+ }
+}
 function checkDependencies(database:Database.Database,table:string,report:ConversionReport,baseline:Database.Database,now:Date){
  const all=database.prepare("SELECT name,label FROM _tables").all() as {name:string;label:string}[],schema=Object.fromEntries(all.map(t=>[t.name,readColumns(database,t.name)])),context=expressionContext(now,"",database),oldContext=expressionContext(now,"",baseline);
  const add=(owner:string,message:string,id?:number)=>{report.failed++;if(report.issues.length<20)report.issues.push({table:owner,id,message});};
@@ -155,13 +186,14 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
   const oldCols=readColumns(baseline,t.name),oldRow=baseline.prepare(`SELECT * FROM "t_${t.name}" WHERE id=?`);
   for(const raw of database.prepare(`SELECT * FROM "t_${t.name}"`).iterate() as Iterable<Record<string,unknown>>){const problem=rowProblem(database,cols,raw,now,context);if(problem&&(t.name===table||problem!==rowProblem(baseline,oldCols,(oldRow.get(raw.id) as Record<string,unknown>|undefined)||{},now,oldContext)))add(t.label,problem,Number(raw.id));}
  }
+ validateConversionParts(database,table,mergePartParents(conversionPartParents(database,table),conversionPartParents(baseline,table)),now,add);
  for(const view of database.prepare("SELECT * FROM _views").all() as any[]){try{validateDisplay(JSON.parse(view.display_json),["dashboard","custom"].includes(view.kind)?[]:schema[view.table_name]);if(JSON.parse(view.display_json).list_card)validateListCardActions(JSON.parse(view.display_json).list_card,database.prepare('SELECT name,table_name FROM _actions').all() as any[],view.table_name);if(view.kind==='custom')validateCustomData(JSON.parse(view.display_json).custom_page,database.prepare("SELECT name,table_name FROM _views").all() as any[],database.prepare("SELECT name FROM _actions").all() as any[],schema);validateViewCondition(view.show_if,schema);viewIsVisible(view.show_if,{...context,now});}catch(e){add(`View ${view.label}`, (e as Error).message);}}
  for(const entity of ["_slices","_actions"]){for(const item of database.prepare(`SELECT * FROM ${entity}`).all() as any[]){const expressions=(entity==="_slices"?[item.filter_expr]:[item.condition_expr,...actionConfigExpressions(JSON.parse(item.config_json||"{}")),...Object.values(JSON.parse(item.values_json))]).filter(e=>typeof e==="string"&&e.trim());
   const cols=schema[item.table_name];if(!cols)throw Error("Slice หรือ Action อ้างอิงตารางที่ไม่มีอยู่ กรุณาแก้การตั้งค่า");
   let probe="conversion_check";while(cols.some(c=>c.name===probe))probe+="x";
   assertFormulas([...cols,{name:probe,label:item.label,type:"text",show_if:expressions.map(e=>`(${e})`).join(" + ")}],schema);
   for(const raw of database.prepare(`SELECT * FROM "t_${item.table_name}"`).iterate() as Iterable<Record<string,unknown>>){try{
-   const row=calculateRow(cols,raw,false,now,false,"",context).row,options={...context,now,refTables:refTablesOf(cols)};
+   const row=calculateRow(cols,raw,false,now,false,"",context).row,options={...context,now,tableName:item.table_name,refTables:refTablesOf(cols)};
    for(const expression of expressions)evaluateExpression(String(expression),row,options);
    if(entity==="_actions"&&item.kind==="set")for(const [name,expression] of Object.entries(JSON.parse(item.values_json))){const column=cols.find(c=>c.name===name);if(!column)throw Error("Action อ้างอิงคอลัมน์ที่ไม่มีอยู่");normalizeValue(column,evaluateExpression(String(expression),row,options));}
   }catch(e){add(`${entity==="_slices"?"Slice":"Action"} ${item.label}`,(e as Error).message,Number(raw.id));}}
@@ -175,10 +207,10 @@ export function previewConversion(database:Database.Database,table:string,reques
  const snapshotDatabase=new Database(snapshot),stage=currentApplication()?applicationDatabase(snapshotDatabase,currentApplication()!.id):snapshotDatabase;
  registerAuditFunctions(snapshotDatabase);
  const report:ConversionReport={allowed:false,total:0,converted:0,failed:0,samples:[],issues:[],warnings:[],source,target,mode:request.mode};
- const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id");let timeLoss=0,dateLoss=0;
+ const values:{id:number;value:unknown}[]=[],resolve=referenceResolver(stage,target,request.ref_match||"id"),checkUsers=createUserFieldValidator(stage);let timeLoss=0,dateLoss=0;
  try{
   for(const raw of stage.prepare(`SELECT id,"${source.name}" AS value FROM "t_${table}" ORDER BY id`).iterate() as Iterable<{id:number;value:unknown}>){report.total++;try{
-   const value=convertValue(source,target,raw.value,resolve);values.push({id:raw.id,value});report.converted++;
+   const value=convertValue(source,target,raw.value,resolve);checkUsers([target],{[target.name]:value});values.push({id:raw.id,value});report.converted++;
    if(report.samples.length<10)report.samples.push({id:raw.id,before:shown(raw.value),after:shown(value)});
    if(target.type==="time"&&source.type==="datetime"&&value!=null)dateLoss++;
    if(target.type==="date"&&typeof raw.value==="string"&&raw.value.includes("T")&&!normalizeDateTime(raw.value).includes("T00:00:00.000"))timeLoss++;
@@ -198,7 +230,10 @@ export function applyConversion(database:Database.Database,table:string,request:
  const values=(database.prepare(`SELECT id,"${source.name}" AS value FROM "t_${table}" ORDER BY id`).all() as {id:number;value:unknown}[]).map(row=>({id:row.id,value:convertValue(source,target,row.value,resolve)}));
  foreignKeyTransaction(database,()=>{
   if(expectedFingerprint&&conversionFingerprint(database,table,request)!==expectedFingerprint)throw Error("ข้อมูลเปลี่ยนหลังตรวจ กรุณาตรวจการแปลงใหม่ก่อนยืนยัน");
+  const checkUsers=createUserFieldValidator(database);for(const {value} of values)checkUsers([target],{[target.name]:value});
+  const parents=conversionPartParents(database,table);
   writeConversion(database,table,request,source,target,values);
+  validateConversionParts(database,table,mergePartParents(parents,conversionPartParents(database,table)),new Date(),(_table,message)=>{throw Error(message);});
  });
  return target;
 }
