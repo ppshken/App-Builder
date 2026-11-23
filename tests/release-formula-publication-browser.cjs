@@ -41,7 +41,7 @@ const publish=(d,p,status=200)=>api('/api/releases','POST',{op:'publish_developm
  await rehearse(capped);assert.equal((await ready(capped)).eligible,true);
  // Actual runtime renders the published result and the review UI explains the limit.
  browser=await chromium.launch({channel:'msedge',headless:true});const context=await browser.newContext();await context.addCookies([{name:owner.split('=')[0],value:owner.slice(owner.indexOf('=')+1),url:base}]);const page=await context.newPage();
- await page.goto(base+'/releases');await page.locator('article.health-issue').filter({hasText:capped.label}).getByRole('button',{name:'ตรวจและเผยแพร่',exact:true}).click();await expect(page.getByText('1,000,000',{exact:false}).first()).toBeVisible();
+ await page.goto(base+'/releases');await page.locator('article.release-list-row').filter({hasText:capped.label}).getByRole('button',{name:'ตรวจและเผยแพร่',exact:true}).click();await expect(page.getByText('1,000,000',{exact:false}).first()).toBeVisible();
  await publish(capped,await ready(capped));
  console.log('PASS virtual addition/edit, latest live data rejection, atomic rollback, failed proof, no physical backfill, repeat safety, 2000-plus row publication and review UI');
 }finally{await browser?.close();native.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

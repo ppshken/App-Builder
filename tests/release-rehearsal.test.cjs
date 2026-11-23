@@ -89,7 +89,11 @@ test('rehearsal and publication accept Text to Enum without rewriting live value
  const op={id:'_columns:1',kind:'alter_column',category:'schema',table:'orders',name:'title',fields:['type','options']},p=plan([op]);
  assert.deepEqual(rehearsalEligibility(p,base,next),[]);assert.deepEqual(publicationBlockers(p,base,next,[],0),[]);
  assert.equal(requiresPublicationRowValidation(p,next),true);assert.ok(publicationBlockers(p,base,next,['orders'],0).length);
- for(const change of [{type:'number'},{name:'renamed'},{is_virtual:1},{is_key:1},{ref_table:'another'}]){const bad=structuredClone(next);Object.assign(bad._columns[0],change);assert.ok(rehearsalEligibility(p,base,bad).length,JSON.stringify(change));}
+ const numeric=structuredClone(base);numeric._columns[0].type='number';
+ const numericPlan=plan([{...op,fields:['type']}]);
+ assert.deepEqual(rehearsalEligibility(numericPlan,base,numeric),[]);
+ assert.equal(requiresPublicationRowValidation(numericPlan,numeric),true);
+ for(const change of [{name:'renamed'},{is_virtual:1},{is_key:1},{ref_table:'another'}]){const bad=structuredClone(next);Object.assign(bad._columns[0],change);assert.ok(rehearsalEligibility(p,base,bad).length,JSON.stringify(change));}
 });
 
 test('preserving type executor keeps data and SQL objects, rolls metadata back and validates Enum values',()=>{
@@ -112,5 +116,36 @@ test('preserving type executor keeps data and SQL objects, rolls metadata back a
  database.prepare('UPDATE _columns SET options=? WHERE id=?').run('A',id);const invalid=validateReleaseRows(database,['orders'],options);assert.equal(invalid.invalid,1);assert.equal(invalid.issues[0].column,'title');
  assert.deepEqual(database.prepare('SELECT * FROM t_orders ORDER BY id').all(),before);
  }));
+ }finally{database.close();}
+});
+
+test('publication accepts virtual reference changes while guarding stored row IDs and external targets',()=>{
+ const op={id:'_columns:1',kind:'alter_column',category:'schema',table:'orders',name:'linked',fields:['ref_table']};
+ const tables=['orders','customers','contacts'].map(name=>({name,owner_app_id:'default',source_kind:'INTERNAL_DATABASE'}));
+ const col={id:1,table_name:'orders',name:'linked',type:'ref',is_virtual:1,ref_table:'customers',virtual_expr:'1'};
+ const live={_tables:tables,_columns:[col]};
+ const next={_tables:tables,_columns:[{...col,ref_table:'contacts'}]};
+ const {preservingColumnTypeChange}=require('../.test-build/release-column-types.js');
+ assert.equal(preservingColumnTypeChange(op,live,next),true);
+ assert.equal(preservingColumnTypeChange(op,{...live,_columns:[{...col,is_virtual:0}]},{...next,_columns:[{...next._columns[0],is_virtual:0}]}),false);
+ assert.equal(preservingColumnTypeChange(op,live,{...next,_tables:tables.map(t=>t.name==='contacts'?{...t,owner_app_id:'elsewhere'}:t)}),false);
+});
+
+test('column rename preserves physical rows, indexes and fingerprint and rolls back on failure',()=>{
+ const {applyPublicationSchema}=require('../.test-build/release-rehearsal');
+ const database=new Database(':memory:');
+ try{
+  database.exec("CREATE TABLE _columns(id INTEGER PRIMARY KEY,table_name TEXT,name TEXT,type TEXT);INSERT INTO _columns VALUES(1,'orders','title','text');CREATE TABLE t_orders(id INTEGER PRIMARY KEY,title TEXT);INSERT INTO t_orders VALUES(1,'kept');CREATE INDEX orders_lookup ON t_orders(title)");
+  const next=structuredClone(base);next._columns[0].name='caption';
+  const op={id:'_columns:1',kind:'alter_column',category:'schema',table:'orders',name:'caption',label:'Caption',fields:['name']};
+  const release={...plan([op]),appId:'app'};
+  const before=dataFingerprint(database,['orders']).hash;
+  assert.throws(()=>database.transaction(()=>applyPublicationSchema(database,release,base,next,()=>{throw Error('stop')}))(),/stop/);
+  assert.equal(database.prepare('SELECT title FROM t_orders').get().title,'kept');
+  database.transaction(()=>applyPublicationSchema(database,release,base,next,()=>{}))();
+  assert.equal(database.prepare('SELECT caption FROM t_orders').get().caption,'kept');
+  assert.equal(database.prepare("SELECT name FROM _columns WHERE id=1").get().name,'caption');
+  assert.equal(database.pragma('index_info(orders_lookup)')[0].name,'caption');
+  assert.equal(dataFingerprint(database,['orders'],10,Date.now()+5000,{orders:['id','title']},undefined,undefined,{orders:{title:'caption'}}).hash,before);
  }finally{database.close();}
 });

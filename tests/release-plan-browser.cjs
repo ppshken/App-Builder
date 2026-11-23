@@ -29,7 +29,7 @@ function draftDatabase(id){
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1000}}),[name,...value]=owner.split('=');
   await context.addCookies([{name,value:value.join('='),url:base}]);const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const review=async label=>{await page.goto(base+'/releases');const card=page.locator('.health-issue').filter({has:page.getByText(label,{exact:true})});await card.getByRole('button',{name:'ตรวจและเผยแพร่',exact:true}).click();await expect(page.getByRole('region',{name:'ผลเปรียบเทียบและผลกระทบ'})).toBeVisible();};
+  const review=async label=>{await page.goto(base+'/releases');const card=page.locator('article.release-list-row').filter({has:page.getByText(label,{exact:true})});await card.getByRole('button',{name:'ตรวจและเผยแพร่',exact:true}).click();await expect(page.getByRole('region',{name:'ผลเปรียบเทียบและผลกระทบ'})).toBeVisible();};
   await review('Review configuration');const panel=page.locator('.release-plan');await expect(panel).toContainText('ไม่มีการเปลี่ยนข้อมูลจากการตรวจนี้');await expect(panel.locator('.release-plan-operation')).toHaveCount(1);
   await panel.locator('.release-plan-operation summary').click();await expect(panel).toContainText('Reviewed view');await expect(panel).not.toContainText('Draft data');
   assert.equal(state(),before);

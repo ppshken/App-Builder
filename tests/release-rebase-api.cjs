@@ -35,6 +35,34 @@ async function api(path, method='GET', body, cookie=owner, status=200) {
   assert.equal((await api('/api/data/rebase_new?all=1','GET',undefined,cookie))[0].title,'Preserved row');
   assert.equal((await api('/api/views')).find(v=>v.name===table.name).label,'Live title');
   assert.equal((await api('/api/releases?id='+draft.id)).conflict,false);
+  const additive=await api('/api/releases','POST',{op:'create',label:'Additive rebase',mode:'development'});
+  const additiveCookie=owner+'; nocode_draft='+additive.id;
+  const row=await api('/api/data/rebase_rows','POST',{title:'Live row'});
+  await api('/api/views','PUT',{...table,label:'Keep draft title'},additiveCookie);
+  await api('/api/tables/rebase_rows','PATCH',{op:'add_column',column:{name:'live_note',type:'text'}});
+  await api('/api/data/rebase_rows?id='+row.id,'PUT',{live_note:'Keep live value'});
+  const addition=await api('/api/releases','POST',{op:'preview_rebase',id:additive.id});
+  assert.equal(addition.conflicts.length,0);
+  await api('/api/releases','POST',{op:'apply_rebase',id:additive.id,token:addition.token,choices:{}});
+  assert.equal((await api('/api/views','GET',undefined,additiveCookie)).find(v=>v.name===table.name).label,'Keep draft title');
+  assert.ok((await api('/api/tables','GET',undefined,additiveCookie)).find(t=>t.name==='rebase_rows').columns.some(c=>c.name==='live_note'));
+  assert.equal((await api('/api/data/rebase_rows?all=1')).find(r=>r.id===row.id).live_note,'Keep live value');
+  const updated=await api('/api/releases?id='+additive.id);
+  assert.equal(updated.conflict,false);
+  await api('/api/releases','POST',{op:'queue_rehearsal',id:additive.id,rehearsal_hash:updated.rehearsal_hash});
+  let job;
+  for(let i=0;i<240;i++){
+    job=await api('/api/releases?id='+additive.id+'&job=1');
+    if(!['queued','running'].includes(job.status))break;
+    await new Promise(resolve=>setTimeout(resolve,250));
+  }
+  assert.equal(job.status,'passed',JSON.stringify(job));
+  const ready=await api('/api/releases?id='+additive.id+'&publication=1');
+  assert.equal(ready.eligible,true,JSON.stringify(ready));
+  const published=await api('/api/releases','POST',{op:'publish_development',id:additive.id,intent_hash:ready.intentHash,ack:true,confirmation:'เผยแพร่โครงสร้าง'});
+  assert.equal(published.status,'committed');
+  assert.equal((await api('/api/views')).find(v=>v.name===table.name).label,'Keep draft title');
+  assert.equal((await api('/api/data/rebase_rows?all=1')).find(r=>r.id===row.id).live_note,'Keep live value');
   await api('/api/tables','POST',{name:'live_structure',label:'Live structure',columns});
   await command('preview_rebase',{},409);
   console.log('PASS draft rebase, conflicts, stale preview, isolated rows and live structure guard');

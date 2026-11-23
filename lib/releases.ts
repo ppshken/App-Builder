@@ -1,3 +1,5 @@
+import {readDraftRefConversions} from './column-conversion';
+import {releaseColumnRename,releaseColumnRemoval,releaseValueRewrite} from './release-column-types';
 import {releaseSeedData,type ReleaseSeedData} from './release-seed-data';
 import {withPublicationArchiveGuard} from './publication-journal';
 import {initializeDevelopment,verifyDevelopment,developmentOrigins} from './development-workspace';
@@ -6,7 +8,7 @@ import {withDevelopment} from './development-context';
 import {withApplication} from './application-context';
 import {currentUser,currentAccess,runAuthorized} from './permissions';
 import {withoutWorkflows} from './workflows';
-import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
+import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,ReleaseRemovalBlockedError,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
 import {calculateRow,validateRow} from './columns';
 import {expressionContext} from './expression-context';
 import {mergeDraftSettings} from './release-rebase';
@@ -20,7 +22,8 @@ import {mkdirSync,readFileSync,writeFileSync,readdirSync,existsSync,renameSync,c
 import {dirname,join,resolve,relative} from 'node:path';
 import {db,databasePath,withDatabase} from './db';
 import {installAuditing} from './audit-schema';
-import {readColumns} from './schema';
+import {columnDefinition,readColumns} from './schema';
+import {assertIdentifier,type Column} from './columns';
 import {inspectApp} from './readiness';
 import {AuthError} from './auth';
 const META=['_table_overlays','_tables','_columns','_slices','_views','_actions','_app_settings','_pdf_templates','_automations'] as const;
@@ -97,14 +100,31 @@ export function rebaseDraft(id:string,owner:number,token?:string,choices?:Record
         const scope=releaseTableScope(appId,[base,live,draft],tableNames);
         const scopedBase=mergeReleaseCatalogScope(appId,draft,base,[...scope]);
         const scopedLive=mergeReleaseCatalogScope(appId,draft,live,[...scope]);
-        if(hash(structural(scopedBase))!==hash(structural(scopedLive)))throw new AuthError('เวอร์ชันจริงมีการเปลี่ยนโครงสร้างตาราง การอัปเดตฐานตั้งต้นรองรับเฉพาะการเปลี่ยนการตั้งค่าในเวอร์ชันจริง',409);
+        const additions=scopedLive._columns.filter(column=>!scopedBase._columns.some(before=>before.id===column.id));
+        const baseStructure={...scopedLive,_columns:scopedLive._columns.filter(column=>!additions.includes(column))};
+        const canImport=(!additions.length||isDevelopmentDraft(draftManifest(id,owner)))&&hash(structural(scopedBase))===hash(structural(baseStructure))&&additions.every(column=>
+          !column.is_virtual&&!column.is_key&&!column.is_unique&&!column.required&&!column.required_if&&!column.ref_table&&!column.default_expr&&(!column.auto_number_json||column.auto_number_json==='null')&&
+          scopedBase._tables.some(table=>table.name===column.table_name&&table.owner_app_id===appId&&table.source_kind==='INTERNAL_DATABASE')&&
+          draft._tables.some(table=>table.name===column.table_name&&table.owner_app_id===appId)&&
+          !draft._columns.some(other=>other.id===column.id||other.table_name===column.table_name&&other.name===column.name));
+        if(!canImport)throw new AuthError('โครงสร้างเวอร์ชันจริงเปลี่ยนในรูปแบบที่รวมกับฉบับร่างนี้ไม่ได้ รองรับการเพิ่มคอลัมน์ไม่บังคับที่ชื่อและรหัสไม่ชนกัน',409);
         const reviewToken=hash({id,base,live,draft,tableNames});
         if(token!==undefined&&token!==reviewToken)throw new AuthError('การตั้งค่าเปลี่ยนหลังตรวจ กรุณาตรวจการอัปเดตฐานตั้งต้นอีกครั้ง',409);
         const result=mergeDraftSettings(scopedBase,scopedLive,draft,token===undefined?undefined:choices);
         if(token===undefined)return {token:reviewToken,conflicts:result.conflicts,imported:result.imported};
         if(result.conflicts.length)throw new AuthError('กรุณาเลือกวิธีจัดการข้อขัดแย้งให้ครบ',409);
-        if(hash(structural(draft))!==hash(structural(result.merged)))throw new AuthError('ผลรวมกระทบโครงสร้างของฉบับร่าง กรุณาเลือกค่าที่รักษาโครงสร้างฉบับร่าง',409);
-        withDatabase(opened,()=>applyReleaseCatalog(result.merged,true,true));
+        const expected={...draft,_columns:[...draft._columns,...additions]};
+        if(hash(structural(expected))!==hash(structural(result.merged)))throw new AuthError('ผลรวมกระทบโครงสร้างของฉบับร่าง กรุณาเลือกค่าที่รักษาโครงสร้างฉบับร่าง',409);
+        withDatabase(opened,()=>{
+          for(const column of additions){
+            assertIdentifier(column.table_name);
+            db.exec('ALTER TABLE "t_'+column.table_name+'" ADD COLUMN '+columnDefinition(column as Column));
+            const fields=Object.keys(column);
+            db.prepare('INSERT INTO _columns('+fields.map(field=>'"'+field+'"').join(',')+') VALUES('+fields.map(()=>'?').join(',')+')').run(...fields.map(field=>column[field]));
+            opened.prepare("UPDATE _development_objects SET source_key=local_key,source_table=table_name WHERE kind='column' AND local_key=? AND retired=0").run(String(column.id));
+          }
+          applyReleaseCatalog(result.merged,true,true);
+        });
         opened.exec('CREATE TABLE IF NOT EXISTS _draft_rebase_baseline (id INTEGER PRIMARY KEY, catalog_json TEXT NOT NULL)');
         opened.prepare('INSERT OR REPLACE INTO _draft_rebase_baseline VALUES (1, ?)').run(JSON.stringify(live));
         return {ok:true};
@@ -113,7 +133,7 @@ export function rebaseDraft(id:string,owner:number,token?:string,choices?:Record
   });
 }
 
-export function draftDiff(id:string,owner:number){const m=draftManifest(id,owner),opened=openDraft(id,owner);try{const current=catalog(),next=catalog(opened),base=draftBaseline(opened,id);const application=currentApplication(),appId=application?.id||'default';const tableNames=Object.entries(application?.datasets||{}).filter(([,rights])=>rights.read).map(([name])=>name);const sharedTables=(db.prepare('SELECT DISTINCT table_name FROM _application_datasets WHERE app_id<>? AND can_read=1').all(appId) as {table_name:string}[]).map(row=>row.table_name);const origins=isDevelopmentDraft(m)?developmentOrigins(opened):undefined;const plan=analyzeReleasePlan(base,current,next,{appId,workspaceId:id,tableNames,sharedTables,origins,legacyConflict:!isDevelopmentDraft(m)&&hash(current)!==hash(base)});if(isDevelopmentDraft(m)){plan.blockers.push({code:'DEVELOPMENT_PREVIEW_ONLY',message:'พื้นที่พัฒนาโครงสร้างยังเผยแพร่ไม่ได้ ใช้ตรวจแผนและทดสอบในพื้นที่แยกเท่านั้น'});plan.publishBlocked=true;}return {plan,seedData:isDevelopmentDraft(m)?(()=>{const seed=releaseSeedData(opened,plan,current,next);return {hash:seed.hash,tables:seed.tables};})():undefined,manifest:m,review_hash:hash(next),conflict:isDevelopmentDraft(m)?plan.summary.liveChanged:hash(current)!==hash(base),changes:META.map(table=>{const key=table==='_table_overlays'?'table_name':['_columns','_app_settings'].includes(table)?'id':'name',old=new Map((base[table]||[]).map(r=>[String(r[key]),r])),fresh=new Map(next[table].map(r=>[String(r[key]),r]));const items=Array.from(new Set([...old.keys(),...fresh.keys()])).flatMap(id=>{const a=old.get(id),b=fresh.get(id);if(JSON.stringify(a)===JSON.stringify(b))return [];const fields=Array.from(new Set([...Object.keys(a||{}),...Object.keys(b||{})])).filter(k=>JSON.stringify(a?.[k])!==JSON.stringify(b?.[k])).map(name=>({name,before:a?.[name],after:b?.[name]}));return [{key:id,label:String(b?.label||a?.label||b?.name||a?.name||id),operation:!a?'create':!b?'delete':'update',fields}];});return {table,changed:items.length>0,before:(base[table]||[]).length,after:next[table].length,items};}).filter(x=>x.changed),health:withDatabase(opened,()=>{const actor=currentUser();if(isDevelopmentDraft(m)&&application&&actor){const scoped=developmentAccess(opened,application,currentAccess());return withApplication(scoped.application,()=>runAuthorized(actor,scoped.access,()=>inspectApp()));}return inspectApp();})};}finally{opened.close();}}
+export function draftDiff(id:string,owner:number){const m=draftManifest(id,owner),opened=openDraft(id,owner);try{const current=catalog(),next=catalog(opened),base=draftBaseline(opened,id);const application=currentApplication(),appId=application?.id||'default';const tableNames=Object.entries(application?.datasets||{}).filter(([,rights])=>rights.read).map(([name])=>name);const sharedTables=(db.prepare('SELECT DISTINCT table_name FROM _application_datasets WHERE app_id<>? AND can_read=1').all(appId) as {table_name:string}[]).map(row=>row.table_name);const origins=isDevelopmentDraft(m)?developmentOrigins(opened):undefined;const plan=analyzeReleasePlan(base,current,next,{appId,workspaceId:id,tableNames,sharedTables,origins,legacyConflict:!isDevelopmentDraft(m)&&hash(current)!==hash(base)});if(isDevelopmentDraft(m)){plan.refConversions=readDraftRefConversions(opened);plan.blockers.push({code:'DEVELOPMENT_PREVIEW_ONLY',message:'พื้นที่พัฒนาโครงสร้างยังเผยแพร่ไม่ได้ ใช้ตรวจแผนและทดสอบในพื้นที่แยกเท่านั้น'});plan.publishBlocked=true;}return {plan,seedData:isDevelopmentDraft(m)?(()=>{const seed=releaseSeedData(opened,plan,current,next);return {hash:seed.hash,tables:seed.tables};})():undefined,manifest:m,review_hash:hash(next),conflict:isDevelopmentDraft(m)?plan.summary.liveChanged:hash(current)!==hash(base),changes:META.map(table=>{const key=table==='_table_overlays'?'table_name':['_columns','_app_settings'].includes(table)?'id':'name',old=new Map((base[table]||[]).map(r=>[String(r[key]),r])),fresh=new Map(next[table].map(r=>[String(r[key]),r]));const items=Array.from(new Set([...old.keys(),...fresh.keys()])).flatMap(id=>{const a=old.get(id),b=fresh.get(id);if(JSON.stringify(a)===JSON.stringify(b))return [];const fields=Array.from(new Set([...Object.keys(a||{}),...Object.keys(b||{})])).filter(k=>JSON.stringify(a?.[k])!==JSON.stringify(b?.[k])).map(name=>({name,before:a?.[name],after:b?.[name]}));return [{key:id,label:String(b?.label||a?.label||b?.name||a?.name||id),operation:!a?'create':!b?'delete':'update',fields}];});return {table,changed:items.length>0,before:(base[table]||[]).length,after:next[table].length,items};}).filter(x=>x.changed),health:withDatabase(opened,()=>{const actor=currentUser();if(isDevelopmentDraft(m)&&application&&actor){const scoped=developmentAccess(opened,application,currentAccess());return withApplication(scoped.application,()=>runAuthorized(actor,scoped.access,()=>inspectApp()));}return inspectApp();})};}finally{opened.close();}}
 export function publishDraft(id:string,owner:number,expectedHash:string){const m=draftManifest(id,owner);if(m.status!=='draft')throw Error('ฉบับร่างนี้เผยแพร่แล้ว');if(isDevelopmentDraft(m))throw new AuthError('พื้นที่พัฒนาโครงสร้างยังไม่รองรับการเผยแพร่ กรุณาตรวจและซ้อมแผนในระยะถัดไป',409);const opened=openDraft(id,owner);try{const snapshot=catalog(opened),baseHash=hash(draftBaseline(opened,id));if(expectedHash!==hash(snapshot))throw new AuthError('ฉบับร่างเปลี่ยนหลังตรวจ กรุณาตรวจอีกครั้ง',409);db.transaction(()=>{if(hash(catalog())!==baseHash)throw new AuthError('เวอร์ชันจริงเปลี่ยนหลังสร้างฉบับร่าง กรุณาสร้างฉบับร่างใหม่เพื่อรวมการแก้ไข',409);const baseline=catalog();save(file(id,'.before.json'),baseline);applyReleaseCatalog(snapshot);db.prepare('INSERT INTO _app_versions(id,owner,label,created_at,config_json,before_json) VALUES(?,?,?,?,?,?)').run(id,owner,m.label,Date.now(),JSON.stringify(snapshot),JSON.stringify(baseline));}).immediate();m.status='published';m.published_at=Date.now();try{save(file(id,'.json'),m);}catch{}return m;}finally{opened.close();}}
 export function reviewedDraft(id:string,owner:number){const review=draftDiff(id,owner);return {...review,rehearsal_hash:rehearsalPlanHash(review),rehearsal:latestRehearsal(id,owner,review)};}
 
@@ -145,12 +165,30 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
    const shared=new Set((database.prepare('SELECT DISTINCT table_name FROM _application_datasets WHERE app_id<>? AND can_read=1').all(app.id) as {table_name:string}[]).map(t=>t.table_name));
    if(review.plan.operations.some(o=>o.category==='schema'&&shared.has(o.table!))){result.reasons.push('ยังไม่ซ้อมโครงสร้างตารางที่มีแอปอื่นเชื่อมอยู่');return;}
    stage='FINGERPRINT';const before=dataFingerprint(database,names,limit,deadline,undefined,n=>checkpoint('FINGERPRINT',n),samplePerTable);result.dataHash=before.hash;
-   const columns=Object.fromEntries(names.map(name=>[name,(database.pragma('table_info("t_'+name+'")') as {name:string}[]).map(c=>c.name)]));
+   const survivingNames=names.filter(name=>!review.plan.operations.some(op=>op.kind==='delete_table'&&op.table===name));
+   const removedColumns=new Map<string,Set<string>>();
+   for(const operation of review.plan.operations){
+    const removal=releaseColumnRemoval(operation,live,desired);
+    const rewrite=releaseValueRewrite(operation,live,desired);
+    if(rewrite||removal&&!removal.virtual){
+     const table=operation.table!;
+     const fields=removedColumns.get(table)??new Set<string>();
+     fields.add(operation.name);
+     removedColumns.set(table,fields);
+    }
+   }
+   const columns=Object.fromEntries(survivingNames.map(name=>[name,(database.pragma('table_info("t_'+name+'")') as {name:string}[]).map(c=>c.name).filter(field=>!removedColumns.get(name)?.has(field))]));
+   const preservedBefore=survivingNames.length===names.length&&!removedColumns.size?before.hash:dataFingerprint(database,survivingNames,limit,deadline,columns,undefined,samplePerTable).hash;
    for(const o of review.plan.operations.filter(o=>o.kind==='create_table'))scoped.application.datasets[o.table!]={read:true,create:true,update:true,delete:true,export:true};
    stage='SCHEMA';checkpoint(stage);applyRehearsalSchema(database,review.plan,live,desired,applyReleaseCatalog,seed);
    stage='PRESERVATION';
    // Hash the original columns again; additional nullable fields must not change old values.
-   const preserved=dataFingerprint(database,names,limit,deadline,columns,n=>checkpoint('PRESERVATION',n),samplePerTable).hash===before.hash;
+   const renames:Record<string,Record<string,string|null>>=Object.create(null);
+   for(const operation of review.plan.operations){
+    const rename=releaseColumnRename(operation,live,desired);
+    if(rename&&!rename.virtual)(renames[rename.table]??=Object.create(null))[rename.before]=rename.after;
+   }
+   const preserved=dataFingerprint(database,survivingNames,limit,deadline,columns,n=>checkpoint('PRESERVATION',n),samplePerTable,renames).hash===preservedBefore;
    const afterNames=desired._tables.filter(t=>scoped.application.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));
    // Include newly added tables in permission context for expression validation.
    for(const o of review.plan.operations.filter(o=>o.kind==='create_table')){scoped.application.datasets[o.table!]={read:true,create:true,update:true,delete:true,export:true};if(!afterNames.includes(o.table!))afterNames.push(o.table!);}
@@ -167,7 +205,7 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
  }catch(error){
   console.error('[release-rehearsal]',{job,stage,errorType:error instanceof Error?error.name:'unknown'});
   result.checks.push({code:stage,passed:false});
-  result.status='failed';result.reasons.push(control?.cancelled()?'ยกเลิกงานซ้อมแล้ว':error instanceof AuthError?'บริบทหรือแผนเปลี่ยน กรุณาตรวจใหม่ก่อนซ้อม':'ซ้อมไม่สำเร็จ: ตรวจโครงสร้าง สูตร เงื่อนไขข้อมูล หรือขีดจำกัดแถวและเวลาของงาน');
+  result.status='failed';result.reasons.push(control?.cancelled()?'ยกเลิกงานซ้อมแล้ว':error instanceof ReleaseRemovalBlockedError?error.message:error instanceof AuthError?'บริบทหรือแผนเปลี่ยน กรุณาตรวจใหม่ก่อนซ้อม':'ซ้อมไม่สำเร็จ: ตรวจโครงสร้าง สูตร เงื่อนไขข้อมูล หรือขีดจำกัดแถวและเวลาของงาน');
  }finally{
   opened?.close();
   // Delete only the UUID child directory created by this request, never the workspace/live DB.

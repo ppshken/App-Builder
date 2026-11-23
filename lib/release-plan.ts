@@ -18,6 +18,7 @@ export type ReleasePlan = {
   notices:string[];
   summary:{schema:number;configuration:number;shared:number;unsupported:number;conflicts:number;liveChanged:boolean};
   publishBlocked:boolean;
+  refConversions?:{column_id:number;target:string;match:"id"|"key"}[];
 };
 const collections=['_tables','_columns','_table_overlays','_slices','_views','_actions','_app_settings','_pdf_templates','_automations'] as const;
 const structuralFields=new Set(['id','table_name','name','type','is_virtual','is_key','is_unique','ref_table']);

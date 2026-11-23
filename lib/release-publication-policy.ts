@@ -1,10 +1,11 @@
 import type {ReleaseCatalog,ReleasePlan} from './release-plan';
+import {preservingColumnTypeChange,releaseColumnRename,releaseValueRewrite} from './release-column-types';
 import {rehearsalEligibility} from './release-rehearsal';
 export function schemaPublicationEnabled(value:string|undefined=process.env.NOCODE_SCHEMA_PUBLICATION){return value==='1';}
 export function samePublicationSource(expected:{connection:unknown;generation:number;identity:string},current:{connection:unknown;generation:number;identity:string}){return expected.connection===current.connection&&expected.generation===current.generation&&expected.identity===current.identity;}
 const presentationFields=['label','pos','is_label','input_mode','button_limit','list_limit'];
 const ruleFields=['required','required_if','default_expr','valid_if','show_if','editable_if','is_editable','reset_on_edit','reset_columns_json','invalid_value_error','options','max_length','part_show_if','part_add_if','part_valid_if','part_invalid_value_error','is_part_of','related_required'];
-export function requiresPublicationRowValidation(plan:ReleasePlan,next:ReleaseCatalog){return plan.operations.some(op=>op.id.startsWith('_columns:')&&(op.kind==='create_column'||op.kind==='alter_column'||op.fields.some(k=>k==='virtual_expr'||ruleFields.includes(k))));}
+export function requiresPublicationRowValidation(plan:ReleasePlan,next:ReleaseCatalog){return plan.operations.some(op=>op.kind==='delete_table'||op.id.startsWith('_columns:')&&(op.kind==='create_column'||op.kind==='alter_column'||op.kind==='delete_column'||op.fields.some(k=>k==='virtual_expr'||ruleFields.includes(k))));}
 export function publicationBlockers(plan:ReleasePlan,live:ReleaseCatalog,next:ReleaseCatalog,shared:string[],_autoGrantRoles:number){
  const reasons=rehearsalEligibility(plan,live,next);
  for(const op of plan.operations){
@@ -23,11 +24,11 @@ export function publicationBlockers(plan:ReleasePlan,live:ReleaseCatalog,next:Re
    if(c?.is_virtual&&(!String(c.virtual_expr||'').trim()||c.is_key||c.is_unique))reasons.push('คอลัมน์คำนวณใหม่ต้องมีสูตรและไม่เป็น Key/ห้ามซ้ำ');
   }
   if(op.id.startsWith('_columns:')&&['update_configuration','alter_column'].includes(op.kind)){
-   const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name),old=live._columns.find(c=>c.table_name===op.table&&c.name===op.name);
-   const allowed=[...presentationFields,...ruleFields,...(op.kind==='alter_column'?['type']:[]),...(c?.is_virtual&&old?.is_virtual?['virtual_expr']:[])];
-   const unsupported=op.fields.filter(k=>!allowed.includes(k));if(unsupported.length)reasons.push('ยังไม่รองรับคุณสมบัติคอลัมน์: '+unsupported.join(', '));
+   const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name),old=live._columns.find(previous=>previous.table_name===op.table&&previous.id===c?.id);
+   const allowed=[...presentationFields,...ruleFields,...(releaseColumnRename(op,live,next)?['name']:[]),...(releaseValueRewrite(op,live,next)?['type','ref_table','scan_enabled','ref_allow_add','ref_delete_cascade','image_path','file_path','gps_auto']:[]),...(preservingColumnTypeChange(op,live,next)?['type','ref_table']:[]),...(c&&old&&(c.is_virtual&&old.is_virtual||!c.is_virtual&&!old.is_virtual&&!String(c.virtual_expr||'').trim()&&!String(old.virtual_expr||'').trim())?['virtual_expr']:[])];
+   const unsupported=op.fields.filter(k=>!allowed.includes(k));if(unsupported.length)reasons.push(op.label+' · ยังไม่รองรับคุณสมบัติคอลัมน์ '+unsupported.join(', '));
    if(op.fields.some(k=>k==='virtual_expr'||ruleFields.includes(k))&&(shared.includes(op.table!)||next._tables.find(t=>t.name===op.table)?.owner_app_id!==plan.appId||next._tables.find(t=>t.name===op.table)?.source_kind!=='INTERNAL_DATABASE'))reasons.push('เปลี่ยนสูตรและเงื่อนไขได้เฉพาะตารางของแอปที่ไม่มีแอปอื่นเชื่อม');
-   if(op.fields.includes('virtual_expr')&&!String(c?.virtual_expr||'').trim())reasons.push('กรุณาระบุสูตรคอลัมน์คำนวณ');
+   if(c?.is_virtual&&op.fields.includes('virtual_expr')&&!String(c.virtual_expr||'').trim())reasons.push('กรุณาระบุสูตรคอลัมน์คำนวณ');
   }
  }
  return [...new Set(reasons)];

@@ -1,3 +1,5 @@
+import {releaseColumnRemoval,releaseValueRewrite} from './release-column-types';
+import {assertIdentifier} from './columns';
 import {releaseSeedData} from './release-seed-data';
 import {releaseRevisionTriggers,releaseTrackedGlobals} from './release-data-revisions';
 import type Database from 'better-sqlite3';
@@ -12,7 +14,7 @@ import {currentAccess,accessFor,runAuthorized} from './permissions';
 import {applicationScopeFor} from './applications';
 import {AuthError,type AuthUser} from './auth';
 import {catalog,draftDiff,openDraft,isDevelopmentDraft,rehearsalPlanHash,applyReleaseCatalog} from './releases';
-import {applyPublicationSchema,RELEASE_EXECUTOR_VERSION,type RehearsalResult} from './release-rehearsal';
+import {withReleaseSchemaForeignKeys,applyPublicationSchema,RELEASE_EXECUTOR_VERSION,type RehearsalResult} from './release-rehearsal';
 import {publicationBlockers,samePublicationSource,requiresPublicationRowValidation,schemaPublicationEnabled} from './release-publication-policy';
 import {publicationJournal,publicationJournalPath,claimPublication,assertPublicationLease,finishPublication} from './publication-journal';
 import {openRehearsalQueue,rehearsalQueuePath,type RehearsalJob} from './rehearsal-jobs';
@@ -55,13 +57,30 @@ export function publicationReview(id:string,owner:number,verified?:RehearsalResu
  if(!review.plan.operations.length)blockers.push('ไม่มีความเปลี่ยนแปลงที่ต้องเผยแพร่');
  if(untrustedMetadataTrigger(platformDatabase()))blockers.push('พบ Trigger นอกระบบในตารางตั้งค่า กรุณาตรวจก่อนเผยแพร่');
  const permissions={datasets:app.datasets,auto,builders:db.prepare('SELECT user_id FROM _application_builders WHERE app_id=? ORDER BY user_id').all(app.id),roles:db.prepare('SELECT * FROM _application_local_roles WHERE app_id=? ORDER BY name').all(app.id),grants:['_roles','_role_tables','_role_actions','_role_row_rules'].map(t=>db.prepare('SELECT * FROM '+t+' ORDER BY rowid').all()),localGrants:['_application_role_tables','_application_role_actions','_application_role_rows'].map(t=>db.prepare('SELECT * FROM '+t+' WHERE app_id=? ORDER BY rowid').all(app.id))};
- const intentHash=hash({workspace:id,app:app.id,owner,planHash,reviewHash:review.review_hash,physical:physical(platformDatabase()),permissions});
- return {eligible:!blockers.length,blockers:[...new Set(blockers)],intentHash,rehearsalId,planHash,reviewHash:review.review_hash,validatesRows,validationLimit:1000000,automaticGrants,seedData:review.seedData?.tables,committed:null};
+ const removalImpact=platformDatabase().transaction(()=>review.plan.operations.flatMap(operation=>{
+  const column=releaseColumnRemoval(operation,live,desired);
+  const deletingTable=operation.kind==='delete_table';
+  if(!deletingTable&&(!column||column.virtual))return [];
+  const table=operation.table!;
+  if(!live._tables.some(t=>t.name===table&&t.owner_app_id===app.id&&t.source_kind==='INTERNAL_DATABASE'))return [];
+  assertIdentifier(table);
+  if(column)assertIdentifier(column.name);
+  const predicate=column?' WHERE "'+column.name+'" IS NOT NULL':'';
+  const count=(platformDatabase().prepare('SELECT COUNT(*) AS n FROM "t_'+table+'"'+predicate).get() as {n:number}).n;
+  return [{table,column:column?.name,label:operation.label,count}];
+ }))();
+ const rewrites=review.plan.operations.flatMap(operation=>{
+  const rewrite=releaseValueRewrite(operation,live,desired);
+  return rewrite?[{table:operation.table,column:operation.name,label:operation.label,from:[rewrite.before.type,rewrite.before.ref_table].filter(Boolean).join(" · "),to:[rewrite.after.type,rewrite.after.ref_table].filter(Boolean).join(" · ")}]:[];
+ });
+ const intentHash=hash({workspace:id,app:app.id,owner,planHash,reviewHash:review.review_hash,physical:physical(platformDatabase()),permissions,removalImpact});
+ return {eligible:!blockers.length,blockers:[...new Set(blockers)],intentHash,rehearsalId,planHash,reviewHash:review.review_hash,validatesRows,validationLimit:1000000,automaticGrants,removalImpact,rewrites,seedData:review.seedData?.tables,committed:null};
 }
-export async function publishDevelopment(id:string,owner:number,intent:string,reauth:()=>AuthUser|null,aborted:()=>boolean,automaticGrantsAck=false){
+export async function publishDevelopment(id:string,owner:number,intent:string,reauth:()=>AuthUser|null,aborted:()=>boolean,automaticGrantsAck=false,removalAck=false){
  const appId=currentApplication()!.id,done=committed(id,owner,intent);if(done)return done;
  const initial=publicationReview(id,owner);if(!initial.eligible||initial.intentHash!==intent)throw new AuthError('แผนหรือสิทธิ์เปลี่ยน หรือยังไม่ผ่านเงื่อนไข กรุณาตรวจพร้อมเผยแพร่อีกครั้ง',409);
  if(initial.automaticGrants?.roles.length&&!automaticGrantsAck)throw new AuthError('กรุณายืนยันสิทธิ์อัตโนมัติที่แสดงในผลตรวจพร้อมเผยแพร่',409);
+ if(initial.removalImpact?.some(item=>item.count>0)&&!removalAck)throw new AuthError('กรุณายืนยันการลบข้อมูลจริงตามรายการในผลตรวจ',409);
  let journal:ReturnType<typeof publicationJournal>;try{journal=publicationJournal(databasePath);}catch{throw new AuthError('ที่เก็บสถานะเผยแพร่ไม่พร้อม กรุณาลองใหม่ภายหลัง',409);}let attempt:ReturnType<typeof claimPublication>|undefined,backup:string|undefined,backupPath:string|undefined,backupComplete=false,backupCreated=false;
  const identity=()=>{const stat=statSync(databasePath,{bigint:true});return stat.dev+':'+stat.ino;};
  try{
@@ -84,7 +103,7 @@ export async function publishDevelopment(id:string,owner:number,intent:string,re
   const application=applicationScopeFor(actor,appId);
   return withApplication(application,()=>runAuthorized(actor,accessFor(actor),()=>{
    if(!currentAccess().builder)throw new AuthError('สิทธิ์ผู้พัฒนาถูกเปลี่ยน ยกเลิกการเผยแพร่',403);
-   const opened=openDraft(id,owner);try{return opened.transaction(()=>raw.transaction(()=>{
+   const opened=openDraft(id,owner);try{return opened.transaction(()=>withReleaseSchemaForeignKeys(raw,()=>raw.transaction(()=>{
     if(!samePublicationSource(source,{connection:platformDatabase(),generation:databaseGeneration(),identity:identity()}))throw new AuthError('ฐานข้อมูลต้นทางเปลี่ยนก่อน commit',409);
     const latestActor=reauth();if(!latestActor||latestActor.id!==owner)throw new AuthError('Session หรือบัญชีเปลี่ยนก่อน commit',403);const latestApplication=applicationScopeFor(latestActor,appId);
     return withApplication(latestApplication,()=>runAuthorized(latestActor,accessFor(latestActor),()=>{
@@ -100,11 +119,11 @@ export async function publishDevelopment(id:string,owner:number,intent:string,re
      applyReleaseCatalog(next,true);
 
      saved=next;
-    },seed)));
+    },seed,removalAck)));
     assertPublicationLease(journal,attempt!);db.prepare('INSERT INTO _app_versions(id,owner,label,created_at,config_json,before_json) VALUES(?,?,?,?,?,?)').run(id,owner,review.manifest.label,receipt.published_at,JSON.stringify({...saved,_publication:[receipt]}),JSON.stringify(before));
     return {status:'committed' as const,versionId:id,backup:backup!,publishedAt:receipt.published_at,replayed:false};
     }));
-   }).immediate())();}finally{opened.close();}
+   }).immediate()))();}finally{opened.close();}
   }));
  }catch(e){
   // A committed SQLite version is authoritative even if status delivery/journaling was interrupted.

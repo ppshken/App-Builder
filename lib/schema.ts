@@ -46,7 +46,7 @@ export function columnDefinition(c: Column) {
   return `"${c.name}" ${SQLTYPE[c.type]}` + (c.type === "ref" ? ` REFERENCES "t_${c.ref_table}"(id)` : "");
 }
 // Called with foreign_keys OFF, inside a transaction; keeps row IDs and AUTOINCREMENT history.
-export function rebuildTable(db: Database.Database, table: string) {
+export function rebuildTable(db: Database.Database, table: string, syncIndexes = true) {
   return withApplicationTemporaryTable(`t_${table}__new`,()=>{
   assertIdentifier(table);
   const cols = readColumns(db, table).filter(c => !c.is_virtual);
@@ -60,7 +60,7 @@ export function rebuildTable(db: Database.Database, table: string) {
   const current = db.prepare("SELECT seq FROM sqlite_sequence WHERE name=?").get(`t_${table}`);
   if (current) db.prepare("UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name=?").run(seq, `t_${table}`);
   else db.prepare("INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)").run(`t_${table}`, seq);
-  syncKeyIndex(db, table);
+  if (syncIndexes) syncKeyIndex(db, table);
   installRealtimeTriggers(db,table);
 
   });

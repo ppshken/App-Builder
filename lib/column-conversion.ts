@@ -1,3 +1,4 @@
+import {currentDevelopment} from './development-context';
 import {validateListCardActions} from './list-card';
 import {createUserFieldValidator} from './user-fields';
 import {assertPartValues} from './part-validation';
@@ -88,7 +89,7 @@ function managedExternalViews(database:Database.Database,objects:{name:string;ty
  }}finally{template.close();}
  return trusted;
 }
-function prepare(database:Database.Database,table:string,request:ConversionRequest){
+export function prepareConversion(database:Database.Database,table:string,request:ConversionRequest){
  assertIdentifier(table);if(!database.prepare("SELECT 1 FROM _tables WHERE name=?").get(table))throw Error("ไม่พบตาราง");
  if(request.mode==="replace"&&['_role_row_rules','_application_role_rows'].some(name=>(database.prepare('SELECT expression FROM '+name+' WHERE table_name=?').all(table) as {expression:string}[]).some(r=>references(r.expression).includes(request.column))))throw Error("คอลัมน์นี้ใช้ในกฎสิทธิ์ระดับแถว กรุณาแก้กฎก่อนแปลงชนิดข้อมูล หรือเลือกคัดลอกไปคอลัมน์ใหม่");
  assertInternalTable(database,table);const cols=readColumns(database,table),source=cols.find(c=>c.name===request.column);if(!source)throw Error("ไม่พบคอลัมน์ที่ต้องการแปลง");if(source.auto_number)throw Error("กรุณาปิดเลขรันอัตโนมัติก่อนเปลี่ยนชนิดหรือคัดลอกคอลัมน์");
@@ -115,7 +116,7 @@ function prepare(database:Database.Database,table:string,request:ConversionReque
  assertUniqueColumn(target);
  return {source,target,cols};
 }
-function referenceResolver(database:Database.Database,target:Column,match:"id"|"key"){
+export function referenceResolver(database:Database.Database,target:Column,match:"id"|"key"){
  if(target.type!=="ref")return undefined;
  const columns=readColumns(database,target.ref_table!),key=match==="key"?columns.find(c=>c.is_key)?.name||"id":"id";
  const query=database.prepare(`SELECT id FROM "t_${target.ref_table}" WHERE CAST("${key}" AS TEXT)=? LIMIT 2`);
@@ -130,7 +131,7 @@ function writeColumn(database:Database.Database,table:string,target:Column,copy:
 function writeConversion(database:Database.Database,table:string,request:ConversionRequest,source:Column,target:Column,values:{id:number;value:unknown}[]){
  writeColumn(database,table,target,request.mode==="copy");
  if(request.mode==="copy")database.prepare(`ALTER TABLE "t_${table}" ADD COLUMN ${columnDefinition(target)}`).run();
- else rebuildTable(database,table);
+ else rebuildTable(database,table,false);
  const update=database.prepare(`UPDATE "t_${table}" SET "${target.name}"=? WHERE id=?`);
  for(const row of values)update.run(["list","enumlist"].includes(target.type)?JSON.stringify(row.value):row.value,row.id);
  syncKeyIndex(database,table);
@@ -200,7 +201,7 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
  }}
 }
 export function previewConversion(database:Database.Database,table:string,request:ConversionRequest,now=new Date()):ConversionReport{
- const {source,target}=prepare(database,table,request),snapshot=database.serialize();
+ const {source,target}=prepareConversion(database,table,request),snapshot=database.serialize();
  // Only the independent snapshot is changed. SQLite deserialize cannot open WAL-mode buffers.
  // SQLite's documented workaround: https://sqlite.org/c3ref/deserialize.html
  snapshot[18]=1;snapshot[19]=1;
@@ -225,14 +226,22 @@ export function previewConversion(database:Database.Database,table:string,reques
  }finally{snapshotDatabase.close();}
 }
 // Caller must require an unchanged preview and create a backup before invoking this synchronous transaction.
+export function readDraftRefConversions(database:Database.Database){
+ if(!database.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='_draft_ref_conversions'").get())return [];
+ return database.prepare("SELECT * FROM _draft_ref_conversions ORDER BY column_id").all() as {column_id:number;target:string;match:"id"|"key"}[];
+}
 export function applyConversion(database:Database.Database,table:string,request:ConversionRequest,expectedFingerprint?:string){
- const {source,target}=prepare(database,table,request),resolve=referenceResolver(database,target,request.ref_match||"id");
+ const {source,target}=prepareConversion(database,table,request),resolve=referenceResolver(database,target,request.ref_match||"id");
  const values=(database.prepare(`SELECT id,"${source.name}" AS value FROM "t_${table}" ORDER BY id`).all() as {id:number;value:unknown}[]).map(row=>({id:row.id,value:convertValue(source,target,row.value,resolve)}));
  foreignKeyTransaction(database,()=>{
   if(expectedFingerprint&&conversionFingerprint(database,table,request)!==expectedFingerprint)throw Error("ข้อมูลเปลี่ยนหลังตรวจ กรุณาตรวจการแปลงใหม่ก่อนยืนยัน");
   const checkUsers=createUserFieldValidator(database);for(const {value} of values)checkUsers([target],{[target.name]:value});
   const parents=conversionPartParents(database,table);
   writeConversion(database,table,request,source,target,values);
+  if(currentDevelopment()&&request.mode==="replace"&&target.type==="ref"){
+   database.exec("CREATE TABLE IF NOT EXISTS _draft_ref_conversions(column_id INTEGER PRIMARY KEY,target TEXT NOT NULL,match TEXT NOT NULL)");
+   database.prepare("INSERT OR REPLACE INTO _draft_ref_conversions VALUES(?,?,?)").run((database.prepare("SELECT id FROM _columns WHERE table_name=? AND name=?").get(table,target.name) as {id:number}).id,target.ref_table,request.ref_match||"id");
+  }
   validateConversionParts(database,table,mergePartParents(parents,conversionPartParents(database,table)),new Date(),(_table,message)=>{throw Error(message);});
  });
  return target;
