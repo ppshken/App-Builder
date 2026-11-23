@@ -19,7 +19,7 @@ import {installRealtimeTriggers} from './realtime-schema';
 import {currentDevelopment} from './development-context';
 import {verifyDevelopment} from './development-workspace';
 // Bump when the schema executor or its safety contract changes; old rehearsal proofs must expire.
-export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-19-v16-indexed-conversion';
+export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-19-v17-new-reference-target';
 export const REHEARSAL_SAMPLE_ROWS=100;
 export const REHEARSAL_SAMPLE_LIMIT=1000;
 // Deterministic head/tail samples; keep the complete database for Ref/formula accuracy.
@@ -129,6 +129,15 @@ function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:Re
  const insert=(name:string,row:Record<string,unknown>)=>{const keys=Object.keys(row);for(const key of keys)if(!/^[a-z][a-z0-9_]*$/.test(key))throw Error('ชื่อคุณสมบัติไม่ถูกต้อง');return database.prepare('INSERT INTO '+name+'('+keys.map(k=>'"'+k+'"').join(',')+') VALUES('+keys.map(()=>'?').join(',')+')').run(...keys.map(k=>row[k]));};
  database.transaction(()=>{
   assertPartSchema(Object.fromEntries(next._tables.map(t=>[String(t.name),next._columns.filter(c=>c.table_name===t.name) as unknown as Column[]])));
+  // Reserve all table metadata first so mutually referencing new tables can be checked together.
+  for(const name of created){assertIdentifier(name);insert('_tables',next._tables.find(t=>t.name===name)!);}
+  for(const op of plan.operations.filter(o=>o.kind==='create_column'&&created.has(o.table!))){
+   const row=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;const {id,...values}=row;
+   row.id=Number(insert('_columns',values).lastInsertRowid);
+  }
+  for(const name of created){const columns=next._columns.filter(c=>c.table_name===name&&!c.is_virtual);database.exec('CREATE TABLE "t_'+name+'"(id INTEGER PRIMARY KEY AUTOINCREMENT'+(columns.length?',':'')+columns.map(c=>columnDefinition(c as unknown as Column)).join(',')+')');}
+  for(const name of created){syncKeyIndex(database,name);installRealtimeTriggers(database,name);}
+  if(seed){database.pragma('defer_foreign_keys=ON');importReleaseSeedData(database,seed,plan);}
   for(const op of plan.operations.filter(o=>o.kind==='alter_column')){
    const rename=releaseColumnRename(op,live,next);
    if(rename){
@@ -216,17 +225,12 @@ function applyAdditiveSchema(database:Database.Database,plan:ReleasePlan,live:Re
    }
    if(database.prepare('DELETE FROM _columns WHERE id=? AND table_name=? AND name=?').run(removal.id,removal.table,removal.name).changes!==1)throw Error('คอลัมน์เปลี่ยนหลังตรวจ');
   }
-  // Reserve all table metadata first so mutually referencing new tables can be checked together.
-  for(const name of created){assertIdentifier(name);insert('_tables',next._tables.find(t=>t.name===name)!);}
-  for(const op of plan.operations.filter(o=>o.kind==='create_column')){
+  for(const op of plan.operations.filter(o=>o.kind==='create_column'&&!created.has(o.table!))){
    const row=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;const {id,...values}=row;
    row.id=Number(insert('_columns',values).lastInsertRowid);
   }
-  for(const name of created){const columns=next._columns.filter(c=>c.table_name===name&&!c.is_virtual);database.exec('CREATE TABLE "t_'+name+'"(id INTEGER PRIMARY KEY AUTOINCREMENT'+(columns.length?',':'')+columns.map(c=>columnDefinition(c as unknown as Column)).join(',')+')');}
   for(const op of plan.operations.filter(o=>o.kind==='create_column'&&!created.has(o.table!))){const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;assertIdentifier(op.table);if(!c.is_virtual)database.exec('ALTER TABLE "t_'+op.table+'" ADD COLUMN '+columnDefinition(c as unknown as Column));}
-  for(const name of created){syncKeyIndex(database,name);installRealtimeTriggers(database,name);}
   for(const op of plan.operations.filter(o=>o.kind==='create_column'&&!created.has(o.table!))){const c=next._columns.find(c=>c.table_name===op.table&&c.name===op.name)!;if(c.type==='ref'&&!c.is_virtual)database.exec('CREATE INDEX IF NOT EXISTS "_ref_'+op.table+'_'+c.name+'" ON "t_'+op.table+'"("'+c.name+'")');}
-  if(seed){database.pragma('defer_foreign_keys=ON');importReleaseSeedData(database,seed,plan);}
   for(const operation of plan.operations.filter(op=>op.kind==='delete_table')){
    const name=operation.table!;
    assertIdentifier(name);

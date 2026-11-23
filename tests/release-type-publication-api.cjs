@@ -156,6 +156,19 @@ const publish=(d,p,status=200,removal_ack=false)=>api('/api/releases','POST',{op
   assert.equal(native.prepare('SELECT value FROM t_rewrite_'+type).get().value,value);
   assert.equal(native.prepare('SELECT type FROM _columns WHERE table_name=? AND name=?').get('rewrite_'+type,'value').type,type);
  }
+ await api('/api/tables','POST',{name:'new_ref_source',columns:[{name:'value',type:'text'}]});
+ const source=await api('/api/data/new_ref_source','POST',{value:'1'});
+ const newRef=await api('/api/releases','POST',{op:'create',label:'Ref to new table',mode:'development'}),newRefCookie=owner+'; nocode_draft='+newRef.id;
+ await api('/api/tables','POST',{name:'new_ref_target',columns:[{name:'title',type:'text'}]},newRefCookie);
+ const newTarget=await api('/api/data/new_ref_target','POST',{title:'Seed target'},newRefCookie);
+ assert.equal(newTarget.id,1);
+ await convert('new_ref_source',newRefCookie,{type:'ref',ref_table:'new_ref_target'});
+ await rehearse(newRef);
+ const latestRef=await ready(newRef);assert.equal(latestRef.eligible,true,JSON.stringify(latestRef));
+ assert.equal((await publish(newRef,latestRef)).status,'committed');
+ assert.equal(native.prepare('SELECT value FROM t_new_ref_source WHERE id=?').get(source.id).value,newTarget.id);
+ assert.equal(native.pragma('foreign_key_list(t_new_ref_source)')[0].table,'t_new_ref_target');
+ assert.deepEqual(native.pragma('foreign_key_check'),[]);
  // Named-app metadata and publication workers use the same app boundary.
  const app=await api('/api/applications','POST',{label:'Type publication app'},owner,201),ac=owner+'; nocode_app='+app.id;
  await api('/api/tables','POST',{name:'named_type_rows',label:'Named type',columns:[{name:'value',type:'text'}]},ac);await api('/api/data/named_type_rows','POST',{value:'A'},ac);

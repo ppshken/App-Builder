@@ -56,7 +56,7 @@ export function releaseValueRewrite(op:ReleaseOperation,live:ReleaseCatalog,next
  if(!before||!after||before.name!==after.name||before.is_virtual||after.is_virtual||
     !!before.is_key!==!!after.is_key||!!before.is_unique!==!!after.is_unique||[before,after].some(c=>c.auto_number_json&&c.auto_number_json!=='null'))return;
  if(before.type===after.type&&(before.ref_table??null)===(after.ref_table??null))return;
- if(after.ref_table&&!next._tables.some(t=>t.name===after.ref_table&&t.owner_app_id===planOwner(next,after)&&t.source_kind==='INTERNAL_DATABASE'&&live._tables.some(old=>old.name===t.name)))return;
+ if(after.ref_table&&!next._tables.some(t=>t.name===after.ref_table&&t.owner_app_id===planOwner(next,after)&&t.source_kind==='INTERNAL_DATABASE'))return;
  if(!Object.hasOwn(SQLTYPE,String(before.type))||!Object.hasOwn(SQLTYPE,String(after.type)))return;
  return {before,after};
 }
