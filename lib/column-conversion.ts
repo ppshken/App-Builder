@@ -119,8 +119,8 @@ export function prepareConversion(database:Database.Database,table:string,reques
 export function referenceResolver(database:Database.Database,target:Column,match:"id"|"key"){
  if(target.type!=="ref")return undefined;
  const columns=readColumns(database,target.ref_table!),key=match==="key"?columns.find(c=>c.is_key)?.name||"id":"id";
- const query=database.prepare(`SELECT id FROM "t_${target.ref_table}" WHERE CAST("${key}" AS TEXT)=? LIMIT 2`);
- return(value:unknown)=>{const rows=query.all(String(value)) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
+ const query=database.prepare(`SELECT id FROM "t_${target.ref_table}" WHERE ${key==='id'?'id=? AND ':''}CAST("${key}" AS TEXT)=? LIMIT 2`);
+ return(value:unknown)=>{const text=String(value);const rows=query.all(...(key==='id'?[text,text]:[text])) as {id:number}[];if(rows.length!==1)throw Error(`ไม่พบรหัส "${shown(value)}" ที่ตรงกันเพียงแถวเดียวใน ${target.ref_table}[${key}] กรุณาแก้ข้อมูลหรือวิธีจับคู่ Ref`);return rows[0].id;};
 }
 function writeColumn(database:Database.Database,table:string,target:Column,copy:boolean){
  const fields=["part_invalid_value_error","invalid_value_error","auto_number_json","name","label","type","options","ref_table","required","pos","is_virtual","is_key","is_label","list_limit","is_editable","is_unique","image_path","file_path","gps_auto","max_length","is_part_of","part_show_if","part_add_if","part_valid_if","reset_on_edit","reset_columns_json","input_mode","button_limit","ref_allow_add","ref_delete_cascade","related_required",...FORMULA_FIELDS];
@@ -189,16 +189,37 @@ function checkDependencies(database:Database.Database,table:string,report:Conver
  }
  validateConversionParts(database,table,mergePartParents(conversionPartParents(database,table),conversionPartParents(baseline,table)),now,add);
  for(const view of database.prepare("SELECT * FROM _views").all() as any[]){try{validateDisplay(JSON.parse(view.display_json),["dashboard","custom"].includes(view.kind)?[]:schema[view.table_name]);if(JSON.parse(view.display_json).list_card)validateListCardActions(JSON.parse(view.display_json).list_card,database.prepare('SELECT name,table_name FROM _actions').all() as any[],view.table_name);if(view.kind==='custom')validateCustomData(JSON.parse(view.display_json).custom_page,database.prepare("SELECT name,table_name FROM _views").all() as any[],database.prepare("SELECT name FROM _actions").all() as any[],schema);validateViewCondition(view.show_if,schema);viewIsVisible(view.show_if,{...context,now});}catch(e){add(`View ${view.label}`, (e as Error).message);}}
- for(const entity of ["_slices","_actions"]){for(const item of database.prepare(`SELECT * FROM ${entity}`).all() as any[]){const expressions=(entity==="_slices"?[item.filter_expr]:[item.condition_expr,...actionConfigExpressions(JSON.parse(item.config_json||"{}")),...Object.values(JSON.parse(item.values_json))]).filter(e=>typeof e==="string"&&e.trim());
-  const cols=schema[item.table_name];if(!cols)throw Error("Slice หรือ Action อ้างอิงตารางที่ไม่มีอยู่ กรุณาแก้การตั้งค่า");
-  let probe="conversion_check";while(cols.some(c=>c.name===probe))probe+="x";
-  assertFormulas([...cols,{name:probe,label:item.label,type:"text",show_if:expressions.map(e=>`(${e})`).join(" + ")}],schema);
-  for(const raw of database.prepare(`SELECT * FROM "t_${item.table_name}"`).iterate() as Iterable<Record<string,unknown>>){try{
-   const row=calculateRow(cols,raw,false,now,false,"",context).row,options={...context,now,tableName:item.table_name,refTables:refTablesOf(cols)};
-   for(const expression of expressions)evaluateExpression(String(expression),row,options);
-   if(entity==="_actions"&&item.kind==="set")for(const [name,expression] of Object.entries(JSON.parse(item.values_json))){const column=cols.find(c=>c.name===name);if(!column)throw Error("Action อ้างอิงคอลัมน์ที่ไม่มีอยู่");normalizeValue(column,evaluateExpression(String(expression),row,options));}
-  }catch(e){add(`${entity==="_slices"?"Slice":"Action"} ${item.label}`,(e as Error).message,Number(raw.id));}}
- }}
+ const checks=new Map<string,{label:string;expressions:string[];assignments:[string,unknown][]}[]>();
+ for(const entity of ["_slices","_actions"]){
+  for(const item of database.prepare("SELECT * FROM "+entity).all() as any[]){
+   const values=entity==="_actions"?JSON.parse(item.values_json):{};
+   const expressions:string[]=(entity==="_slices"?[item.filter_expr]:[item.condition_expr,...actionConfigExpressions(JSON.parse(item.config_json||"{}")),...Object.values(values)]).filter(e=>typeof e==="string"&&e.trim());
+   const cols=schema[item.table_name];if(!cols)throw Error("Slice หรือ Action อ้างอิงตารางที่ไม่มีอยู่ กรุณาแก้การตั้งค่า");
+   const assignments=entity==="_actions"&&item.kind==="set"?Object.entries(values):[];
+   if(!expressions.length&&!assignments.length)continue;
+   let probe="conversion_check";while(cols.some(c=>c.name===probe))probe+="x";
+   assertFormulas([...cols,{name:probe,label:item.label,type:"text",show_if:expressions.map(e=>"("+e+")").join(" + ")}],schema);
+   const items=checks.get(item.table_name)||[];
+   items.push({label:(entity==="_slices"?"Slice":"Action")+" "+item.label,expressions,assignments});
+   checks.set(item.table_name,items);
+  }
+ }
+ for(const [tableName,items] of checks){
+  const cols=schema[tableName],options={...context,now,tableName,refTables:refTablesOf(cols)};
+  const columns=new Map(cols.map(column=>[column.name,column]));
+  for(const raw of database.prepare('SELECT * FROM "t_'+tableName+'"').iterate() as Iterable<Record<string,unknown>>){
+   let row:ReturnType<typeof calculateRow>['row'];
+   try{row=calculateRow(cols,raw,false,now,false,"",context).row;}
+   catch(e){for(const item of items)add(item.label,(e as Error).message,Number(raw.id));continue;}
+   for(const item of items){try{
+    for(const expression of item.expressions)evaluateExpression(expression,row,options);
+    for(const [name,expression] of item.assignments){
+     const column=columns.get(name);if(!column)throw Error("Action อ้างอิงคอลัมน์ที่ไม่มีอยู่");
+     normalizeValue(column,evaluateExpression(String(expression),row,options));
+    }
+   }catch(e){add(item.label,(e as Error).message,Number(raw.id));}}
+  }
+ }
 }
 export function previewConversion(database:Database.Database,table:string,request:ConversionRequest,now=new Date()):ConversionReport{
  const {source,target}=prepareConversion(database,table,request),snapshot=database.serialize();

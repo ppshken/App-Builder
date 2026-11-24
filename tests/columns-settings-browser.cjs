@@ -8,6 +8,24 @@ async function api(path,method='GET',body){const r=await fetch(base+path,{method
  await api('/api/tables','POST',{name:'product_image',label:'รูปสินค้า',columns:[{name:'product_id',label:'สินค้า',type:'ref',ref_table:'products'},{name:'image',label:'รูปภาพ',type:'image'},{name:'amount',label:'จำนวน',type:'number'},{name:'tags',label:'ป้าย',type:'enumlist',options:'A,B'}]});
  await api('/api/tables','POST',{name:'other_photos',label:'รูปอื่น',columns:[{name:'owner',label:'เจ้าของ',type:'ref',ref_table:'products'},{name:'backup',label:'สำรอง',type:'ref',ref_table:'products'},{name:'image',label:'รูป',type:'image'}]});
  await api('/api/tables','POST',{name:'unrelated',label:'ไม่เกี่ยวข้อง',columns:[{name:'name',label:'ชื่อ',type:'text'}]});
+ await api('/api/tables','POST',{name:'column_edit_probe',columns:[{name:'code',type:'text',is_key:true},{name:'value',type:'text',is_unique:true}]});
+ const DB=require('better-sqlite3'),native=new DB(process.env.NOCODE_TEST_DB);
+ try {
+  native.exec("CREATE TABLE column_edit_probe_writes(name TEXT); CREATE TRIGGER count_probe_columns AFTER UPDATE ON _columns WHEN NEW.table_name='column_edit_probe' BEGIN INSERT INTO column_edit_probe_writes VALUES(NEW.name); END");
+  const version=native.pragma('schema_version',{simple:true});
+  const result=await fetch(base+'/api/tables/column_edit_probe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'edit_column',name:'value',label:'Updated label'})});
+  assert.equal(result.status,200,JSON.stringify(await result.json()));
+  assert.match(result.headers.get('server-timing'),/backup;dur=/);
+  assert.deepEqual(native.prepare('SELECT name FROM column_edit_probe_writes').all(),[{name:'value'}]);
+  assert.equal(native.pragma('schema_version',{simple:true}),version,'Label edit must preserve existing indexes');
+  await api('/api/tables/column_edit_probe','PATCH',{op:'edit_column',name:'value',label:'Updated label'});
+  assert.equal(native.prepare('SELECT count(*) AS n FROM column_edit_probe_writes').get().n,1,'No-op must not write metadata');
+  await api('/api/tables/column_edit_probe','PATCH',{op:'edit_column',name:'value',is_unique:false});
+  for(const code of ['A','B'])await api('/api/data/column_edit_probe','POST',{code,value:'duplicate'});
+  const duplicate=await fetch(base+'/api/tables/column_edit_probe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'edit_column',name:'value',is_unique:true})});
+  assert.equal(duplicate.status,400);
+  assert.equal(native.prepare("SELECT is_unique FROM _columns WHERE table_name='column_edit_probe' AND name='value'").get().is_unique,0);
+ }finally{native.close();}
  const browser=await chromium.launch({channel:process.env.NOCODE_BROWSER_CHANNEL||'msedge',headless:true}),context=await browser.newContext({viewport:{width:1440,height:1000},permissions:['clipboard-read','clipboard-write']}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  fs.mkdirSync('artifacts',{recursive:true});
  try{

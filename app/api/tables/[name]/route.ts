@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util';
 import {validateCreateGuard} from '@/lib/table-create-guard';
 import {checkFormula} from '@/lib/automation';
 import {assertInternalTable} from '@/lib/external-storage';
@@ -30,6 +31,7 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
     assertInternalTable(db,t);
     const b = await readBody(req), cols = columnsOf(t);
     const found = cols.find(c => c.name === b.name);
+    let timing: string | undefined;
     switch (b.op) {
       case "create_guard": {
         const rule=validateCreateGuard(b.create_if,b.create_error);if(rule.create_if)checkFormula(t,rule.create_if);
@@ -65,14 +67,34 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
         if ((b.type !== undefined && b.type !== found.type && !found.is_virtual) || (b.is_virtual !== undefined && !!b.is_virtual !== !!found.is_virtual))
           return bad("เปลี่ยนชนิดผ่านปุ่มแปลงชนิดข้อมูลเพื่อตรวจก่อนยืนยัน ส่วนการสลับช่องข้อมูลกับช่องคำนวณต้องสร้างคอลัมน์ใหม่");
         if (found.type === "ref" && !found.is_virtual && b.ref_table !== undefined && b.ref_table !== found.ref_table) return bad("เปลี่ยนตารางอ้างอิงผ่านปุ่มแปลงชนิดข้อมูล เพื่อตรวจการจับคู่ Ref ก่อนยืนยัน");
+        const validationStarted = performance.now();
         const all = normalizeColumns(cols.map(c => c.name === found.name ? { ...c, ...b, name: c.name, type: c.is_virtual?b.type??c.type:c.type, is_virtual: c.is_virtual } : { ...c, ...(b.is_key ? { is_key: 0 } : {}), ...(b.is_label && (c.type==="image")===(found.type==="image") ? { is_label: 0 } : {}) }),{[t]:[]});
         const editedText = all.find(c=>c.name===found.name)!;
-        if (!editedText.is_virtual && ["text","longtext"].includes(editedText.type) && editedText.max_length) {
+        editedText.pos = found.pos;
+        const peers = all.filter((column,index)=>column.name!==found.name&&(!!column.is_key!==!!cols[index].is_key||!!column.is_label!==!!cols[index].is_label));
+        if (!peers.length && Object.entries(editedText).every(([key,value])=>isDeepStrictEqual(value ?? null,found[key as keyof typeof found] ?? null))) break;
+        const keyChanged = all.some((column,index)=>!!column.is_key!==!!cols[index].is_key);
+        const indexChanged = keyChanged || !!editedText.is_unique!==!!found.is_unique;
+        if (!editedText.is_virtual && ["text","longtext"].includes(editedText.type) && editedText.max_length && (!found.max_length || editedText.max_length < found.max_length)) {
           const oversized = db.prepare(`SELECT id,"${found.name}" AS value FROM "t_${t}" WHERE length(CAST("${found.name}" AS BLOB)) > ?`).iterate(editedText.max_length);
           for (const row of oversized as Iterable<{id:number;value:string|null}>) { if (row.value != null && row.value.length > editedText.max_length) throw Error(`ตั้งจำนวนตัวอักษรไม่ได้: แถว ${row.id} มีข้อความยาวเกิน ${editedText.max_length} ตัวอักษร กรุณาแก้ข้อมูลเดิมหรือเพิ่มจำนวนที่อนุญาต`); }
         }
+        const backupStarted = performance.now();
         backupBeforeSchema();
-        db.transaction(() => { if(found.type === "list" && b.ref_table !== undefined && b.ref_table !== found.ref_table) { const edited = all.find(c=>c.name===found.name)!; if(!edited.is_virtual) for(const row of db.prepare(`SELECT "${found.name}" AS value FROM "t_${t}"`).all() as {value:unknown}[]) checkLists([edited],{[edited.name]:normalizeValue(edited,row.value)}); } assertKeyData(t, all); if(found.is_virtual&&editedText.type!==found.type)db.prepare("UPDATE _columns SET type=? WHERE table_name=? AND name=?").run(editedText.type,t,found.name); all.forEach(c => saveColumn(t, c)); syncKeyIndex(db, t); })();
+        const updateStarted = performance.now();
+        db.transaction(() => {
+          if(found.type === "list" && editedText.ref_table !== found.ref_table && !editedText.is_virtual) {
+            const rows = db.prepare('SELECT "'+found.name+'" AS value FROM "t_'+t+'"').iterate() as Iterable<{value:unknown}>;
+            for(const row of rows) checkLists([editedText],{[editedText.name]:normalizeValue(editedText,row.value)});
+          }
+          if(keyChanged) assertKeyData(t, all);
+          if(found.is_virtual&&editedText.type!==found.type)db.prepare("UPDATE _columns SET type=? WHERE table_name=? AND name=?").run(editedText.type,t,found.name);
+          saveColumn(t, editedText);
+          const updateFlags=db.prepare('UPDATE _columns SET is_key=?,is_label=? WHERE table_name=? AND name=?');
+          for(const peer of peers) updateFlags.run(peer.is_key,peer.is_label,t,peer.name);
+          if(indexChanged) syncKeyIndex(db, t);
+        })();
+        timing = ['validate;dur='+(backupStarted-validationStarted).toFixed(1),'backup;dur='+(updateStarted-backupStarted).toFixed(1),'update;dur='+(performance.now()-updateStarted).toFixed(1)].join(', ');
         break;
       }
       case "rename_column": {
@@ -123,7 +145,7 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
       }
       default: return bad("คำสั่งไม่ถูกต้อง");
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true },timing ? {headers:{"Server-Timing":timing}} : undefined);
   } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 async function handleDELETE(_: Request, { params }: { params: { name: string } }) {
