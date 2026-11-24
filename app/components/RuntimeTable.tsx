@@ -159,6 +159,11 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
   const [reopenPending,setReopenPending]=useState(false);
   const formTabsRef=useRef<FormTabsHandle>(null);
   const [formPartErrors,setFormPartErrors]=useState<Record<string,string>>({});
+  const reportPartValidation=useCallback((key:string,error:string)=>setFormPartErrors(old=>{
+    if ((old[key]||'')===error) return old;
+    if (error) return {...old,[key]:error};
+    const next={...old};delete next[key];return next;
+  }),[]);
   const [formSession,setFormSession]=useState(0),[formStep,setFormStep]=useState({first:true,last:true});
   const reportFormStep=useCallback((next:{first:boolean;last:boolean})=>setFormStep(old=>old.first===next.first&&old.last===next.last?old:next),[]);
   const [form, setForm] = useState<Record<string, any> | null>(null), [formTime, setFormTime] = useState(new Date());
@@ -268,8 +273,8 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
     const missingGps=meta.columns.find(c=>c.gps_auto&&!c.is_virtual&&state.editable[c.name]&&!parseCoordinates(form[c.name]));
     if(missingGps)return setErr(`กรุณาดึงตำแหน่งของ "${missingGps.label}" ก่อนบันทึก หากยังไม่ได้อนุญาตให้เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์`);
     const relevant=(errors:Record<string,string>)=>Object.entries(errors).find(([name])=>!onDraftSaved||name!==parentLink)?.[1];
-    const error = relevant(state.errors) || relevant(uniqueErrors) || relevant(state.validation);
-    if (error) {formTabsRef.current?.showErrors(Object.entries({...state.errors,...uniqueErrors,...state.validation}).filter(([,message])=>!!message).map(([key])=>key));return setErr(error);}
+    const error = relevant(state.errors) || relevant(uniqueErrors) || relevant(state.validation) || (onDraftSaved ? relevant(formPartErrors) : undefined);
+    if (error) {formTabsRef.current?.showErrors(Object.entries({...state.errors,...uniqueErrors,...state.validation,...formPartErrors}).filter(([,message])=>!!message).map(([key])=>key));return setErr(error);}
     setBusy(true);
     try {
       const body = Object.fromEntries(meta.columns.filter(c => !c.is_virtual && state.editable[c.name] && (!onDraftSaved||c.name!==parentLink)).map(c => [c.name, state.row[c.name]]));
@@ -458,7 +463,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
     const inline=relatedInlineView(relatedViews.filter(v=>v.position==="inline"),r.table,r.column,config.view);
     const hidden=runtimeView&&!onDraftSaved?relatedViews.filter(v=>v.position==="inline"&&!inlineViews.some(a=>a.name===v.name)).map(v=>v.name):hiddenInline;
     if(!link.related_required&&(config.view&&!inline||inline&&hidden.includes(inline.name)))return null;
-    if(link.is_part_of||link.related_required)return <PartOfForms onValidation={formDisplay.form_tabs_enabled?(key,error)=>setFormPartErrors(old=>old[key]===error?old:{...old,[key]:error}):undefined} only={{table:r.table,column:r.column}} related={link.related_required?{...formRelatedDisplay,[r.table+":"+r.column]:{...config,visible:true,view:inline&&!hidden.includes(inline.name)?inline.name:undefined}}:formRelatedDisplay} views={relatedViews} hiddenViews={link.related_required?[]:hidden} table={table} tables={allTables} parent={state.row} groups={(form.__children||[]) as ChildGroup[]} busy={busy} options={{...expressionOptions,userEmail:previewEmail}} onChange={__children=>setForm(old=>old?{...old,__children}:old)}/>;
+    if(link.is_part_of||link.related_required)return <PartOfForms onValidation={onDraftSaved||formDisplay.form_tabs_enabled?reportPartValidation:undefined} only={{table:r.table,column:r.column}} related={link.related_required?{...formRelatedDisplay,[r.table+":"+r.column]:{...config,visible:true,view:inline&&!hidden.includes(inline.name)?inline.name:undefined}}:formRelatedDisplay} views={relatedViews} hiddenViews={link.related_required?[]:hidden} table={table} tables={allTables} parent={state.row} groups={(form.__children||[]) as ChildGroup[]} busy={busy} options={{...expressionOptions,userEmail:previewEmail}} onChange={__children=>setForm(old=>old?{...old,__children}:old)}/>;
     const title=relatedTitle(r.label,config.title);
     if(!form.id)return <section><h3>{title}</h3><p className="hint">บันทึกข้อมูลแม่ก่อนเพื่อแสดงรายการที่อ้างอิงผ่าน Ref</p></section>;
     return inline?<InlineRelated view={{...inline,display:{...inline.display,list_buttons:"none",row_click:"none"}}} title={title} owner={table} id={form.id} column={r.column} limit={config.limit??r.list_limit} email={previewEmail} dataRevision={dataRevision+relatedRevision}/>:<PagedList title={title} table={r.table} query={"mode=related&owner="+table+"&id="+form.id+"&column="+r.column} limit={config.limit??r.list_limit} email={previewEmail} refreshRevision={dataRevision+relatedRevision}/>;

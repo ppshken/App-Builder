@@ -23,7 +23,9 @@ function PartGroup({child,link,parent,group,busy,options,onChange,view,title,for
  const newItems=drafts.filter(r=>!r.id&&!r.deleted),deleted=drafts.filter(r=>r.id&&r.deleted),count=Math.max(0,total-deleted.length)+newItems.length;
  const condition=(source:string|null|undefined,n=count)=>!source?.trim()||asBoolean(evaluateExpression(source,{...parent,_THIS:Array.from({length:n},(_,i)=>String(i+1))},options));let visible=true,addAllowed=true,valid=true,nextValid=true,formulaError="";try{visible=link.related_required?true:condition(link.part_show_if);addAllowed=condition(link.part_add_if);valid=condition(link.part_valid_if);nextValid=condition(link.part_valid_if,count+1);}catch(e){formulaError=(e as Error).message;addAllowed=false;}
  const stepError=!rights.read||!visible?'':loading?'กำลังโหลดรายการลูก':error||formulaError||(!valid?(link.part_invalid_value_error?.trim()||'รายการลูกไม่ผ่านเงื่อนไข'):(link.related_required&&count===0?'กรุณาเพิ่มรายการลูกอย่างน้อย 1 รายการ':''));
- useEffect(()=>{onValidation?.('related:'+child.name+':'+link.name,stepError);},[onValidation,child.name,link.name,stepError]);
+ const validationKey='related:'+child.name+':'+link.name;
+ useEffect(()=>{onValidation?.(validationKey,stepError);},[onValidation,validationKey,stepError]);
+ useEffect(()=>()=>onValidation?.(validationKey,''),[onValidation,validationKey]);
  if(!rights.read||!visible)return null;
  const change=(records:ChildDraft[])=>onChange({table:child.name,column:link.name,records});
  const shown=(row:Record<string,any>)=>({...row.__display,...row});
