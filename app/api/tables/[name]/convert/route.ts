@@ -1,6 +1,6 @@
 import {currentDevelopment} from '@/lib/development-context';
 import {currentApplication} from '@/lib/application-context';
-import {currentUser} from '@/lib/permissions';
+import {canRead,currentUser} from '@/lib/permissions';
 import {isIsolatedDatabase} from '@/lib/db';
 import {errorStatus} from "@/lib/api";
 import {withAuth} from "@/lib/auth-api";
@@ -17,16 +17,23 @@ const state=globalThis as typeof globalThis&{__nocodeConversions?:Map<string,Pen
 const pending=state.__nocodeConversions ||= new Map<string,Pending>();
 function expire(){for(const [key,item] of pending)if(item.expires<Date.now())pending.delete(key);}
 function sameOrigin(req:Request){const origin=req.headers.get("origin"),url=new URL(req.url);if(origin&&(new URL(origin).host!==(req.headers.get("host")||url.host)||new URL(origin).protocol!==url.protocol))throw Error("แปลงข้อมูลได้จากหน้าแอพนี้เท่านั้น");}
+const wrongWorkspace=(req:Request)=>req.headers.has("x-nocode-design-workspace")&&
+ (!currentDevelopment()||req.headers.get("x-nocode-design-workspace")!==currentDevelopment()?.id);
 async function handlePOST(req:Request,{params}:{params:{name:string}}){try{
+ if(wrongWorkspace(req))return bad("เปิดพื้นที่พัฒนาโครงสร้างเดิมก่อนตรวจการแปลง",409);
  sameOrigin(req);expire();if(!tableExists(params.name))return bad("ไม่พบตาราง",404);
  const body=await readBody(req);if(body.previous_token)pending.delete(body.previous_token);
- if(body.source_type&&columnsOf(params.name).find(c=>c.name===body.column)?.type!==body.source_type)return bad("ชนิดคอลัมน์เปลี่ยนไปแล้ว กรุณาโหลดหน้าตารางใหม่ก่อนตรวจการแปลง",409);
+ if(req.headers.has("x-nocode-design-workspace")&&body.target?.ref_table&&!canRead(body.target.ref_table))return bad("ไม่มีสิทธิ์อ่านตารางอ้างอิงปลายทาง",403);
+ const source=columnsOf(params.name).find(c=>c.name===body.column);
+ if(req.headers.has("x-nocode-design-workspace")&&source?.type==="ref"&&body.target?.type==="ref"&&body.ref_match==="key")return bad("การย้าย Ref ผ่าน Copilot รองรับการจับคู่ด้วย id เดิม",400);
+ if(body.source_type&&source?.type!==body.source_type)return bad("ชนิดคอลัมน์เปลี่ยนไปแล้ว กรุณาโหลดหน้าตารางใหม่ก่อนตรวจการแปลง",409);
  if(pending.size>=30)throw Error("มีผลตรวจรอยืนยันหลายรายการ กรุณาปิดรายการเก่าหรือรอ 15 นาที");
  const request:ConversionRequest={column:body.column,mode:body.mode,target:body.target,ref_match:body.ref_match},fingerprint=conversionFingerprint(db,params.name,request),report=previewConversion(db,params.name,request);
  const token=report.allowed?randomUUID():"";if(token)pending.set(token,{table:params.name,path:conversionScope(),request,fingerprint,expires:Date.now()+15*60*1000});
  return NextResponse.json({token,report});
  }catch(e){return bad(errorMessage(e),errorStatus(e));}}
 async function handlePUT(req:Request,{params}:{params:{name:string}}){try{
+ if(wrongWorkspace(req))return bad("เปิดพื้นที่พัฒนาโครงสร้างเดิมก่อนยืนยันการแปลง",409);
  sameOrigin(req);expire();const body=await readBody(req);if(body.confirmation!=="แปลง")throw Error("กรุณาพิมพ์ แปลง เพื่อยืนยันเปลี่ยนข้อมูล");
  const item=pending.get(body.token);if(!item||item.table!==params.name||item.path!==conversionScope())throw Error("ผลตรวจหมดอายุ กรุณาตรวจการแปลงใหม่");
  if(item.fingerprint!==conversionFingerprint(db,item.table,item.request)){pending.delete(body.token);return bad("ข้อมูลหรือการตั้งค่าเปลี่ยนหลังตรวจ กรุณาตรวจการแปลงใหม่ก่อนยืนยัน",409);}

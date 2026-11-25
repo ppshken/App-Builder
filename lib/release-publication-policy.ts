@@ -5,6 +5,12 @@ export function schemaPublicationEnabled(value:string|undefined=process.env.NOCO
 export function samePublicationSource(expected:{connection:unknown;generation:number;identity:string},current:{connection:unknown;generation:number;identity:string}){return expected.connection===current.connection&&expected.generation===current.generation&&expected.identity===current.identity;}
 const presentationFields=['label','pos','is_label','input_mode','button_limit','list_limit'];
 const ruleFields=['required','required_if','default_expr','valid_if','show_if','editable_if','is_editable','reset_on_edit','reset_columns_json','invalid_value_error','options','max_length','part_show_if','part_add_if','part_valid_if','part_invalid_value_error','is_part_of','related_required'];
+export const configurationPublicationCollections = ['_app_settings','_views','_slices','_pdf_templates','_actions','_automations'] as const;
+export function configurationOnlyPublication(plan: ReleasePlan) {
+ return plan.operations.length > 0 && plan.operations.every(operation =>
+  operation.category === 'configuration' && configurationPublicationCollections.some(collection => operation.id.startsWith(collection+':')) &&
+  (!operation.id.startsWith('_actions:') || operation.kind === 'update_configuration'));
+}
 export function requiresPublicationRowValidation(plan:ReleasePlan,next:ReleaseCatalog){return plan.operations.some(op=>op.kind==='delete_table'||op.id.startsWith('_columns:')&&(op.kind==='create_column'||op.kind==='alter_column'||op.kind==='delete_column'||op.fields.some(k=>k==='virtual_expr'||ruleFields.includes(k))));}
 export function publicationBlockers(plan:ReleasePlan,live:ReleaseCatalog,next:ReleaseCatalog,shared:string[],_autoGrantRoles:number){
  const reasons=rehearsalEligibility(plan,live,next);

@@ -11,6 +11,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import AppLoading from '../components/AppLoading';
 import {WORKFLOW_EVENTS,WORKFLOW_STEPS,SYNC_COLUMNS,type Workflow,type WorkflowStep,type PdfTemplate} from '@/lib/workflow-config';
 import type {Column} from '@/lib/columns';
+import {aiAutomationDraft} from '@/lib/ai-automation-draft';
+import {useAuth} from '../components/AuthProvider';
 type Table={name:string;label:string;columns:Column[]};
 type Action={name:string;label:string;table_name:string;kind:string};
 type Job={id:string;label:string;table_name:string;row_id:number;event:string;status:string;created_at:number;next_step:number;attempts:number;error:string;outputs:{step:number;kind:string;message:string;status?:number;file_id?:string;name?:string}[]};
@@ -19,9 +21,37 @@ async function api(url:string,method='GET',body?:unknown){const response=await f
 function Formula(props:React.ComponentProps<typeof WorkflowFormula>){return <WorkflowFormula {...props}/>;}
 export default function WorkflowsPage(){const [tab,setTab]=useState<'workflows'|'templates'|'history'>('workflows'),[tables,setTables]=useState<Table[]>([]),[actions,setActions]=useState<Action[]>([]),[workflows,setWorkflows]=useState<Workflow[]>([]),[templates,setTemplates]=useState<PdfTemplate[]>([]),[workflow,setWorkflow]=useState<Workflow|null>(null),[template,setTemplate]=useState<PdfTemplate|null>(null),[original,setOriginal]=useState(''),[fresh,setFresh]=useState(false),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[sampleId,setSampleId]=useState('1'),[html,setHtml]=useState(''),[history,setHistory]=useState<{rows:Job[];total:number;page:number}>({rows:[],total:0,page:1}),[pending,setPending]=useState<{title:string;text:string;work:()=>void}|null>(null);const leaving=useRef(false);const [pushReady,setPushReady]=useState<boolean|null>(null);useEffect(()=>{api("/api/push").then(j=>setPushReady(!!j.configured)).catch(()=>{});},[]);const [pushViews,setPushViews]=useState<{name:string;label:string;kind:string;position:string;table_name:string}[]>([]);useEffect(()=>{api('/api/views').then(setPushViews).catch(()=>{});},[]);const [sourceOptions,setSourceOptions]=useState<{id:string;label:string}[]>([]);useEffect(()=>{api("/api/data-sources").then(j=>setSourceOptions(j.sources)).catch(()=>{});},[]);const [tableGroups,setTableGroups]=useState<Record<string,boolean>>({}),[selectedNode,setSelectedNode]=useState<WorkflowNode>('trigger');const draft=tab==='workflows'?workflow:tab==='templates'?template:null,dirty=!!draft&&(fresh||JSON.stringify(draft)!==original),cols=[...(tables.find(t=>t.name===draft?.table_name)?.columns||[]),...(tab==='workflows'&&workflow&&['sync_completed','sync_failed'].includes(workflow.event)?SYNC_COLUMNS:[])];
  useEffect(()=>{setSelectedNode('trigger');if(draft?.table_name)setTableGroups(old=>({...old,[draft.table_name]:true}));},[tab,draft?.name,draft?.table_name]);
- async function load(){const [w,t,d,a]=await Promise.all([api('/api/workflows'),api('/api/pdf-templates'),api('/api/tables'),api('/api/actions')]);setWorkflows(w);setTemplates(t);setTables(d);setActions(a);return {w:w as Workflow[],t:t as PdfTemplate[]};}
+ const {workspace}=useAuth();
+ async function load(){const [w,t,d,a]=await Promise.all([api('/api/workflows'),api('/api/pdf-templates'),api('/api/tables'),api('/api/actions')]);setWorkflows(w);setTemplates(t);setTables(d);setActions(a);return {w:w as Workflow[],t:t as PdfTemplate[],tables:d as Table[],actions:a as Action[]};}
  async function loadHistory(page=history.page){const result=await api('/api/workflows?history=1&page='+page);setHistory(result);}
- useEffect(()=>{load().then(({w,t})=>{const q=new URLSearchParams(location.search);if(q.get('history')==='1'){setTab('history');return;}const pdf=t.find(x=>x.name===q.get('template'));if(pdf){setTab('templates');setTemplate(pdf);setOriginal(JSON.stringify(pdf));return;}const selected=w.find(x=>x.name===q.get('name'))||w[0];if(selected){setWorkflow(selected);setOriginal(JSON.stringify(selected));}}).catch(e=>setError(e.message)).finally(()=>setLoaded(true));},[]);
+ useEffect(()=>{
+  let active=true;
+  load().then(({w,t,tables,actions})=>{
+   if(!active)return;
+   const url=new URL(location.href),q=url.searchParams,requested=q.get('aiDraft');
+   if(requested){
+    const proposal=aiAutomationDraft(Object.fromEntries(q));
+    for(const key of ['aiDraft','label','table','event','action'])q.delete(key);
+    window.history.replaceState(window.history.state,"",url);
+    if(workspace!=='live'&&workspace===requested&&proposal&&tables.some(table=>table.name===proposal.table)&&
+       actions.some(action=>action.kind==='set'&&action.table_name===proposal.table&&action.name===proposal.action)){
+     let index=1;while(w.some(item=>item.name==='automation_'+index))index++;
+     const candidate:Workflow={name:'automation_'+index,label:proposal.label,table_name:proposal.table,event:proposal.event,
+      enabled:false,condition_expr:'TRUE',watch_columns:[],interval_minutes:60,steps:[{kind:'action',action_name:proposal.action}]};
+     setWorkflow(candidate);setOriginal(JSON.stringify(candidate));setFresh(true);
+     setNotice('ร่างจาก AI · ตรวจเงื่อนไขและ Action ก่อนบันทึก');
+     return;
+    }
+    setError('เปิดร่าง Automation ไม่ได้ กรุณาตรวจพื้นที่พัฒนาและ Action ต้นทาง');
+   }
+   if(q.get('history')==='1'){setTab('history');return;}
+   const pdf=t.find(item=>item.name===q.get('template'));
+   if(pdf){setTab('templates');setTemplate(pdf);setOriginal(JSON.stringify(pdf));return;}
+   const selected=w.find(item=>item.name===q.get('name'))||w[0];
+   if(selected){setWorkflow(selected);setOriginal(JSON.stringify(selected));}
+  }).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoaded(true);});
+  return()=>{active=false;};
+ },[workspace]);
  useEffect(()=>{if(tab!=='history')return;loadHistory().catch(e=>setError(e.message));const timer=setInterval(()=>{if(document.visibilityState==='visible')loadHistory().catch(e=>setError(e.message));},5000);return()=>clearInterval(timer);},[tab,history.page]);
  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(dirty&&!leaving.current){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
  useEffect(()=>{const guard=(e:MouseEvent)=>{if(!dirty||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.button!==0)return;const link=e.target instanceof Element?e.target.closest<HTMLAnchorElement>('a[href]'):null;if(!link||link.target==='_blank'||link.origin!==location.origin||link.pathname===location.pathname)return;e.preventDefault();e.stopPropagation();setPending({title:'ยังไม่ได้บันทึก',text:'ทิ้งการแก้ไขแล้วไปหน้าอื่นหรือไม่?',work:()=>{leaving.current=true;location.href=link.href;}});};document.addEventListener('click',guard,true);return()=>document.removeEventListener('click',guard,true);},[dirty]);

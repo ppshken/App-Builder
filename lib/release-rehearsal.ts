@@ -22,6 +22,26 @@ import {verifyDevelopment} from './development-workspace';
 export const RELEASE_EXECUTOR_VERSION='validated-publication-2026-11-19-v17-new-reference-target';
 export const REHEARSAL_SAMPLE_ROWS=100;
 export const REHEARSAL_SAMPLE_LIMIT=1000;
+
+// Narrow only changes that cannot invalidate existing cross-table expressions or relations.
+export function additiveRehearsalScope(plan: ReleasePlan, desired: ReleaseCatalog): Set<string> | null {
+ const scope = new Set<string>();
+ for (const operation of plan.operations) {
+  if (operation.id.startsWith('_views:')) continue;
+  if (operation.kind === 'update_configuration' && operation.id.startsWith('_columns:') &&
+      operation.fields.length && operation.fields.every(field => ['pos', 'label', 'input_mode', 'button_limit', 'list_limit'].includes(field))) continue;
+  if (!operation.table) return null;
+  if (operation.kind === 'create_column') {
+   const column = desired._columns.find(c => c.table_name === operation.table && c.name === operation.name);
+   if (!column || column.is_virtual || column.ref_table || column.required || column.is_key || column.is_unique ||
+       column.related_required || column.is_part_of || column.auto_number ||
+       (column.auto_number_json && column.auto_number_json !== 'null') ||
+       ['default_expr','valid_if','show_if','required_if','editable_if','virtual_expr'].some(key => !!column[key])) return null;
+  } else if (operation.kind !== 'create_table') return null;
+  scope.add(operation.table);
+ }
+ return scope;
+}
 // Deterministic head/tail samples; keep the complete database for Ref/formula accuracy.
 export function rehearsalRows(table:string,limit?:number,fields='*'){
  assertIdentifier(table);const from=' FROM "t_'+table+'"';if(limit===undefined)return {sql:'SELECT '+fields+from+' ORDER BY id',args:[] as number[]};

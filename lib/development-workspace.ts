@@ -1,6 +1,42 @@
-import type Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import type {ApplicationScope} from './application-context';
 import type {AppAccess,TableAccess} from './access';
+import {APPLICATION_CONFIG_TABLES} from './application-context';
+
+const scopedMetadata = APPLICATION_CONFIG_TABLES.filter(name => !['_automation_jobs','_app_versions','_user_setting_values'].includes(name));
+const workspaceMetadata = new Set([
+  ...scopedMetadata, '_tables', '_columns', '_applications', '_application_datasets',
+  '_application_roles', '_application_local_roles', '_application_members', '_application_role_tables',
+  '_application_role_actions', '_application_role_rows', '_application_builders', '_builder_security',
+  '_users', '_roles', '_role_tables', '_role_row_rules', '_external_sources',
+]);
+const quoteIdentifier = (name: string) => '"' + name.replaceAll('"', '""') + '"';
+
+export function copyDevelopmentStructure(source: Database.Database, path: string) {
+  const target = new Database(path);
+  try {
+    source.transaction(() => {
+      const schema = source.prepare("SELECT type,name,sql FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY rowid").all() as
+        { type: string; name: string; sql: string }[];
+      target.pragma('foreign_keys=OFF');
+      target.transaction(() => {
+        for (const object of schema.filter(entry => entry.type === 'table')) {
+          target.exec(object.sql);
+          const scoped = /^_a_[a-f0-9]{24}(_.*)$/.exec(object.name)?.[1];
+          if (!workspaceMetadata.has(object.name) && !(scoped && scopedMetadata.some(name => name === scoped))) continue;
+          const table = quoteIdentifier(object.name);
+          const fields = (source.pragma('table_info(' + table + ')') as {name:string}[]).map(field => field.name);
+          const projection = fields.map(field => object.name === '_users' && field === 'password_hash' ? "''" : quoteIdentifier(field));
+          const insert = target.prepare('INSERT INTO ' + table + '(' + fields.map(quoteIdentifier).join(',') + ') VALUES (' + fields.map(() => '?').join(',') + ')');
+          for (const row of source.prepare('SELECT ' + projection.join(',') + ' FROM ' + table).raw().iterate()) insert.run(...row as unknown[]);
+        }
+        for (const object of schema.filter(entry => entry.type !== 'table')) target.exec(object.sql);
+      })();
+    })();
+  } finally {
+    target.close();
+  }
+}
 
 export function initializeDevelopment(database:Database.Database,id:string,appId:string,tables:string[]){
   database.exec(`CREATE TABLE _development_workspace(id TEXT PRIMARY KEY,source_app_id TEXT NOT NULL);

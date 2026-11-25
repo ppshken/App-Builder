@@ -149,3 +149,11 @@ test('column rename preserves physical rows, indexes and fingerprint and rolls b
   assert.equal(dataFingerprint(database,['orders'],10,Date.now()+5000,{orders:['id','title']},undefined,undefined,{orders:{title:'caption'}}).hash,before);
  }finally{database.close();}
 });
+test('simple additive rehearsal scopes row validation and falls back for dependent changes', () => {
+  const { additiveRehearsalScope } = require('../.test-build/release-rehearsal');
+  const op = { id: '_columns:1', kind: 'create_column', table: 'orders', name: 'memo' };
+  const next = { _columns: [{ table_name: 'orders', name: 'memo', type: 'text' }] };
+  assert.deepEqual([...additiveRehearsalScope({ operations: [op, { id: '_views:new', kind: 'create_configuration', table: 'other' }] }, next)], ['orders']);
+  assert.equal(additiveRehearsalScope({ operations: [op] }, { _columns: [{ ...next._columns[0], valid_if: 'TRUE' }] }), null);
+  assert.equal(additiveRehearsalScope({ operations: [{ ...op, kind: 'alter_column' }] }, next), null);
+});

@@ -1,3 +1,4 @@
+import {addBuilderColumn} from '@/lib/table-builder';
 import {isDeepStrictEqual} from 'node:util';
 import {validateCreateGuard} from '@/lib/table-create-guard';
 import {checkFormula} from '@/lib/automation';
@@ -16,8 +17,8 @@ import { changeDisplayColumn } from "@/lib/view-display";
 import { db, columnsOf, tableExists, rebuild } from "@/lib/db";
 import { assertIdentifier, FORMULA_FIELDS, refTablesOf, normalizeValue } from "@/lib/columns";
 import { references, renameReference, renameDereference } from "@/lib/expression";
-import { assertKeyData, insertColumn, normalizeColumns, saveColumn } from "@/lib/metadata";
-import { columnDefinition, foreignKeyTransaction, syncKeyIndex, createInlineViews } from "@/lib/schema";
+import { assertKeyData, normalizeColumns, saveColumn } from "@/lib/metadata";
+import { foreignKeyTransaction, syncKeyIndex } from "@/lib/schema";
 import { bad, errorMessage, readBody } from "@/lib/api";
 import { actions, slices } from "@/lib/automation";
 import { externalFormulaUse, renameExternalFormulas, referenceSchemas } from "@/lib/formula-dependencies";
@@ -50,16 +51,7 @@ async function handlePATCH(req: Request, { params }: { params: { name: string } 
         break;
       }
       case "add_column": {
-        const all = normalizeColumns([...cols.map(c => ({ ...c, ...(b.column?.is_key ? { is_key: 0 } : {}), ...(b.column?.is_label && (c.type==="image")===(b.column.type==="image") ? { is_label: 0 } : {}) })), b.column],{[t]:[]}), c = all[all.length - 1];
-        c.pos = c.is_virtual ? Math.max(-1, ...cols.map(c => c.pos ?? 0)) + 1 : all.filter(column=>!column.is_virtual).length-1;
-        backupBeforeSchema();
-        db.transaction(() => {
-          if (!c.is_virtual) db.prepare(`ALTER TABLE "t_${t}" ADD COLUMN ${columnDefinition(c)}`).run();
-          insertColumn(t, c);
-          all.slice(0, -1).forEach(c => saveColumn(t, c));
-          if(!c.is_virtual){const position=db.prepare('UPDATE _columns SET pos=? WHERE table_name=? AND name=?');dataColumnOrder(all).forEach((column,index)=>position.run(index,t,column.name));}
-          assertKeyData(t, all); syncKeyIndex(db, t); createInlineViews(db,t);
-        })();
+        addBuilderColumn(t,b.column);
         break;
       }
       case "edit_column": {

@@ -10,7 +10,7 @@ const manifest=draftManifest(id,user.id);
 if(isDevelopmentDraft(manifest))return withDraftLock(id,async()=>{const opened=openDraft(id,user.id);try{const application=currentApplication();if(!application)throw new AuthError('ไม่พบแอปของพื้นที่พัฒนา',403);const scoped=developmentAccess(opened,application,access);return await withDatabase(opened,()=>withApplication(scoped.application,()=>runAuthorized(user,scoped.access,()=>withDevelopment({id,sourceAppId:application.id,databaseFile:developmentDatabaseFile(id)},async()=>{
  const read=['GET','HEAD'].includes(req.method);
  if(!read){
-  const safeExact=['/api/list-card-templates','/api/tables','/api/views','/api/views/preview','/api/slices','/api/slices/preview','/api/actions','/api/actions/bulk-execute','/api/settings','/api/pdf-templates','/api/workflows','/api/expression-data','/api/ai/assist','/api/readiness','/api/app-activity'];
+  const safeExact=['/api/list-card-templates','/api/tables','/api/views','/api/views/preview','/api/slices','/api/slices/preview','/api/actions','/api/actions/bulk-execute','/api/settings','/api/pdf-templates','/api/workflows','/api/expression-data','/api/ai/assist','/api/ai/design','/api/readiness','/api/app-activity'];
   const safePrefix=['/api/tables/','/api/data/','/api/ref-options/'];
   if(!safeExact.includes(path)&&!safePrefix.some(prefix=>path.startsWith(prefix)))throw new AuthError('พื้นที่พัฒนาไม่อนุญาตคำสั่งนี้ เพื่อป้องกันผลกระทบกับระบบจริง',409);
   if(path.startsWith('/api/data/')&&req.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data'))throw new AuthError('พื้นที่พัฒนายังไม่เปิดอัปโหลดรูปหรือไฟล์ ใช้ข้อมูลทดลองที่ไม่มีไฟล์ใหม่ก่อน',409);

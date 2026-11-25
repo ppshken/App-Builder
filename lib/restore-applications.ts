@@ -14,7 +14,36 @@ export function restoreConfigTables(db:Database.Database){return configurationTa
 export function restoreApplications(db:Database.Database){const ids=applicationIds(db);if(!ids.includes('default'))throw Error('ไฟล์สำรองไม่มีแอปเริ่มต้น');for(const a of db.prepare('SELECT id,label,description FROM _applications').all() as any[])if(typeof a.label!=='string'||!a.label.trim()||a.label.length>100||typeof a.description!=='string'||a.description.length>500)throw Error('ข้อมูลทะเบียนแอปในไฟล์สำรองไม่ถูกต้อง');return ids;}
 export function appTables(db:Database.Database,id:string){return new Set((db.prepare('SELECT DISTINCT t.name FROM _tables t LEFT JOIN _application_datasets d ON d.table_name=t.name AND d.app_id=? WHERE t.owner_app_id=? OR d.can_read=1').all(id,id) as {name:string}[]).map(t=>t.name));}
 const VERSION_TABLES=['_table_overlays','_tables','_columns','_slices','_views','_actions','_app_settings','_pdf_templates','_automations'];
-function versionCatalog(text:string,db:Database.Database){const catalog=JSON.parse(text) as Record<string,any>;if(!catalog||typeof catalog!=='object'||Array.isArray(catalog)||Object.keys(catalog).some(name=>!VERSION_TABLES.includes(name)))throw Error('ประวัติเวอร์ชันในไฟล์สำรองไม่ถูกต้อง');for(const name of VERSION_TABLES){if(name==='_table_overlays'&&!catalog[name])continue;if(!Array.isArray(catalog[name]))throw Error('โครงสร้างประวัติเวอร์ชันในไฟล์สำรองไม่ครบ');const columns=new Set((db.pragma('table_info("'+name+'")') as {name:string}[]).map(c=>c.name));for(const row of catalog[name]){if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(field=>!columns.has(field))||Object.values(row).some(value=>value!==null&&typeof value!=='string'&&(typeof value!=='number'||!Number.isFinite(value))))throw Error('คอลัมน์ในประวัติเวอร์ชันไม่ตรงกับโครงสร้างที่รองรับ');if(name==='_columns'){assertIdentifier(row.name);assertIdentifier(row.table_name);if(!Number.isSafeInteger(row.id)||row.id<1)throw Error('รหัสคอลัมน์ในประวัติเวอร์ชันไม่ถูกต้อง');}else if(name==='_app_settings'){if(row.id!==1)throw Error('ค่าตั้งค่าในประวัติเวอร์ชันไม่ถูกต้อง');}else assertIdentifier(name==='_table_overlays'?row.table_name:row.name);}}return catalog;}
+const configurationVersionTables=VERSION_TABLES.filter(name=>!['_table_overlays','_tables','_columns'].includes(name));
+function versionCatalog(text:string,db:Database.Database,previousKind?:string){
+ const bad=():never=>{throw Error('ประวัติเวอร์ชันในไฟล์สำรองไม่ถูกต้อง');};
+ const parsed:unknown=JSON.parse(text);
+ if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return bad();
+ const catalog=parsed as Record<string,any>;
+ const receipt=catalog._publication;
+ let kind=previousKind;
+ if(receipt!==undefined){
+  const entry=Array.isArray(receipt)&&receipt.length===1?receipt[0]:null;
+  if(previousKind||!entry||!['configuration-v1','additive-v1','additive-metadata-v1'].includes(entry.kind)||
+     typeof entry.attempt_id!=='string'||typeof entry.intent_hash!=='string'||!Number.isFinite(entry.published_at)||
+     (entry.backup!==null&&(typeof entry.backup!=='string'||!/^data\.backup-schema-[a-z0-9TZ.-]+\.db$/.test(entry.backup))))bad();
+  kind=entry.kind;
+ }
+ const allowed=kind==='configuration-v1'?configurationVersionTables:VERSION_TABLES;
+ const partial=kind==='configuration-v1'||previousKind==='additive-metadata-v1';
+ if(Object.keys(catalog).some(name=>!allowed.includes(name)&&name!=='_publication'&&!(name==='_schema_before'&&previousKind==='additive-metadata-v1')))bad();
+ if(previousKind==='additive-metadata-v1'){
+  const schema=catalog._schema_before;
+  if(!Array.isArray(schema)||!Array.isArray(catalog._tables)||!Array.isArray(catalog._columns)||
+     schema.some(row=>!row||!['table','index','trigger'].includes(row.type)||typeof row.name!=='string'||typeof row.tbl_name!=='string'||row.sql!==null&&typeof row.sql!=='string'))bad();
+ }
+ for(const name of allowed){
+  if((partial||name==='_table_overlays')&&!Object.hasOwn(catalog,name))continue;
+  if(!Array.isArray(catalog[name]))bad();
+  const columns=new Set((db.pragma('table_info("'+name+'")') as {name:string}[]).map(c=>c.name));for(const row of catalog[name]){if(!row||typeof row!=='object'||Array.isArray(row)||Object.keys(row).some(field=>!columns.has(field))||Object.values(row).some(value=>value!==null&&typeof value!=='string'&&(typeof value!=='number'||!Number.isFinite(value))))throw Error('คอลัมน์ในประวัติเวอร์ชันไม่ตรงกับโครงสร้างที่รองรับ');if(name==='_columns'){assertIdentifier(row.name);assertIdentifier(row.table_name);if(!Number.isSafeInteger(row.id)||row.id<1)throw Error('รหัสคอลัมน์ในประวัติเวอร์ชันไม่ถูกต้อง');}else if(name==='_app_settings'){if(row.id!==1)throw Error('ค่าตั้งค่าในประวัติเวอร์ชันไม่ถูกต้อง');}else assertIdentifier(name==='_table_overlays'?row.table_name:row.name);}
+ }
+ return catalog;
+}
 export function validateRestoreSecurity(db:Database.Database){
  const identities=new Set<string>();for(const u of db.prepare('SELECT id,email,username FROM _users').all() as {id:number;email:string|null;username:string}[]){if(!Number.isSafeInteger(u.id)||u.id<1||u.email!==null&&(typeof u.email!=='string'||u.email.length>254)||!u.email?.trim()&&!u.username?.trim())throw Error('บัญชีในไฟล์สำรองไม่ถูกต้อง');const key=u.email?.trim()?'email:'+u.email.trim().toLowerCase():'username:'+u.username.trim().toLowerCase();if(identities.has(key))throw Error('ข้อมูลบัญชีในไฟล์สำรองซ้ำกัน จับคู่สิทธิ์ไม่ได้');identities.add(key);}
  for(const table of ['_application_datasets','_application_role_tables','_role_tables','_application_roles','_roles'])for(const row of db.prepare('SELECT * FROM "'+table+'"').iterate() as Iterable<Record<string,unknown>>)for(const [key,value] of Object.entries(row))if((key.startsWith('can_')||key==='builder')&&value!==0&&value!==1)throw Error('ค่าติ๊กสิทธิ์ในไฟล์สำรองไม่ถูกต้อง');
@@ -24,7 +53,7 @@ export function validateRestoreSecurity(db:Database.Database){
  for(const r of db.prepare('SELECT table_name,expression FROM _role_row_rules').all() as any[])validateRowRule(r.expression,r.table_name,db);
  for(const r of db.prepare('SELECT app_id,action_name FROM _application_role_actions').all() as {app_id:string;action_name:string}[])if(!db.prepare('SELECT 1 FROM "'+applicationTable(r.app_id,'_actions')+'" WHERE name=?').get(r.action_name))throw Error('สิทธิ์รายแอปอ้างอิง Action ที่ไม่มีในไฟล์สำรอง');
  for(const id of restoreApplications(db)){const configured=applicationDatabase(db,id);for(const definition of settingDefinitions(configured))manageSetting({op:'update',...definition},configured);for(const value of configured.prepare('SELECT user_id,name,value_json FROM _user_setting_values').all() as {user_id:number;name:string;value_json:string}[])saveSettings(value.user_id,{[value.name]:JSON.parse(value.value_json)},configured);
- for(const version of configured.prepare('SELECT config_json,before_json FROM _app_versions').all() as {config_json:string;before_json:string}[])for(const text of [version.config_json,version.before_json])versionCatalog(text,configured);
+ for(const version of configured.prepare('SELECT config_json,before_json FROM _app_versions').all() as {config_json:string;before_json:string}[]){const after=versionCatalog(version.config_json,configured);versionCatalog(version.before_json,configured,after._publication?.[0]?.kind);}
  const allowed=appTables(db,id);for(const name of ['_views','_slices','_actions','_pdf_templates','_automations'])for(const row of db.prepare('SELECT table_name'+(name==='_views'?',kind':'')+' FROM "'+applicationTable(id,name)+'"').all() as {table_name:string|null;kind?:string}[])if(!['dashboard','custom'].includes(row.kind||'')&&(!row.table_name||!allowed.has(row.table_name)))throw Error('การตั้งค่าแอปอ้างอิงตารางที่ไม่ได้เชื่อมต่อ: '+id);
  }
 }
@@ -44,7 +73,7 @@ export function remapRestoredAccounts(db:Database.Database,source:Database.Datab
   for(const row of preferences.get(id)||[]){if(!db.prepare('SELECT 1 FROM '+table('_user_setting_defs')+' WHERE name=?').get(row.name))continue;try{saveSettings(row.user_id,{[row.name]:JSON.parse(row.value_json)},applicationDatabase(db,id));}catch{/* An old preference incompatible with restored definitions is not applied. */}}
   for(const [name,field] of [['_automations','owner_id'],['_automation_jobs','actor_id'],['_app_versions','owner']] as const){const rows=source.prepare('SELECT rowid AS restore_rowid,"'+field+'" AS account FROM '+table(name)).all() as {restore_rowid:number;account:number}[];const update=db.prepare('UPDATE '+table(name)+' SET "'+field+'"=? WHERE rowid=?');for(const row of rows)update.run(mapping.get(row.account)||0,row.restore_rowid);}
   // Published release catalogs can contain Automation owner IDs too.
-  for(const version of db.prepare('SELECT id,config_json,before_json FROM '+table('_app_versions')).all() as any[]){const rewrite=(text:string)=>{const catalog=versionCatalog(text,applicationDatabase(db,id));if(catalog._automations)for(const automation of catalog._automations)automation.owner_id=mapping.get(automation.owner_id)||0;return JSON.stringify(catalog);};db.prepare('UPDATE '+table('_app_versions')+' SET config_json=?,before_json=? WHERE id=?').run(rewrite(version.config_json),rewrite(version.before_json),version.id);}
+  for(const version of db.prepare('SELECT id,config_json,before_json FROM '+table('_app_versions')).all() as any[]){const rewrite=(catalog:Record<string,any>)=>{if(catalog._automations)for(const automation of catalog._automations)automation.owner_id=mapping.get(automation.owner_id)||0;return JSON.stringify(catalog);};const configured=applicationDatabase(db,id),after=versionCatalog(version.config_json,configured),before=versionCatalog(version.before_json,configured,after._publication?.[0]?.kind);db.prepare('UPDATE '+table('_app_versions')+' SET config_json=?,before_json=? WHERE id=?').run(rewrite(after),rewrite(before),version.id);}
   db.prepare('UPDATE '+table('_automations')+' SET enabled=0').run();db.prepare("UPDATE "+table('_automation_jobs')+" SET status='cancelled',error='กู้คืนฐานข้อมูล กรุณาตรวจการตั้งค่าและสั่งงานใหม่' WHERE status IN ('queued','running')").run();
   if(securitySeparated(db))db.prepare('DELETE FROM '+table('_role_actions')).run();else db.prepare('DELETE FROM '+table('_role_actions')+' WHERE role_name NOT IN (SELECT name FROM _roles)').run();
  }

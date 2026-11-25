@@ -2,13 +2,13 @@ import {readDraftRefConversions} from './column-conversion';
 import {releaseColumnRename,releaseColumnRemoval,releaseValueRewrite} from './release-column-types';
 import {releaseSeedData,type ReleaseSeedData} from './release-seed-data';
 import {withPublicationArchiveGuard} from './publication-journal';
-import {initializeDevelopment,verifyDevelopment,developmentOrigins} from './development-workspace';
+import {copyDevelopmentStructure,initializeDevelopment,verifyDevelopment,developmentOrigins} from './development-workspace';
 import {developmentAccess} from './development-workspace';
 import {withDevelopment} from './development-context';
 import {withApplication} from './application-context';
 import {currentUser,currentAccess,runAuthorized} from './permissions';
 import {withoutWorkflows} from './workflows';
-import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,ReleaseRemovalBlockedError,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
+import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,ReleaseRemovalBlockedError,additiveRehearsalScope,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
 import {calculateRow,validateRow} from './columns';
 import {expressionContext} from './expression-context';
 import {mergeDraftSettings} from './release-rebase';
@@ -20,7 +20,7 @@ import Database from 'better-sqlite3';
 import {randomUUID,createHash} from 'node:crypto';
 import {mkdirSync,readFileSync,writeFileSync,readdirSync,existsSync,renameSync,chmodSync,rmSync} from 'node:fs';
 import {dirname,join,resolve,relative} from 'node:path';
-import {db,databasePath,withDatabase} from './db';
+import {db,databasePath,platformDatabase,withDatabase} from './db';
 import {installAuditing} from './audit-schema';
 import {columnDefinition,readColumns} from './schema';
 import {assertIdentifier,type Column} from './columns';
@@ -42,18 +42,20 @@ export function draftManifest(id:string,owner:number){versions();valid(id);const
 export function developmentDatabaseFile(id:string){return join(folder(),valid(id),'workspace.db');}
 export function isDevelopmentDraft(m:Manifest){return m.workspace_mode==='development'&&m.format_version===2;}
 export function openDraft(id:string,owner:number){const m=draftManifest(id,owner);if(m.status!=='draft')throw new AuthError('ฉบับร่างนี้ไม่ได้เปิดใช้งานแล้ว กรุณากลับเวอร์ชันจริง',409);if(isDevelopmentDraft(m)&&m.source_app_id!==(currentApplication()?.id||'default'))throw new AuthError('พื้นที่พัฒนาไม่ตรงกับแอปนี้',403);if(m.expires_at&&m.expires_at<Date.now())throw new AuthError('พื้นที่พัฒนาหมดอายุ กรุณาเก็บและสร้างพื้นที่ใหม่',409);const target=isDevelopmentDraft(m)?developmentDatabaseFile(id):file(id,'.db');if(!existsSync(target))throw new AuthError('ไม่พบฐานข้อมูลพื้นที่พัฒนา กรุณาสร้างใหม่',409);const opened=new Database(target,{fileMustExist:true});try{if(isDevelopmentDraft(m))verifyDevelopment(opened,id,m.source_app_id!);installAuditing(opened);opened.pragma('foreign_keys=ON');return opened;}catch(error){opened.close();throw error;}}
-export function listReleases(owner:number){versions();const saved=(db.prepare("SELECT id,owner,label,created_at,CASE WHEN json_valid(config_json) THEN CASE WHEN json_type(config_json,'$._publication')='array' THEN 1 ELSE 0 END ELSE 0 END AS schema_release FROM _app_versions WHERE owner=?").all(owner) as any[]).map(m=>({...m,status:'published',base_hash:''}) as Manifest);const drafts=readdirSync(folder()).filter(n=>/^[a-f0-9-]{36}\.json$/.test(n)).flatMap(n=>{try{const m=json(join(folder(),n)) as Manifest;return m.owner===owner?[m]:[];}catch{return [];}});return Array.from(new Map([...drafts,...saved].map(m=>[m.id,m])).values()).sort((a,b)=>b.created_at-a.created_at);}
+export function listReleases(owner:number){versions();const saved=(db.prepare("SELECT id,owner,label,created_at,CASE WHEN json_valid(config_json) THEN CASE WHEN json_type(config_json,'$._publication')='array' AND COALESCE(json_extract(config_json,'$._publication[0].kind'),'')<>'configuration-v1' THEN 1 ELSE 0 END ELSE 0 END AS schema_release FROM _app_versions WHERE owner=?").all(owner) as any[]).map(m=>({...m,status:'published',base_hash:''}) as Manifest);const drafts=readdirSync(folder()).filter(n=>/^[a-f0-9-]{36}\.json$/.test(n)).flatMap(n=>{try{const m=json(join(folder(),n)) as Manifest;return m.owner===owner?[m]:[];}catch{return [];}});return Array.from(new Map([...drafts,...saved].map(m=>[m.id,m])).values()).sort((a,b)=>b.created_at-a.created_at);}
 export function createDraft(owner:number,label:string,version?:string,before=false,mode:"configuration"|"development"="configuration"){
  if(listReleases(owner).filter(m=>m.status==='draft').length>=10)throw Error('มีฉบับร่างครบ 10 ฉบับแล้ว กรุณาเผยแพร่หรือลบฉบับที่ไม่ใช้');
  if(typeof label!=='string'||!label.trim()||label.length>100)throw Error('ตั้งชื่อฉบับร่าง 1–100 ตัวอักษร');
  if(!['configuration','development'].includes(mode)||mode==='development'&&version)throw Error('รูปแบบพื้นที่พัฒนาไม่ถูกต้อง');
- if(version){const saved=db.prepare('SELECT config_json FROM _app_versions WHERE id=? AND owner=?').get(version,owner) as {config_json:string}|undefined;if(saved&&JSON.parse(saved.config_json)._publication)throw new AuthError('เวอร์ชันนี้มีการเพิ่มโครงสร้าง กรุณาสร้างเวอร์ชันถัดไปแทนการย้อนอัตโนมัติ',409);}
+ let scopedRollback=false;
+ if(version){const saved=db.prepare('SELECT config_json FROM _app_versions WHERE id=? AND owner=?').get(version,owner) as {config_json:string}|undefined;const publication=saved&&JSON.parse(saved.config_json)._publication;scopedRollback=publication?.[0]?.kind==='configuration-v1';if(publication&&!scopedRollback)throw new AuthError('เวอร์ชันนี้มีการเพิ่มโครงสร้าง กรุณาสร้างเวอร์ชันถัดไปแทนการย้อนอัตโนมัติ',409);}
  const id=randomUUID(),baseline=catalog(),development=mode==='development',appId=currentApplication()?.id||'default';
  const target=development?developmentDatabaseFile(id):file(id,'.db');let createdDevelopmentDirectory=false;
  if(existsSync(file(id,'.json'))||existsSync(file(id,'.baseline.json'))||existsSync(file(id,'.db')))throw new AuthError('รหัสพื้นที่ซ้ำ กรุณาลองใหม่',409);
  try{
   if(development){mkdirSync(dirname(target),{mode:0o700});createdDevelopmentDirectory=true;}
-  db.prepare('VACUUM INTO ?').run(target);
+  if(development||scopedRollback) copyDevelopmentStructure(platformDatabase(),target);
+  else db.prepare('VACUUM INTO ?').run(target);
   if(development){
    chmodSync(target,0o600);const opened=new Database(target);
    try{
@@ -65,7 +67,7 @@ export function createDraft(owner:number,label:string,version?:string,before=fal
   }
   const m:Manifest={id,label:label.trim(),owner,created_at:Date.now(),base_hash:hash(baseline),status:'draft',...(development?{workspace_mode:'development',format_version:2,source_app_id:appId,expires_at:Date.now()+14*86400000}:{})};
   save(file(id,'.baseline.json'),baseline);save(file(id,'.json'),m);
-  if(version){const source=draftManifest(version,owner);if(source.status!=='published')throw Error('เลือกเวอร์ชันที่เผยแพร่แล้ว');const saved=db.prepare('SELECT config_json,before_json FROM _app_versions WHERE id=?').get(version) as {config_json:string;before_json:string};const snapshot=JSON.parse(before?saved.before_json:saved.config_json) as Catalog,opened=openDraft(id,owner);try{withDatabase(opened,()=>applyReleaseCatalog(snapshot));}finally{opened.close();}}
+  if(version){const source=draftManifest(version,owner);if(source.status!=='published')throw Error('เลือกเวอร์ชันที่เผยแพร่แล้ว');const saved=db.prepare('SELECT config_json,before_json FROM _app_versions WHERE id=?').get(version) as {config_json:string;before_json:string};const snapshot=JSON.parse(before?saved.before_json:saved.config_json) as Catalog,opened=openDraft(id,owner);try{withDatabase(opened,()=>applyReleaseCatalog(scopedRollback?{...catalog(),...snapshot}:snapshot));}finally{opened.close();}}
   return m;
  }catch(error){
   if(development&&createdDevelopmentDirectory){
@@ -157,9 +159,10 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
   stage='WORKSPACE_READ';const workspace=openDraft(id,owner);let desired:Catalog,seed:ReleaseSeedData;try{desired=catalog(workspace);seed=releaseSeedData(workspace,review.plan,catalog(opened),desired);}finally{workspace.close();}
   if(seed.hash!==review.seedData?.hash)throw new AuthError('ข้อมูลตารางใหม่เปลี่ยน กรุณาตรวจและซ้อมใหม่',409);result.seedData=seed.tables;
   if(hash(desired)!==review.review_hash)throw new AuthError('พื้นที่พัฒนาเปลี่ยนระหว่างเริ่มซ้อม กรุณาตรวจใหม่',409);
-  const live=catalog(opened),names=live._tables.filter(t=>app.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));
+  const live=catalog(opened),scope=additiveRehearsalScope(review.plan,desired),allNames=live._tables.filter(t=>app.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));
+  const names=scope?allNames.filter(name=>scope.has(name)):allNames;
   stage='ELIGIBILITY';const unsupported=rehearsalEligibility(review.plan,live,desired);if(unsupported.length){result.reasons=unsupported;return finish();}
-  stage='LINEAGE';initializeDevelopment(opened,job,app.id,names);
+  stage='LINEAGE';initializeDevelopment(opened,job,app.id,allNames);
   const scoped=developmentAccess(opened,app,currentAccess()),database=opened;
   await withDatabase(database,()=>withApplication(scoped.application,()=>runAuthorized(user,scoped.access,()=>withDevelopment({id:job,sourceAppId:app.id,databaseFile:target},()=>withoutWorkflows(async()=>{
    const shared=new Set((database.prepare('SELECT DISTINCT table_name FROM _application_datasets WHERE app_id<>? AND can_read=1').all(app.id) as {table_name:string}[]).map(t=>t.table_name));
@@ -189,7 +192,7 @@ export async function rehearseDraft(id:string,owner:number,expectedHash:string,c
     if(rename&&!rename.virtual)(renames[rename.table]??=Object.create(null))[rename.before]=rename.after;
    }
    const preserved=dataFingerprint(database,survivingNames,limit,deadline,columns,n=>checkpoint('PRESERVATION',n),samplePerTable,renames).hash===preservedBefore;
-   const afterNames=desired._tables.filter(t=>scoped.application.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE').map(t=>String(t.name));
+   const afterNames=desired._tables.filter(t=>scoped.application.datasets?.[String(t.name)]?.read&&t.source_kind==='INTERNAL_DATABASE'&&(!scope||scope.has(String(t.name)))).map(t=>String(t.name));
    // Include newly added tables in permission context for expression validation.
    for(const o of review.plan.operations.filter(o=>o.kind==='create_table')){scoped.application.datasets[o.table!]={read:true,create:true,update:true,delete:true,export:true};if(!afterNames.includes(o.table!))afterNames.push(o.table!);}
    result.tables=afterNames.map(table=>({table,before:before.tables.find(t=>t.table===table)?.rows||0,after:Number((database.prepare('SELECT count(*) n FROM "t_'+table+'"').get() as {n:number}).n)}));

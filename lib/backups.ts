@@ -18,7 +18,7 @@ import {validateSpecialView} from "./special-view-config";
 import {actionConfigExpressions,ACTION_KINDS,appearance} from "./action-config";
 import {AUTH_TABLES} from "./auth-schema";
 import Database from "better-sqlite3";
-import {mkdirSync,readdirSync,lstatSync,openSync,readSync,closeSync,unlinkSync,rmdirSync,existsSync} from "node:fs";
+import {mkdirSync,readdirSync,lstatSync,openSync,readSync,closeSync,unlinkSync,rmdirSync,existsSync,statfsSync} from "node:fs";
 import {dirname,join,resolve,basename} from "node:path";
 import {randomUUID} from "node:crypto";
 import {initializeDatabase,readColumns,columnDefinition,syncKeyIndex,foreignKeyTransaction,createDefaultViews,createInlineViews} from "./schema";
@@ -30,6 +30,15 @@ import {migrateListReferences,assertStoredListReferences} from "./list-reference
 const META = ["_form_submissions","_release_data_versions","_table_shares","_table_overlays","_bulk_action_state","_bulk_action_runs","_applications","_application_datasets","_application_roles","_realtime_versions","_tables","_columns","_auto_numbers","_external_sources","_external_cache","_external_ids","_external_jobs","_external_limits","_external_leases","_views","_slices","_actions","_app_settings","_images","_files","_audit_log","_pdf_templates","_automations","_automation_jobs","_app_versions"];
 const FILE_NAME=/^data\.(?:before|backup)-[a-z0-9TZ.-]+\.db$/;
 export const MAX_BACKUP_BYTES=512*1024*1024;
+export const MAX_SERVER_BACKUP_BYTES=2*1024**3;
+export function assertBackupSize(size:number,serverFile=false){
+ const limit=serverFile?MAX_SERVER_BACKUP_BYTES:MAX_BACKUP_BYTES;
+ if(!Number.isSafeInteger(size)||size<100||size>limit)throw Error("ไฟล์สำรองต้องเป็น SQLite และมีขนาดไม่เกิน "+(serverFile?"2 GB":"512 MB"));
+}
+export function assertBackupDiskSpace(path:string,required:number){
+ const disk=statfsSync(dirname(resolve(path)));
+ if(disk.bavail*disk.bsize<required+64*1024**2)throw Error("พื้นที่ว่างไม่พอสำหรับเตรียมไฟล์สำรองและกู้คืน");
+}
 export type BackupInfo={name:string;size:number;created:string;reason:string};
 export function backupFolder(path:string){const folder=join(dirname(resolve(path)),"backups");mkdirSync(folder,{recursive:true});if(lstatSync(folder).isSymbolicLink())throw Error("โฟลเดอร์สำรองต้องเป็นโฟลเดอร์จริง ไม่ใช่ทางลัด");return folder;}
 export function backupFile(path:string,name:string){if(typeof name!=="string"||!FILE_NAME.test(name)||basename(name)!==name)throw Error("ชื่อไฟล์สำรองไม่ถูกต้อง");const file=join(backupFolder(path),name);if(!existsSync(file)||!lstatSync(file).isFile()||lstatSync(file).isSymbolicLink())throw Error("ไม่พบไฟล์สำรองนี้ กรุณาโหลดรายการใหม่");return file;}
@@ -55,8 +64,8 @@ function supportedTables(db:Database.Database) {
  return tables;
 }
 // Rebuild into a fresh, trusted schema. Never execute SQL definitions from an uploaded file.
-export function inspectBackup(sourceFile:string,stageFile:string,current?:Database.Database,applicationPackage=false):RestoreSummary {
- const size=lstatSync(sourceFile).size;if(size<100||size>MAX_BACKUP_BYTES)throw Error("ไฟล์สำรองต้องเป็น SQLite และมีขนาดไม่เกิน 512 MB");
+export function inspectBackup(sourceFile:string,stageFile:string,current?:Database.Database,applicationPackage=false,serverFile=false):RestoreSummary {
+ assertBackupSize(lstatSync(sourceFile).size,serverFile&&!applicationPackage);
  const fd=openSync(sourceFile,"r"),header=Buffer.alloc(16);try{readSync(fd,header,0,16,0);}finally{closeSync(fd);}if(header.toString("ascii")!=="SQLite format 3\0")throw Error("ไฟล์นี้ไม่ใช่ SQLite กรุณาเลือกไฟล์ .db ที่สำรองไว้");
  const source=new Database(sourceFile,{readonly:true,fileMustExist:true});let stage:Database.Database|undefined;
  try {
@@ -125,6 +134,8 @@ export function restoreBackup(db:Database.Database,path:string,stageFile:string)
   const preserved=(name:string)=>AUTH_TABLES.includes(name)&&!RESTORED_SECURITY.includes(name)&&!['_user_setting_defs','_user_setting_values'].includes(name)||['_audit_log','_app_usage','_media_catalog','_push_subscriptions','_push_deliveries'].includes(name);
   stage.pragma('trusted_schema=OFF');if((stage.pragma('foreign_key_check') as unknown[]).length)throw Error('ไฟล์เตรียมกู้คืนมีข้อมูลอ้างอิงไม่ครบ');
   const preferences=new Map(restoreApplications(db).map(id=>[id,db.prepare('SELECT user_id,name,value_json FROM "'+applicationTable(id,'_user_setting_values')+'"').all() as {user_id:number;name:string;value_json:string}[]]));
+  const liveSize=Number(db.pragma('page_count',{simple:true}))*Number(db.pragma('page_size',{simple:true}));
+  assertBackupDiskSpace(path,liveSize+lstatSync(stageFile).size*2);
   const restoreAudit=auditContext(),before=createBackup(db,path,"restore");
   db.prepare("ATTACH DATABASE ? AS restore_snapshot").run(stageFile);
   try{withoutAudit(()=>foreignKeyTransaction(db,()=>{
