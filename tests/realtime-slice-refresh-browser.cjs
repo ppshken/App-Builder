@@ -11,10 +11,34 @@ for(const [i,session] of sessions.entries())session.on('request',request=>{
  if(path==='/api/data/rt_other')counts[i].unrelated++;
  if(path==='/api/expression-data')counts[i].expressions++;
 });
+await sessions[1].addInitScript(()=>{
+ const NativeEventSource=window.EventSource;
+ window.EventSource=class extends NativeEventSource{
+  constructor(...args){
+   super(...args);
+   if(new URL(args[0],location.href).pathname!=='/api/realtime')return;
+   this.addEventListener('snapshot',event=>{
+    const revision=JSON.parse(event.data).tables?.rt_slice_rows;
+    if(revision&&window.dashboardSnapshot?.revision!==revision)window.dashboardSnapshot={revision,at:performance.timeOrigin+performance.now()};
+   });
+  }
+ };
+});
 await Promise.all(sessions.map(s=>s.goto(base+'/run?view=rt_dashboard')));
 const panels=sessions.map(s=>s.locator('[data-dashboard-panel="rt_view"]'));
 for(const panel of panels)await expect(panel).toContainText('Changed in another view');
 await sleep(1000);
+const search=sessions[0].locator('.dashboard-search input');
+const initialReads=counts[0].related;
+await search.fill('Changed in another view');
+await expect.poll(()=>counts[0].related).toBe(initialReads+1);
+await expect(panels[0]).toContainText('Changed in another view');
+await expect(panels[0].locator('.runtime-search-loading')).toHaveCount(0);
+await sleep(500);
+await search.fill('');
+await sleep(650);
+await expect(panels[0]).toContainText('Changed in another view');
+assert.equal(counts[0].related,initialReads+1,'Returning to the same query should reuse its in-memory list snapshot');
 const metrics=[];
 for(let i=0;i<5;i++){
  for(const count of counts)Object.assign(count,{related:0,unrelated:0,expressions:0});
@@ -43,6 +67,7 @@ for(let i=0;i<5;i++){
  await editor.locator('#data-title').fill(title);
  const saveButton=editor.getByRole('button',{name:/^บันทึกการแก้ไข$/});
  await expect(saveButton).toBeEnabled();
+ const previousSnapshot=await viewer.evaluate(()=>window.dashboardSnapshot);
  Object.assign(counts[1],{related:0,unrelated:0,expressions:0});
  const started=performance.now();
  const saveSent=editor.waitForRequest(isSave).then(()=>performance.now());
@@ -51,10 +76,13 @@ for(let i=0;i<5;i++){
  const [sent,saved,read]=await Promise.all([saveSent,saveResponse,readSent,saveButton.click()]);
  await expect(panels[1]).toContainText(title);
  const visible=performance.now();
+ const snapshot=await viewer.evaluate(()=>window.dashboardSnapshot);
+ assert.ok(snapshot&&snapshot.revision!==previousSnapshot?.revision,'Expected an SSE snapshot covering the saved change');
+ const snapshotAt=snapshot.at-performance.timeOrigin;
  await sleep(650);
  assert.equal(counts[1].unrelated,0);
  assert.equal(counts[1].related,1);
- formMetrics.push({clickToRequestMs:Math.round(sent-started),saveApiMs:Math.round(saved-sent),responseToDashboardReadMs:Math.round(read-saved),dashboardReadToVisibleMs:Math.round(visible-read),clickToVisibleMs:Math.round(visible-started),reads:{...counts[1]}});
+ formMetrics.push({clickToRequestMs:Math.round(sent-started),saveApiMs:Math.round(saved-sent),responseToDashboardReadMs:Math.round(read-saved),saveResponseToSseMs:Math.round(snapshotAt-saved),sseToDashboardReadMs:Math.round(read-snapshotAt),dashboardReadToVisibleMs:Math.round(visible-read),clickToVisibleMs:Math.round(visible-started),reads:{...counts[1]}});
 }
 console.log('Form save baseline '+JSON.stringify(formMetrics));
 await Promise.all(sessions.map(s=>s.close()));

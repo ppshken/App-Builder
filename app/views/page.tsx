@@ -25,9 +25,12 @@ import ViewDisplayEditor from "@/app/components/ViewDisplayEditor";
 import DesignerPreview from "@/app/components/DesignerPreview";
 import Icon, { IconName } from "@/app/components/Icon";
 import type { Slice } from "@/lib/automation";
+import { useAuth } from "@/app/components/AuthProvider";
+import { aiViewDraft } from "@/lib/ai-view-draft";
 type Table = { name: string; label: string; columns: Column[]; related?: RelatedList[] };
 const kindIcon = (kind: string): IconName => kind === "map" ? "map" : kind === "chart" ? "chart-bar" : kind === "calendar" ? "calendar" : ["dashboard","custom"].includes(kind) ? "grid" : kind === "table" ? "table" : kind === "form" ? "edit" : kind === "detail" ? "eye" : "list";
 export default function ViewsPage() {
+  const { workspace } = useAuth();
   const [ordering,setOrdering]=useState<string|null>(null);
   const [designing,setDesigning]=useState(false),[customPreviewRequest,setCustomPreviewRequest]=useState(0);
   const [editorTab, setEditorTab] = useState("settings");
@@ -42,13 +45,38 @@ export default function ViewsPage() {
   const dirty = !!draft && (fresh || changed);
   const sidebarViews=withViewDraft(views,draft);
   const resetChanges = () => { if (busy || !changed || !original) return; const restored = JSON.parse(original) as AppView; setDraft(restored); setPreview(restored.name); setErr(""); setNotice(""); };
-  async function load() {
+  async function load(onLoaded?: (views: AppView[], tables: Table[]) => void) {
     const results = await Promise.all([fetch("/api/views"), fetch("/api/tables"), fetch("/api/slices")]), [v, t, sl] = await Promise.all(results.map(r => r.json()));
     if (!results[0].ok || !results[1].ok || !results[2].ok) throw new Error(v.error || t.error || sl.error);
-    setViews(v); setTables(t); setSlices(sl); setLoaded(true); return v as AppView[];
+    setViews(v); setTables(t); setSlices(sl); setLoaded(true); onLoaded?.(v, t); return v as AppView[];
   }
   function open(v: AppView, isNew = false) { setPreview(v.name); discarding.current = false; setDraft({ ...v, columns: [...v.columns] }); setOriginal(JSON.stringify(v)); setFresh(isNew); setErr(""); setNotice(""); setMobileTab("editor"); setEditorTab("settings"); editor.current?.scrollTo(0, 0); }
-  useEffect(() => { let active = true; load().then(v => { if (!active) return; const wanted = new URLSearchParams(location.search).get("view"); const selected = v.find(x => x.name === wanted) || v.find(x => x.position === "primary") || v[0]; if (selected) { open(selected); setPreview(selected.name); } }).catch(e => { if (active) { setErr(e.message); setLoaded(true); } }); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active = true;
+    load((views, tables) => {
+      if (!active) return;
+      const url = new URL(location.href), params = url.searchParams;
+      const workspaceId = params.get("aiDraft");
+      if (workspaceId) {
+        const proposal = aiViewDraft(Object.fromEntries(params));
+        for (const key of ["aiDraft", "label", "table", "kind"]) params.delete(key);
+        history.replaceState(history.state, "", url);
+        if (workspace !== "live" && workspace === workspaceId && proposal && tables.some(t => t.name === proposal.table)) {
+          let index = 1;
+          while (views.some(view => view.name === `view_${index}`)) index++;
+          open({ name: `view_${index}`, label: proposal.label, table_name: proposal.table, kind: proposal.kind,
+            position: "ref", pos: Math.min(9999, Math.max(0, ...views.map(view => view.pos)) + 1),
+            columns: [], sort_column: "id", sort_dir: "desc" }, true);
+          setNotice("ร่างจาก AI · ตรวจการตั้งค่าก่อนกดบันทึก View");
+          return;
+        }
+      }
+      const selected = views.find(view => view.name === params.get("view")) || views.find(view => view.position === "primary") || views[0];
+      if (selected) open(selected);
+      if (workspaceId) setErr("เปิดร่างจาก AI ไม่ได้ กรุณาตรวจพื้นที่พัฒนาและตารางต้นทาง");
+    }).catch(e => { if (active) { setErr(e.message); setLoaded(true); } });
+    return () => { active = false; };
+  }, [workspace]);
   useEffect(() => { const warn = (e: BeforeUnloadEvent) => { if (dirty && !discarding.current) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn); }, [dirty]);
   useEffect(()=>{ const intercept=(e:MouseEvent)=>{if(!dirty || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button!==0)return;const link=e.target instanceof Element?e.target.closest<HTMLAnchorElement>("a[href]"):null;if(!link||link.target==="_blank"||link.origin!==location.origin||link.pathname===location.pathname)return;e.preventDefault();e.stopPropagation();if(!busy){pending.current=()=>{location.href=link.href;};setDiscard(true);}};document.addEventListener("click",intercept,true);return()=>document.removeEventListener("click",intercept,true);},[dirty,busy]);
   useEffect(() => { if (fresh) document.getElementById("view-label")?.focus(); }, [fresh, draft?.name]);

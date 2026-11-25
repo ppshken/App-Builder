@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {formulaPerformance,formulaInputColumns,evaluationMetrics}=require('../.test-build/formula-performance'),{evaluateExpression}=require('../.test-build/expression'),{expressionLookup}=require('../.test-build/expression-lookup');
+const {formulaPerformance,formulaInputColumns,evaluationMetrics,readMetrics}=require('../.test-build/formula-performance'),{evaluateExpression}=require('../.test-build/expression'),{expressionLookup}=require('../.test-build/expression-lookup');
 function data(n=180){return {columns:['id','group','amount'],key:'id',rows:Array.from({length:n},(_,i)=>({id:i+1,group:Math.floor(i/10),amount:i%3})),labels:{}};}
 const nested='COUNT(SELECT(items[id], IN([id], SELECT(items[id], [group] = [_THISROW].[group]))))';
 test('a scoped Ref virtual that reads its own whole table retains both target and aggregate columns',()=>{
@@ -12,8 +12,8 @@ test('a scoped Ref virtual that reads its own whole table retains both target an
 test('server dereferences read the requested target only while explicit table formulas still read all rows',()=>{
  const Database=require('better-sqlite3'),{initializeDatabase}=require('../.test-build/schema'),{withDatabase}=require('../.test-build/db'),{expressionContext}=require('../.test-build/expression-context'),d=new Database(':memory:');try{initializeDatabase(d,':memory:');withDatabase(d,()=>{
  d.exec("INSERT INTO _tables(name,label) VALUES('ref_read_target','Target');CREATE TABLE t_ref_read_target(id INTEGER PRIMARY KEY,amount INTEGER);INSERT INTO t_ref_read_target VALUES(1,1),(2,2),(3,3),(4,4);INSERT INTO _columns(table_name,name,label,type,is_virtual,virtual_expr) VALUES('ref_read_target','amount','Amount','number',0,NULL),('ref_read_target','score','Score','number',1,'[amount]*2')");
- const metrics={dataLoads:0,cacheHits:0,rowsLoaded:0},ctx={...expressionContext(new Date(),'',d,metrics),refTables:{target:'ref_read_target'}};
- assert.equal(evaluateExpression('[target].[score]',{target:2},ctx),4);assert.equal(metrics.rowsLoaded,1);
+ const metrics=readMetrics(),ctx={...expressionContext(new Date(),'',d,metrics),refTables:{target:'ref_read_target'}};
+ assert.equal(evaluateExpression('[target].[score]',{target:2},ctx),4);assert.equal(metrics.rowsLoaded,1);assert.equal(metrics.rowsByTable.ref_read_target,1);
  assert.equal(evaluateExpression('[target].[score]',{target:3},ctx),6);assert.equal(evaluateExpression('SUM(ref_read_target[score])',{},ctx),20);
  const {runAuthorized}=require('../.test-build/permissions');d.exec("INSERT INTO _roles(name,label,builder) VALUES('ref_target_reader','Reader',0);INSERT INTO _role_row_rules VALUES('ref_target_reader','ref_read_target','read','[amount]>2')");runAuthorized({id:9,name:'Reader',email:'reader@example.test',role:'ref_target_reader'},{owner:false,builder:false,tables:{ref_read_target:{read:true,create:false,update:false,delete:false}},actions:[]},()=>{const restricted={...expressionContext(new Date(),'',d),refTables:{target:'ref_read_target'}};assert.throws(()=>evaluateExpression('[target].[score]',{target:2},restricted),/อ้างอิง/);assert.equal(evaluateExpression('[target].[score]',{target:3},restricted),6);});
  });}finally{d.close();}

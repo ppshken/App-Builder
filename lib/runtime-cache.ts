@@ -1,8 +1,26 @@
 import {readStoredRuntime,storeRuntime,clearStoredRuntime} from "./runtime-storage";
 // Browser-local shared reads: also deduplicate overlapping transition/StrictMode mounts.
-let storageScope="",generation=0;
-export function configureRuntimeStorage(scope:string){if(storageScope!==scope){storageScope=scope;entries.clear();recordSnapshots.clear();generation++;}}
-export function invalidateRuntimeStorage(){generation++;return clearStoredRuntime();}
+let storageScope="",generation=0,listEpoch=0;
+const listSnapshots=new Map<string,{value:RuntimeListSnapshot;expires:number}>();
+export type RuntimeListSnapshot={payload:any;expressions?:Record<string,import("./expression").ExpressionTable>;versions:Record<string,string>};
+export function invalidateRuntimeLists(){listEpoch++;listSnapshots.clear();}
+export function runtimeListEpoch(){return listEpoch;}
+export function readRuntimeList(key:string){
+ if(!storageScope)return;
+ const cached=listSnapshots.get(key);if(!cached)return;
+ listSnapshots.delete(key);if(cached.expires<=Date.now())return;
+ listSnapshots.set(key,cached);return cached.value;
+}
+export function rememberRuntimeList(key:string,value:RuntimeListSnapshot,epoch:number){
+ if(!storageScope||epoch!==listEpoch)return;
+ const rows=Array.isArray(value.payload)?value.payload:value.payload?.rows;
+ if(!Array.isArray(rows)||rows.length>100||Object.values(value.expressions||{}).some(table=>table.rows.length>300))return;
+ if(JSON.stringify(value).length>150_000)return;
+ listSnapshots.delete(key);listSnapshots.set(key,{value,expires:Date.now()+15_000});
+ while(listSnapshots.size>30)listSnapshots.delete(listSnapshots.keys().next().value!);
+}
+export function configureRuntimeStorage(scope:string){if(storageScope!==scope){storageScope=scope;entries.clear();recordSnapshots.clear();invalidateRuntimeLists();generation++;}}
+export function invalidateRuntimeStorage(){generation++;invalidateRuntimeLists();return clearStoredRuntime();}
 const entries = new Map<string, { expires: number; promise: Promise<any> }>();
 const recordSnapshots=new Map<string,{row:any;expires:number}>();
 export function rememberRuntimeRow(table:string,row:any,email:string,slice="") {

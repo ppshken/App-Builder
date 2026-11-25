@@ -7,6 +7,8 @@ import ConnectionStatus from "./ConnectionStatus";
 import DraftBanner from "./DraftBanner";
 import AppIcon from "./AppIcon";
 
+import AiCopilotChat from "./AiCopilotChat";
+import EditorDialog from "./EditorDialog";
 import {useAuth,logout} from "./AuthProvider";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -26,10 +28,11 @@ const MENU: {href:string;label:string;icon:IconName;description:string}[] = [
  {href:"/readiness",label:"ตรวจสุขภาพแอพ",icon:"check",description:"ตรวจปัญหาและจำลองการทำงาน"},
  {href:"/releases",label:"เวอร์ชันแอพ",icon:"folder",description:"ฉบับร่าง เผยแพร่ และย้อนเวอร์ชัน"},
  {href:"/formulas",label:"คู่มือสูตร",icon:"book",description:"ตัวอย่างและสูตรที่บันทึกไว้"},
+ {href:"/builder-updates",label:"อัปเดต App Builder",icon:"clock",description:"ประวัติการอัปเดตแพลตฟอร์ม Builder"},
 ];
 export default function AppShell({ children }: { children: React.ReactNode }) {
- const pathname=usePathname(),{settings}=useAppSettings(),{user,access,application}=useAuth();
- const [profileOpen,setProfileOpen]=useState(false);
+ const pathname=usePathname(),{settings}=useAppSettings(),{user,access,application,workspace}=useAuth();
+ const [profileOpen,setProfileOpen]=useState(false), [aiOpen,setAiOpen]=useState(false);
  const [tables,setTables]=useState<Table[]>([]),[open,setOpen]=useState(false),[query,setQuery]=useState(""),[collapsed,setCollapsed]=useState<Record<string,boolean>>({}),[error,setError]=useState("");
  const login=pathname==="/login"||!!pwaApplication(pathname)&&pathname.endsWith("/login");
  const launcher=pathname==="/apps"||pathname==="/";
@@ -39,8 +42,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
  if(runtime||login)return <><ConnectionStatus/>{children}</>;
  const current=tables.find(t=>pathname===`/t/${t.name}`||pathname.startsWith(`/t/${t.name}/`));
  const active=data||pathname==="/data-sources"?"/data":pathname;
- return <div className="builder-shell"><ConnectionStatus/>{profileOpen&&<MyProfile onClose={()=>setProfileOpen(false)}/>}
-  <header className={"builder-header"+(active==="/data"?" is-data-header":"")}><button className="icon-button builder-menu-toggle" aria-label={open?"ปิดเมนูหลัก":"เปิดเมนูหลัก"} aria-expanded={open} onClick={()=>setOpen(!open)}><Icon name="menu"/></button><Link href="/settings" className="builder-brand" title="จัดการแอปที่เลือก"><span className="brand-mark"><AppIcon settings={settings}/></span><span>{settings.name}</span></Link><a href="/apps" className="button builder-back-apps" aria-label="กลับไปแอปของฉัน"><img className="builder-platform-logo" src="/builder-logo.png" width="20" height="24" alt=""/><span>แอปของฉัน</span></a><span className="builder-heading">{MENU.find(m=>m.href===active)?.description}</span><a href={"/run?app="+encodeURIComponent(application)} target="_blank" rel="noreferrer" className="button builder-open-app"><Icon name="external"/><span>เปิดแอป</span></a><DraftBanner/><button className="auth-owner" title="โปรไฟล์ของฉัน" onClick={()=>setProfileOpen(true)}>{user?.name}</button><button className="auth-logout" onClick={()=>logout().catch(e=>setError(e.message))}>ออกจากระบบ</button></header>
+ return <div className="builder-shell"><ConnectionStatus/>{aiOpen&&access.builder&&<EditorDialog title="AI Copilot" className="ai-copilot-drawer" subtitle="ถามเรื่องโครงสร้างแอปและการตั้งค่า" onClose={()=>setAiOpen(false)}><AiCopilotChat key={application+":"+workspace}/></EditorDialog>}{profileOpen&&<MyProfile onClose={()=>setProfileOpen(false)}/>}
+  <header className="builder-header"><button className="icon-button builder-menu-toggle" aria-label={open?"ปิดเมนูหลัก":"เปิดเมนูหลัก"} aria-expanded={open} onClick={()=>setOpen(!open)}><Icon name="menu"/></button><Link href="/settings" className="builder-brand" title="จัดการแอปที่เลือก"><span className="brand-mark"><AppIcon settings={settings}/></span><span>{settings.name}</span></Link><a href="/apps" className="button builder-back-apps" aria-label="กลับไปแอปของฉัน"><img className="builder-platform-logo" src="/builder-logo.png" width="20" height="24" alt=""/><span>แอปของฉัน</span></a><span className="builder-heading">{MENU.find(m=>m.href===active)?.description}</span><a href={"/run?app="+encodeURIComponent(application)} target="_blank" rel="noreferrer" className="button builder-open-app"><Icon name="external"/><span>เปิดแอป</span></a>{access.builder&&<button type="button" className="button ai-copilot-trigger" aria-haspopup="dialog" aria-expanded={aiOpen} onClick={()=>setAiOpen(true)}><span aria-hidden="true">✦</span>AI Copilot</button>}<DraftBanner/><button className="auth-owner" title="โปรไฟล์ของฉัน" onClick={()=>setProfileOpen(true)}>{user?.name}</button><button className="auth-logout" onClick={()=>logout().catch(e=>setError(e.message))}>ออกจากระบบ</button></header>
   <nav className={`builder-global-nav ${open?"is-open":""}`} aria-label="เมนูหลัก">{MENU.filter(m=>!["/users","/audit-log"].includes(m.href)||access.owner).map(m=><Link key={m.href} href={m.href} aria-label={m.label} title={m.description} aria-current={active===m.href?"page":undefined} onClick={()=>setOpen(false)}><Icon name={m.icon} width="23" height="23"/><span>{m.label}</span></Link>)}</nav>
   {open&&<button className="builder-nav-overlay" aria-label="ปิดเมนู" onClick={()=>setOpen(false)}/>}
   <main className={`builder-canvas ${pathname==="/workflows"?"is-workflows":""} ${data?"is-data":pathname==="/views"?"is-views":pathname==="/actions"?"is-actions":"is-page"}`}>

@@ -1,9 +1,9 @@
 import {parseExpression,references} from './expression';
 import type {Column} from './columns';
-export type FormulaEvalMetrics={sqlAggregates?:number;steps:number;selectRows:number;relatedRows:number;indexLookups:number;memoHits:number;sortRows:number};
-export type FormulaReadMetrics={dataLoads:number;cacheHits:number;rowsLoaded:number};
-export const evaluationMetrics=():FormulaEvalMetrics=>({steps:0,selectRows:0,relatedRows:0,indexLookups:0,memoHits:0,sortRows:0});
-export const readMetrics=():FormulaReadMetrics=>({dataLoads:0,cacheHits:0,rowsLoaded:0});
+export type FormulaEvalMetrics={sqlAggregates?:number;steps:number;peakSteps:number;stepLimit:number;selectRows:number;relatedRows:number;indexLookups:number;memoHits:number;sortRows:number};
+export type FormulaReadMetrics={dataLoads:number;cacheHits:number;rowsLoaded:number;rowsByTable:Record<string,number>};
+export const evaluationMetrics=():FormulaEvalMetrics=>({steps:0,peakSteps:0,stepLimit:0,selectRows:0,relatedRows:0,indexLookups:0,memoHits:0,sortRows:0});
+export const readMetrics=():FormulaReadMetrics=>({dataLoads:0,cacheHits:0,rowsLoaded:0,rowsByTable:Object.create(null)});
 // Calculate only the owner fields used by this formula, including their own dependencies.
 export function formulaInputColumns(source:string,columns:Column[],extra:string[]=[],provided?:ReadonlySet<string>){
  const needed=new Set([...references(source),...extra]);

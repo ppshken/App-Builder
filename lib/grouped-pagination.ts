@@ -16,7 +16,7 @@ export function parseGrouping(params:URLSearchParams,cols:Column[]){
  if(!Array.isArray(path)||path.length>levels.length||path.some(p=>typeof p!=='string'||p.length>4000))throw Error('เส้นทางกลุ่มไม่ถูกต้อง');
  return {levels,path};
 }
-function groupLabel(row:Row,column:string,cols:Column[]){const c=cols.find(c=>c.name===column),v=row[column];if(v==null||v==='')return 'ไม่ระบุ';if(c?.type==='ref')return String(row[column+'__label']??'');if(c?.type==='yesno')return booleanLabel(c,v);if(c?.type==='decimal')return decimalLabel(c,v);if(c?.type==='date')return dateLabel(v);if(c?.type==='datetime')return dateTimeLabel(v);if(c&&['price','percent','rating'].includes(c.type))return String(valueLabel(c.type,v));return Array.isArray(v)?v.join(' · '):String(v);}
+function groupLabel(row:Row,column:string,cols:Column[]){const c=cols.find(c=>c.name===column),v=row[column];if(v==null||v==='')return 'ไม่ระบุ';if(c?.type==='ref')return String(row[column+'__label']??'');if(c?.type==='yesno')return booleanLabel(c,v);if(c?.type==='decimal')return decimalLabel(c,v);if(c?.type==='date')return dateLabel(v);if(c?.type==='datetime')return dateTimeLabel(v);if(c&&['price','percent','rating'].includes(c.type))return String(valueLabel(c.type,v,c.options));return Array.isArray(v)?v.join(' · '):String(v);}
 export function groupingTree(rows:Row[],levels:GroupLevel[],cols:Column[],weighted=false):GroupNode<Row>[] {
  const tree=groupTree(rows,levels,(r,c)=>r[c],(r,c)=>groupLabel(r,c,cols),c=>cols.find(col=>col.name===c)?.type!=='ref');
  const summarize=(nodes:GroupNode<Row>[]):GroupNode<Row>[]=>nodes.map(n=>({...n,count:n.rows.reduce((sum,r)=>sum+(weighted?Number(r.__group_count):1),0),rows:n.rows.slice(0,1),children:summarize(n.children)}));

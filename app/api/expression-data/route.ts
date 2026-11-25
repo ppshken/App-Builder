@@ -41,14 +41,14 @@ async function handleGET(req: Request) {
 }
 async function handlePOST(req: Request) {
   try {
-    const { source, columns, table, rowId,profile,sampleFields } = await readBody(req);
+    const { source, columns, table, rowId,profile,sampleFields,sampleRefs } = await readBody(req);
     if(profile!==undefined&&typeof profile!=="boolean")return bad("การวัดประสิทธิภาพไม่ถูกต้อง");
     if(sampleFields!==undefined&&(!Array.isArray(sampleFields)||sampleFields.length>201||sampleFields.some((f:unknown)=>typeof f!=="string"||f.length>100)))return bad("ข้อมูลช่องตัวอย่างไม่ถูกต้อง");
     const userEmail = req.headers.get("x-nocode-preview-email") || "";
     if (typeof source !== "string" || !Array.isArray(columns) || columns.length > 200 || typeof userEmail !== "string" || (userEmail && (userEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)))) return bad("ข้อมูลทดสอบสูตรไม่ถูกต้อง");
     // Column information describes unsaved editor fields; SQL still uses checked database metadata only.
     const safe = columns.map(c => ({ name: c.name, label: c.name, type: c.type, ref_table: c.ref_table }));
-    let scope:{ownerTable:string;parentIds:number[]}|undefined;
+    let scope:{ownerTable:string;parentIds:number[];sampleRefs?:Record<string,number>}|undefined;
     if(table!==undefined){
       if(typeof table!=='string'||!tableExists(table))return bad('ไม่พบตารางที่ใช้ทดสอบสูตร',404);
       assertTablePermission(table,'read');
@@ -58,6 +58,17 @@ async function handlePOST(req: Request) {
       scope={ownerTable:table,parentIds:rowId==null?[]:[rowId]};
     }
     const metrics=readMetrics(),started=performance.now(),ownerColumns=table?columnsOf(table):[];
+    if(sampleRefs!==undefined){
+      if(!scope||!sampleRefs||typeof sampleRefs!=='object'||Array.isArray(sampleRefs)||Object.keys(sampleRefs).length>200)return bad('Invalid sample references');
+      const checked:Record<string,number>=Object.create(null);
+      for(const [name,id] of Object.entries(sampleRefs)){
+        const stored=ownerColumns.find(c=>c.name===name&&c.type==='ref'&&!c.is_virtual);
+        if(typeof id!=='number'||!Number.isSafeInteger(id)||id<1)return bad('Invalid sample reference');
+        if(!stored||!safe.some(c=>c.name===name&&c.type==='ref'&&c.ref_table===stored.ref_table))continue;
+        checked[name]=id;
+      }
+      scope.sampleRefs=checked;
+    }
     const dependencies=formulaInputColumns(source,ownerColumns,[],sampleFields?new Set<string>(sampleFields):undefined).map(c=>c.is_virtual?c.virtual_expr:sampleFields?.includes(c.name)?undefined:c.default_expr).filter((s):s is string=>typeof s==='string'&&!!s.trim());
     const data=expressionContext(new Date(),userEmail.toLowerCase(),db,profile?metrics:undefined).snapshot([source,...dependencies],safe,false,scope);
     return NextResponse.json(profile?{data,performance:{...metrics,loadMs:performance.now()-started}}:data);

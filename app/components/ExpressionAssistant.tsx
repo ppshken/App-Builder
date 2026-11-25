@@ -7,6 +7,7 @@ import {booleanLabels} from '@/lib/boolean-labels';
 
 import {suggestedFormulaColumnTypes,formulaColumnTypePatch,formulaTypeCheck,formulaResultTypes,validateFormulaResult,FormulaResultTypeError} from "@/lib/formula-result-type";
 import FormulaEditor from "@/app/components/FormulaEditor";
+import AiAssistPanel from "./AiAssistPanel";
 import {useAuth} from "./AuthProvider";
 import SearchSelect from "@/app/components/SearchSelect";
 import { useEffect, useRef, useState,useMemo } from "react";
@@ -37,7 +38,7 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
 }) {
   const [childCount,setChildCount]=useState(0);
   const [source, setSource] = useState(column[field] || ""), [tab, setTab] = useState("columns"), [samples, setSamples] = useState<Record<string, any>>({});
-  const {user,expressionUser}=useAuth();
+  const {user,expressionUser,access}=useAuth();
   const sampleEmail=user?.email || "";
   const [accountChoices,setAccountChoices]=useState<{definitions:{name:string;label:string}[];roles:{name:string;label:string}[]}>({definitions:[],roles:[]});
   useEffect(()=>{const controller=new AbortController();fetch("/api/user-settings",{signal:controller.signal}).then(r=>r.ok?r.json():Promise.reject()).then(setAccountChoices).catch(()=>{});return()=>controller.abort();},[]);
@@ -52,6 +53,7 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
   const relatedSources=relatedFormulaSources(columns,tables),sampleTable=columns.find(c=>c.table_name)?.table_name;
   const candidate = columns.map(c => c.name === column.name ? { ...c, [field]: source } : c);
   const independentError = () => { try { if (!source.trim()) return "กรุณากรอกสูตร"; validateSource?.(source); const names = new Set(["id", ...(childListContext||field==="valid_if"?["_THIS"]:[]), ...columns.map(c=>c.name)]); for (const n of references(source)) if (!names.has(n)) return `ไม่พบคอลัมน์ [${n}]`; return ""; } catch(e) { return (e as Error).message; } };
+  const aiTarget=access.builder && sampleTable && !contextLabel && !localOnly && !childListContext ? { table:sampleTable,column:column.name,field } : undefined;
   const syntaxError = contextLabel ? independentError() : source.trim() ? formulaErrors(candidate, tables.length ? Object.fromEntries(tables.filter(t => t.columns).map(t => [t.name, t.columns!])) : undefined)[`${column.name}.${field}`] : field === "virtual_expr" ? "ช่องคำนวณต้องมีสูตร" : "";
   const typeCheck=(()=>{if(resultType==="any"||syntaxError||!source.trim())return null;try{return formulaTypeCheck(source,column,field,columns,tables);}catch{return null;}})();
   const [changingType,setChangingType]=useState(false),[changeTypeError,setChangeTypeError]=useState("");
@@ -65,31 +67,52 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
     change(source.slice(0, start) + value + source.slice(end));
     requestAnimationFrame(() => { input.current?.focus(); input.current?.setSelectionRange(start + value.length, start + value.length); });
   };
-  const test = async () => {
-    testRequest.current?.abort();const controller=new AbortController();testRequest.current=controller;
-    const version=++resultVersion.current,started=performance.now();let measurement:FormulaMeasurement|undefined;setTesting(true);setResult(null);
-    try {
-      if (!source.trim()) throw new Error("กรุณากรอกสูตรก่อนทดสอบ");
-      if (error) throw new Error(error);
-      const ownerTable=sampleTable,rawId=samples.id,sampleId=rawId==null||rawId===''?null:Number(rawId);
+  const evaluateSample = async (source:string,signal:AbortSignal,now:Date,recordMeasurement:(value:FormulaMeasurement)=>void,sampleValues:Record<string,unknown>=samples) => {
+    const started=performance.now();
+      const ownerTable=sampleTable,rawId=sampleValues.id,sampleId=rawId==null||rawId===''?null:Number(rawId);
       if(ownerTable&&sampleId!==null&&(!Number.isSafeInteger(sampleId)||sampleId<1))throw Error('รหัสแถวที่ใช้ทดสอบต้องเป็นจำนวนเต็มบวก');
-      const sampleInput=ownerTable?{...samples,id:sampleId}:samples;
-      const r = await fetch("/api/expression-data", { method: "POST",signal:controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, columns,profile:true,sampleFields:Object.keys(sampleInput), userEmail: sampleEmail,...(ownerTable?{table:ownerTable,rowId:sampleId}:{}) }) }), data = await r.json(); if (!r.ok) throw new Error(data.error);if(version!==resultVersion.current||controller.signal.aborted)return;
-      const options = { ...expressionUser, tables: data.data, tableName:columns.find(c=>c.table_name)?.table_name, userEmail: sampleEmail, refTables: refTablesOf(columns),getEqualityRows:expressionLookup(),enableSelectMemo:true,metrics:evaluationMetrics() };
+      const sampleInput=ownerTable?{...sampleValues,id:sampleId}:sampleValues;
+      const sampleRefs=Object.fromEntries(columns.filter(c=>c.type==='ref'&&!c.is_virtual&&sampleInput[c.name]!=null&&sampleInput[c.name]!==''&&Number.isSafeInteger(Number(sampleInput[c.name]))&&Number(sampleInput[c.name])>0).map(c=>[c.name,Number(sampleInput[c.name])]));
+      const r = await fetch("/api/expression-data", { method: "POST",signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source, columns,profile:true,sampleFields:Object.keys(sampleInput), userEmail: sampleEmail,...(ownerTable?{table:ownerTable,rowId:sampleId,...(Object.keys(sampleRefs).length?{sampleRefs}:{})}:{}) }) }), data = await r.json(); if (!r.ok) throw new Error(data.error);signal.throwIfAborted();
+      const options = { ...expressionUser, now, tables: data.data, tableName:columns.find(c=>c.table_name)?.table_name, userEmail: sampleEmail, refTables: refTablesOf(columns),getEqualityRows:expressionLookup(),enableSelectMemo:true,metrics:evaluationMetrics() };
       const evaluationStarted=performance.now();
       const inputColumns=formulaInputColumns(source,columns,references(source).includes("_THIS")&&!childListContext?[column.name]:[],new Set(Object.keys(sampleInput)));
       let value:ReturnType<typeof evaluateExpression>;
       try{
-        const { row } = calculateRow(inputColumns,sampleInput,true,new Date(),false,sampleEmail,options);
+        const { row } = calculateRow(inputColumns,sampleInput,true,now,false,sampleEmail,options);
         value=evaluateExpression(source,{...row,_THIS:childListContext?Array.from({length:childCount},(_,i)=>String(i+1)):row[column.name]??null},options);
       }finally{
-        measurement={loadMs:data.performance.loadMs,evalMs:performance.now()-evaluationStarted,totalMs:performance.now()-started,reads:{dataLoads:data.performance.dataLoads,cacheHits:data.performance.cacheHits,rowsLoaded:data.performance.rowsLoaded},evaluation:options.metrics};
+        recordMeasurement({loadMs:data.performance.loadMs,evalMs:performance.now()-evaluationStarted,totalMs:performance.now()-started,reads:{dataLoads:data.performance.dataLoads,cacheHits:data.performance.cacheHits,rowsLoaded:data.performance.rowsLoaded,rowsByTable:data.performance.rowsByTable},evaluation:options.metrics});
       }
       const inferred=formulaResultTypes(source,columns,tables);
       if(resultType!=="any")validateFormulaResult(value,column,field,inferred);
       const displayValue=inferred.includes("boolean")&&(value===0||value===1)?Boolean(value):value;
-      if(version===resultVersion.current)setResult({ measurement,value: displayValue === null ? "ค่าว่าง" : typeof displayValue === "boolean" ? displayValue ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(displayValue) ? JSON.stringify(displayValue) : String(displayValue) });
+    return { value:displayValue, label:displayValue === null ? "ค่าว่าง" : typeof displayValue === "boolean" ? displayValue ? "TRUE (เป็นจริง)" : "FALSE (เป็นเท็จ)" : Array.isArray(displayValue) ? JSON.stringify(displayValue) : String(displayValue) };
+  };
+  const test = async () => {
+    testRequest.current?.abort();const controller=new AbortController();testRequest.current=controller;
+    const version=++resultVersion.current;let measurement:FormulaMeasurement|undefined;setTesting(true);setResult(null);
+    try {
+      if (!source.trim()) throw new Error("กรุณากรอกสูตรก่อนทดสอบ");
+      if (error) throw new Error(error);
+      const sample = await evaluateSample(source,controller.signal,new Date(),value=>{measurement=value;});
+      if(version===resultVersion.current)setResult({measurement,value:sample.label});
     } catch (e) { if(version===resultVersion.current)setResult({ measurement,error: e instanceof Error ? e.message : "ทดสอบสูตรไม่ได้",typeError:e instanceof FormulaResultTypeError,suggestedTypes:e instanceof FormulaResultTypeError?e.columnTypes:[] }); }finally{if(version===resultVersion.current)setTesting(false);}
+  };
+  const compare = async (alternative:string, signal:AbortSignal, sampleValues?:Record<string,unknown>) => {
+    const now = new Date();
+    async function profile(formula:string) {
+      let rows: number | undefined;
+      try {
+        const sample = await evaluateSample(formula,signal,now,measurement=>{rows=measurement.reads.rowsLoaded;},sampleValues);
+        return { label:sample.label, rows, identity:JSON.stringify(sample.value) };
+      } catch (error) {
+        signal.throwIfAborted();
+        return { error:error instanceof Error ? error.message : String(error), rows };
+      }
+    }
+    const original = await profile(source), suggested = await profile(alternative);
+    return { original, suggested, equal:original.identity!==undefined && suggested.identity!==undefined ? original.identity===suggested.identity : null };
   };
   return <EditorDialog title="ตัวช่วยเขียนสูตร" subtitle={contextLabel || `${column.label || column.name} · ${FORMULA_LABELS[field]}`} onClose={onClose} busy={busy} wide
     footer={<><button disabled={busy} onClick={onClose}>ยกเลิก</button><button className="primary" disabled={!!error||!!result?.typeError||busy} onClick={() => onApply(source.trim())}><Icon name="check"/>{busy?"กำลังบันทึก…":applyLabel}</button></>}>
@@ -101,16 +124,18 @@ export default function ExpressionAssistant({ column, columns, field, onApply, o
     {typeCheck&&<div className="formula-result-types"><p><strong>ชนิดผลลัพธ์ที่ต้องการ:</strong> {typeCheck.expected}</p><p><strong>ชนิดผลลัพธ์ของสูตร:</strong> {typeCheck.actual}</p>{typeCheck.actual.includes("ยังระบุไม่ได้")&&<small className="hint">กรุณาลองคำนวณด้วยข้อมูลตัวอย่างเพื่อตรวจชนิดผลลัพธ์</small>}</div>}
     {onChangeType&&suggested.length>0&&<div className="formula-type-change"><button type="button" disabled={busy||changingType} onClick={async()=>{setChangingType(true);setChangeTypeError("");try{await onChangeType(formulaColumnTypePatch(column,suggested[0],field,source.trim()),source.trim());clearResult();}catch(e){setChangeTypeError(e instanceof Error?e.message:"เปลี่ยนชนิดข้อมูลไม่ได้");}finally{setChangingType(false);}}}>{changingType?"กำลังเปลี่ยนชนิดข้อมูล…":"เปลี่ยนชนิดข้อมูลทันที"} → {suggested[0]}</button>{changeTypeError&&<p className="err" role="alert">{changeTypeError}</p>}</div>}
     <p className="hint">ใช้ชื่อในระบบใน [ ] และใส่ข้อความในเครื่องหมายคำพูด ค่าทดสอบด้านล่างไม่บันทึกลงตาราง</p>
-    <div className="assistant-tabs" role="tablist" aria-label="เครื่องมือสูตร">{[["columns", "คอลัมน์"],["performance", "ประสิทธิภาพ"], ["related", "Related"], ["tables", "ตาราง"], ["account", "บัญชีและค่าตั้งค่า"], ["examples", "ตัวอย่าง"], ["test", "ลองคำนวณ"]].map(([value, label]) => <button key={value} role="tab" aria-selected={tab === value} onClick={() => setTab(value)}>{label}{value==="related"&&relatedSources.length>0&&<span className="assistant-related-count" aria-hidden="true">{relatedSources.length}</span>}</button>)}</div>
+    <div className="assistant-tabs" role="tablist" aria-label="เครื่องมือสูตร">{[["columns", "คอลัมน์"],["performance", "ประสิทธิภาพ"], ["related", "Related"], ["tables", "ตาราง"], ["account", "บัญชีและค่าตั้งค่า"], ["examples", "ตัวอย่าง"], ["test", "ลองคำนวณ"], ...(aiTarget?[["ai","AI Copilot"]]:[])].map(([value, label]) => <button key={value} role="tab" className={value==="ai"?"formula-ai-tab":undefined} aria-selected={tab === value} onClick={() => setTab(value)}>{value==="ai"&&<span aria-hidden="true">✦</span>}{label}{value==="related"&&relatedSources.length>0&&<span className="assistant-related-count" aria-hidden="true">{relatedSources.length}</span>}</button>)}</div>
     {tab === "related" && <div className="assistant-section assistant-related" role="tabpanel" aria-label="Related ที่ใช้ในสูตร"><p className="hint">เลือกรายการลูกและคอลัมน์ที่ต้องการ แล้วกดสูตรเพื่อแทรก เฉพาะแถวลูกของแถวแม่ปัจจุบัน</p>{relatedSources.map(related=>{
       const property=relatedColumns[related.alias]||related.columns.find(c=>c.type==="image")?.name||"id",projection=`${related.expression}[${property}]`;
       return <section className="assistant-related-card" key={related.alias} aria-label={related.alias}><header><div><h3>{related.label}</h3><small className="hint">{related.refLabel} ({related.refColumn}) → ตารางนี้</small></div><code>{related.expression}</code></header><label className="assistant-related-column"><span>คอลัมน์จากรายการลูก</span><SearchSelect aria-label={`คอลัมน์จาก ${related.alias}`} value={property} onChange={e=>setRelatedColumns(old=>({...old,[related.alias]:e.target.value}))}>{related.columns.map(c=><option key={c.name} value={c.name}>{c.label||c.name} · {c.name}</option>)}</SearchSelect></label><div className="assistant-related-actions"><button type="button" className="chip" aria-label={`แทรก ${projection}`} onClick={()=>insert(projection)}>รายการค่า<code>{projection}</code></button><button type="button" className="chip" aria-label={`แทรก INDEX(${projection}, 1)`} onClick={()=>insert(`INDEX(${projection}, 1)`)}>ค่าแรก<code>{`INDEX(${projection}, 1)`}</code></button><button type="button" className="chip" aria-label={`แทรก COUNT(${related.expression})`} onClick={()=>insert(`COUNT(${related.expression})`)}>นับรายการ<code>{`COUNT(${related.expression})`}</code></button><button type="button" className="chip" aria-label={`แทรก ${related.expression}`} onClick={()=>insert(related.expression)}>รหัสแถวลูก<code>{related.expression}</code></button></div></section>;
     })}{!relatedSources.length&&<div className="assistant-related-empty"><Icon name="list"/><p>ตารางนี้ยังไม่มี Related ที่ใช้ในสูตร</p><small className="hint">เพิ่มคอลัมน์ Ref ในตารางลูกให้อ้างถึงตารางนี้ แล้วเปิดตัวช่วยอีกครั้ง</small></div>}</div>}
     {tab === "columns" && <div className="assistant-section"><p className="hint">กดชื่อคอลัมน์เพื่อแทรกในสูตร</p><div className="chips">{columns.filter(c => c.name && (field !== "virtual_expr" || c.name !== column.name)).map(c => <button key={c.name} className="chip" onClick={() => insert(`[${c.name}]`)}>{c.label || c.name}<code>[{c.name}]</code></button>)}{(field === "valid_if"||childListContext) && <button className="chip" onClick={() => insert("[_THIS]")}>{childListContext?"รายการลูกทั้งหมด":"ค่าของช่องนี้"}<code>[_THIS]</code></button>}</div></div>}
+    {aiTarget && <div className="assistant-section" hidden={tab !== "ai"}><AiAssistPanel key={JSON.stringify([aiTarget,source])} target={aiTarget} source={source} compare={compare} samples={samples} onInsert={value=>{change(value);setTab("test");}}/></div>}
     {tab === "tables" && <div className="assistant-section"><p className="hint">ดึงรายการคีย์จากตารางอื่น ระบบแสดง Label ให้เมื่อใช้เป็นตัวเลือก EnumList</p><div className="example-list">{tables.map(t => { const key = t.columns?.find(c => c.is_key)?.name || "id", source = t.name + "[" + key + "]"; return <div key={t.name}><button onClick={() => insert(source)}><span>{t.label}<code>{source}</code></span><Icon name="plus"/></button><button onClick={() => insert("SELECT(" + source + ", TRUE)")}><span>ดึงรายการพร้อมเงื่อนไข<code>{"SELECT(" + source + ", TRUE)"}</code></span><Icon name="plus"/></button></div>; })}</div>{!tables.length && <p className="hint">กรอกชื่อตารางในสูตร เช่น permission[permission_key]</p>}</div>}
     {tab === "account" && <div className="assistant-section"><p className="hint">ข้อมูลบัญชีมาจากผู้ใช้ที่เข้าสู่ระบบจริง USERROLE() คืนชื่อที่แสดง ส่วน USERROLEKEY() คืน ID บทบาท · ใช้ _app_users และ _app_user_roles จากแท็บตาราง เพื่ออ่านผู้ใช้และบทบาทของแอปนี้</p><div className="chips">{["USEREMAIL()","USERID()","USERNAME()","USERROLE()","USERROLEKEY()","ISOWNER()"].map(f=><button className="chip" key={f} onClick={()=>insert(f)}>{f}</button>)}</div><h3>เงื่อนไขตามบทบาท</h3><div className="example-list">{accountChoices.roles.map(r=><button key={r.name} onClick={()=>change("USERROLEKEY() = "+JSON.stringify(r.name))}><span>{r.label}<code>{"USERROLEKEY() = "+JSON.stringify(r.name)}</code></span><Icon name="plus"/></button>)}</div><h3>ค่าตั้งค่าผู้ใช้</h3><div className="chips">{accountChoices.definitions.map(d=><button className="chip" key={d.name} onClick={()=>insert("USERSETTINGS("+JSON.stringify(d.name)+")")}>{d.label}<code>{"USERSETTINGS("+JSON.stringify(d.name)+")"}</code></button>)}</div>{!accountChoices.definitions.length&&<p className="hint">เจ้าของแอปกำหนดช่องที่ ผู้ใช้และสิทธิ์ → ค่าตั้งค่าผู้ใช้</p>}</div>}
     {tab === "examples" && <div className="assistant-section example-list">{EXAMPLES.filter(e => !e.fields || e.fields.includes(field)).map(e => <button key={e.name} onClick={() => change(e.formula)}><span>{e.name}<code>{e.formula}</code></span><Icon name="plus"/></button>)}<p className="hint">ใช้ IF, AND, OR, NOT, CONCATENATE และฟังก์ชันวันที่ได้ ดึงรายการด้วย table[key] หรือ SELECT(table[key], เงื่อนไข) เงื่อนไขใน SELECT ใช้คอลัมน์ของตารางนั้น อ้างแถวในฟอร์มด้วย [_THISROW].[คอลัมน์] และดึงค่าจาก Ref ด้วย [product].[product_price]</p></div>}
-    {tab === "performance" && <><FormulaPerformancePanel analysis={performanceAnalysis} measurement={result?.measurement} onTest={test} testing={testing} disabled={!!error||busy}/>{result?.error&&<p className="err" role="alert">{result.error}</p>}</>}
+    <div hidden={tab !== "performance"}><FormulaPerformancePanel analysis={performanceAnalysis} measurement={result?.measurement} onTest={test} testing={testing} disabled={!!error||busy}/>{result?.error&&<p className="err" role="alert">{result.error}</p>}
+    {aiTarget && result?.measurement && <AiAssistPanel target={aiTarget} source={source} measurement={{...result.measurement, calculationFailed: !!result.error}} compare={compare} samples={samples} onInsert={value=>{change(value);setTab("test");}}/>}</div>
     {tab === "test" && <div className="assistant-section">{childListContext&&<label className="field">จำนวนรายการลูกสำหรับทดสอบ<input aria-label="จำนวนรายการลูกสำหรับทดสอบ" type="number" min={0} max={200} value={childCount} onChange={e=>{clearResult();setChildCount(Math.max(0,Math.min(200,Math.trunc(Number(e.target.value)||0))));}}/></label>}<div className="field"><label htmlFor="sample-email">อีเมลผู้ใช้ปัจจุบัน</label><input id="sample-email" type="email" value={sampleEmail} readOnly/></div>{sampleTable&&!columns.some(c=>c.name==="id")&&<div className="field"><label htmlFor="sample-id">ID ของแถวแม่สำหรับทดสอบ</label><input id="sample-id" type="number" min="1" step="1" value={samples.id??""} onChange={e=>{clearResult();setSamples({...samples,id:e.target.value});}}/><small className="hint">เว้นว่างเพื่อทดสอบแถวใหม่ ค่าทดสอบไม่บันทึกลงตาราง</small></div>}<div className="column-fields">{columns.filter(c => !c.is_virtual).map(c => <div className="field" key={c.name}><label htmlFor={`sample-${c.name}`}>{c.label || c.name}</label>{c.type === "enumlist" ? <fieldset className="choice-list" aria-label={c.label}>{(c.options || "").split(",").filter(Boolean).map(o => <label key={o}><input type="checkbox" checked={(samples[c.name] || []).includes(o)} onChange={e => { clearResult(); setSamples({ ...samples, [c.name]: e.target.checked ? [...(samples[c.name] || []), o] : (samples[c.name] || []).filter((v: string) => v !== o) }); }}/>{o}</label>)}</fieldset> : c.type === "yesno" ? <SearchSelect id={`sample-${c.name}`} value={samples[c.name] ?? ""} onChange={e => { clearResult(); setSamples({ ...samples, [c.name]: e.target.value }); }}><option value="">ค่าว่าง</option><option value="1">{booleanLabels(c).true}</option><option value="0">{booleanLabels(c).false}</option></SearchSelect> : <input id={`sample-${c.name}`} type={["number", "decimal", "ref"].includes(c.type) ? "number" : c.type === "date" ? "date" : "text"} step="any" value={samples[c.name] ?? ""} onChange={e => { clearResult(); setSamples({ ...samples, [c.name]: e.target.value }); }}/>}</div>)}</div><button disabled={testing||busy} onClick={test}><Icon name="formula"/>{testing?"กำลังทดสอบ…":"ทดสอบสูตร"}</button>{result && <div className={`result-box ${result.error ? "err" : ""}`} role="status">{result.error || <>ผลลัพธ์: <strong>{result.value}</strong></>}</div>}</div>}
   </EditorDialog>;
 }

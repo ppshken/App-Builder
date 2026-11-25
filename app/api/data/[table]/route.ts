@@ -92,7 +92,8 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const window=sliceMemoryPage(t,cols,slice.filter_expr,rawRows??db.prepare('SELECT '+sqlFields+' FROM "t_'+t+'"').all() as Row[],now,userEmail,context,{page:requested,size,sort:requestedSort?.name||'id',direction:u.searchParams.get('dir')==='asc'?1:-1,filters});
       rawRows=window.rawRows;prepared=window.prepared;total=window.total;page=window.page;memoryPage=true;
     }
-    let rows = readRows(t, needed, now, userEmail, context,rawRows,selected?{allColumns:cols}:undefined,prepared);
+    const deferVersion=!!rawRows&&paged&&!fast&&!memoryPage&&!selected;
+    let rows = readRows(t, needed, now, userEmail, context,rawRows,selected?{allColumns:cols}:undefined,prepared,deferVersion);
     if (slice&&!memoryPage) rows = rows.filter(row => matches(slice.filter_expr, row, userEmail, t, context));
     if(mapScope)rows=scopedMapRows(t,rows,mapScope,userEmail,context);
     const wantedId = u.searchParams.get("id");
@@ -110,7 +111,7 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
       const comparison = left == null ? right == null ? 0 : -1 : right == null ? 1 : typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right), "th");
       return direction * (comparison || a.id - b.id);
     });
-    const responseRows=(items:Row[])=>{if(!selected||!items.length)return items;const originals=sqlFields==='*'&&rawRows?rawRows:db.prepare('SELECT * FROM "t_'+t+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(items.map(r=>r.id))) as Row[],byId=new Map(originals.map(r=>[r.id,r]));return items.map(row=>({...row,__version:rowVersion(t,cols,byId.get(row.id)!)}));};
+    const responseRows=(items:Row[])=>{if((!selected&&!deferVersion)||!items.length)return items;const originals=sqlFields==='*'&&rawRows?rawRows:db.prepare('SELECT * FROM "t_'+t+'" WHERE id IN (SELECT value FROM json_each(?))').all(JSON.stringify(items.map(r=>r.id))) as Row[],byId=new Map(originals.map(r=>[r.id,r]));return items.map(row=>({...row,__version:rowVersion(t,cols,byId.get(row.id)!)}));};
     if(paged){if(grouping&&!fast){groupResult=groupedMemoryPage(rows,grouping.levels,grouping.path,cols,requested,size);rows=groupResult.rows;total=groupResult.total;page=groupResult.page;}else if(!fast&&!memoryPage){total=rows.length;page=Math.min(requested,Math.max(1,Math.ceil(total/size)));rows=rows.slice((page-1)*size,page*size);}return NextResponse.json({rows:responseRows(rows),total,page,page_size:size,pages:Math.max(1,Math.ceil(total/size)),...(groupResult?{groups:groupResult.groups,group_total:groupResult.group_total,group_path:groupResult.group_path}:{})},{headers:realtimeHeaders});}
     return NextResponse.json(u.searchParams.get("all")==="1"?rows:rows.slice(0, 500),{headers:realtimeHeaders});
     })();

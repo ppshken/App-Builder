@@ -17,3 +17,25 @@ test('data writes invalidate data and visibility while retaining table/view/acti
  await Promise.all(urls.map(u=>runtimeJSON(u)));assert.equal(calls,7);clearRuntimeCache('data');await Promise.all(urls.map(u=>runtimeJSON(u)));assert.equal(calls,10);
  }finally{global.fetch=original;clearRuntimeCache();}
 });
+
+test('list snapshots are bounded by session scope, expiry and write invalidation',()=>{
+ const {configureRuntimeStorage,invalidateRuntimeLists,runtimeListEpoch,rememberRuntimeList,readRuntimeList}=require('../.test-build/runtime-cache.js');
+ const originalNow=Date.now;
+ try {
+  Date.now=()=>1000;
+  configureRuntimeStorage('first-session');
+  const epoch=runtimeListEpoch(),value={payload:{rows:[{id:1}],total:1},versions:{}};
+  rememberRuntimeList('query',value,epoch);
+  assert.equal(readRuntimeList('query'),value);
+  assert.equal(readRuntimeList('different-query'),undefined);
+  invalidateRuntimeLists();
+  rememberRuntimeList('query',value,epoch);
+  assert.equal(readRuntimeList('query'),undefined);
+  rememberRuntimeList('query',value,runtimeListEpoch());
+  configureRuntimeStorage('other-session');
+  assert.equal(readRuntimeList('query'),undefined);
+  rememberRuntimeList('query',value,runtimeListEpoch());
+  Date.now=()=>16_000;
+  assert.equal(readRuntimeList('query'),undefined);
+ }finally{Date.now=originalNow;configureRuntimeStorage('');}
+});

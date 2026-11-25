@@ -4,6 +4,7 @@ import {createUuid} from "./uuid";
 import {isSystemFormulaTable} from './formula-system-schema';
 import {normalizeDateTime} from "./datetime";
 import {distanceKilometers} from "./location";
+import {bahtText} from "./baht-text";
 import {durationMilliseconds,formatDuration,normalizeDuration,isDuration,temporalKind,temporalMilliseconds} from "./duration";
 import {formatExpressionText} from "./expression-text";
 // A bounded parser/interpreter shared by browser and server. No executable user code.
@@ -22,7 +23,7 @@ const arities: Record<string, [number, number]> = {
   TRIM: [1, 1], UPPER: [1, 1], LOWER: [1, 1], TODAY: [0, 0], NOW: [0, 0], DATE: [1, 1],
   YEAR: [1, 1], MONTH: [1, 1], DAY: [1, 1], ROUND: [1, 1], ABS: [1, 1], MIN: [1, 100], MAX: [1, 100],
   LIST: [0, 100], COUNT: [1, 1], IN: [2, 2], UNIQUEID: [0, 0], USEREMAIL: [0, 0], USERID: [0,0], USERNAME: [0,0], USERROLE: [0,0], USERROLEKEY: [0,0], ISOWNER: [0,0], USERSETTINGS: [1,1],
-  DISTANCE:[2,2],DURATION:[1,1], TOTALHOURS:[1,1], TOTALMINUTES:[1,1], TOTALSECONDS:[1,1],
+  DISTANCE:[2,2], BAHTTEXT:[1,1], BATHTEXT:[1,1], DURATION:[1,1], TOTALHOURS:[1,1], TOTALMINUTES:[1,1], TOTALSECONDS:[1,1],
   ORDERBY:[2,41],SELECT: [2, 3], SUM: [1, 1], RIGHT: [2, 2], TEXT: [1, 2], INDEX: [2, 2],
 };
 export const FUNCTION_NAMES = Object.keys(arities);
@@ -346,6 +347,16 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
   } else node = source;
   const now = options.now ?? new Date();
   let steps = 0;
+  const stepLimit = options.tables || options.getTable || options.getRelatedTable || options.getReferenceTable ? 200_000 : 2_000;
+  const recordStep = () => {
+    steps++;
+    if (options.metrics) {
+      options.metrics.steps++;
+      options.metrics.peakSteps = Math.max(options.metrics.peakSteps, steps);
+      options.metrics.stepLimit = stepLimit;
+    }
+    if (steps > stepLimit) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
+  };
   const selectMemo=new Map<Node,Map<boolean,Value>>(),memoSafety=new Map<Node,boolean>();
   function memoEligible(n:Node):boolean{
     if(!options.enableSelectMemo||n.kind!=='call'||n.name!=='SELECT'||n.args[0].kind!=='table'||n.args[2]&&n.args[2].kind!=='literal')return false;
@@ -405,8 +416,7 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
     }
   }
   function run(n: Node, scope?: Scope, referenceResult = false): Value {
-    if (++steps > (options.tables || options.getTable ? 100000 : 2000)) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
-    if(options.metrics)options.metrics.steps++;
+    recordStep();
     const memoized=memoEligible(n);if(memoized&&selectMemo.get(n)?.has(referenceResult)){if(options.metrics)options.metrics.memoHits++;return selectMemo.get(n)!.get(referenceResult)!;}
     let result: Value;
     if (n.kind === "literal") result = n.value;
@@ -421,8 +431,8 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
       const values: string[] = [];
       // An unsaved parent must never match orphan rows with an empty Ref.
       if (!isBlank(id)) for (const candidate of data.rows) {
-        if(options.metrics){options.metrics.steps++;options.metrics.relatedRows++;}
-        if (++steps > 100000) fail("สูตรใช้การคำนวณมากเกินไป กรุณาแบ่งสูตร");
+        if(options.metrics)options.metrics.relatedRows++;
+        recordStep();
         if (!listEquivalent(candidate[ref], id ?? null)) continue;
         const value = tableValue(data, n.name, candidate);
         if (value !== null) values.push(referenceResult ? String(candidate.id) : value);
@@ -545,6 +555,8 @@ export function evaluateExpression(source: string | Node, row: Record<string, Va
         case "ISNOTBLANK": result = !isBlank(arg(0)); break;
         case "CONCATENATE": result = n.args.map(a => String(run(a, scope) ?? "")).join(""); break;
         case "DISTANCE": {const from=arg(0),to=arg(1);result=isBlank(from)||isBlank(to)?null:distanceKilometers(from,to);break;}
+        case "BAHTTEXT":
+        case "BATHTEXT": { const amount = arg(0); result = isBlank(amount) ? null : bahtText(amount); break; }
         case "DURATION": result=normalizeDuration(arg(0));break;
         case "TOTALHOURS": case "TOTALMINUTES": case "TOTALSECONDS": {const v=arg(0);result=isBlank(v)?null:durationMilliseconds(v)/(n.name==='TOTALHOURS'?3600000:n.name==='TOTALMINUTES'?60000:1000);break;}
         case "SUM": {const native=options.getAggregate?.("SUM",n.args[0],name=>options.resolve?options.resolve(name):Object.hasOwn(row,name)?row[name]??null:fail(`ไม่พบคอลัมน์ [${name}]`));if(native!==undefined){if(options.metrics)options.metrics.sqlAggregates=(options.metrics.sqlAggregates||0)+1;result=native;break;}const values=arg(0);if(!Array.isArray(values))fail("SUM ต้องรับรายการ เช่น SUM(SELECT(order_item[amount], TRUE))");result=values.some(v=>isDuration(v))&&values.every(v=>isBlank(v)||isDuration(v))?formatDuration(values.reduce((total,v)=>total+(isBlank(v)?0:durationMilliseconds(v)),0)):values.reduce((total,v)=>total+numeric(v),0);break;}

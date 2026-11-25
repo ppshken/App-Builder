@@ -14939,9 +14939,25 @@ textarea::placeholder {
 }
 .configured-form
   input:is([type="date"], [type="datetime-local"], [type="time"]) {
+  box-sizing: border-box;
   width: 100%;
   min-inline-size: 0;
   max-inline-size: 100%;
+}
+@media (pointer: coarse) {
+  .configured-form input:is([type="date"], [type="datetime-local"]) {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-height: 44px;
+    overflow: hidden;
+    text-align: start;
+  }
+  .configured-form input:is([type="date"], [type="datetime-local"])::-webkit-date-and-time-value {
+    min-width: 0;
+    margin: 0;
+    text-align: start;
+  }
 }
 .configured-form
   .field
@@ -15527,9 +15543,8 @@ textarea::placeholder {
   top: var(--runtime-header-height, 52px);
 }
 
-/* Keep Data actions together on the right instead of splitting free space. */
-.builder-header.is-data-header .auth-owner {
-  margin-left: 0;
+.builder-header .auth-owner {
+  margin-inline-start: 0;
 }
 .data-heading-actions {
   display: flex;
@@ -17627,3 +17642,27 @@ input:is(
   overscroll-behavior: contain;
 }
 .dashboard-record-shell > .data-panel > .data-pagination { background: var(--panel); }
+.form-yesno-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.form-yesno-buttons button {
+  justify-content: center;
+  min-width: 0;
+  min-height: 40px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.form-yesno-buttons button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.form-yesno-buttons[aria-invalid="true"] button {
+  border-color: var(--danger, #dc2626);
+}

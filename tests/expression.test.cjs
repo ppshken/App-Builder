@@ -1,4 +1,16 @@
 const { test } = require('node:test');
+test('BAHTTEXT spells Thai baht and satang and supports the requested spelling', () => {
+  const assert = require('node:assert/strict');
+  const { evaluateExpression } = require('../.test-build/expression.js');
+  const run = source => evaluateExpression(source, {});
+  assert.equal(run('BAHTTEXT(1234)'), 'หนึ่งพันสองร้อยสามสิบสี่บาทถ้วน');
+  assert.equal(run('BATHTEXT(21.25)'), 'ยี่สิบเอ็ดบาทยี่สิบห้าสตางค์');
+  assert.equal(run('BAHTTEXT(0)'), 'ศูนย์บาทถ้วน');
+  assert.equal(run('BAHTTEXT(-0.005)'), 'ลบศูนย์บาทหนึ่งสตางค์');
+  assert.equal(run('BAHTTEXT(999999.995)'), 'หนึ่งล้านบาทถ้วน');
+  assert.equal(run('BAHTTEXT("")'), null);
+  assert.throws(() => run('BAHTTEXT("foo")'), /BAHTTEXT/);
+});
 test('EnumList values and list formulas preserve empty/duplicate/invalid choices; preview context stays isolated', () => {
   const { evaluateExpression, isBlank } = require('../.test-build/expression.js');
   const { normalizeValue, formState } = require('../.test-build/columns.js');
@@ -266,4 +278,21 @@ test('contextual INDEX defaults see pending siblings and dependent Ref selection
  assert.equal(resetDependentRefChoices(cols,{inspection:1,category:2},'inspection',now,'',{tables}).category,2);
  assert.equal(resetDependentRefChoices(cols,{inspection:1,category:1},'token',now,'',{tables}).category,1);
  assert.equal(resetDependentRefChoices(cols,{inspection:1,category:1},'category',now,'',{tables}).category,1);
+});
+
+test('table formula budget permits work above the old limit and stops at the new limit', () => {
+  const assert = require('node:assert/strict');
+  const { evaluateExpression } = require('../.test-build/expression.js');
+  const { evaluationMetrics } = require('../.test-build/formula-performance.js');
+  const rows = Array.from({ length: 200_000 }, () => ({ id: 1 }));
+  const sample = count => ({ items: { columns: ['id'], key: 'id', labels: {}, rows: rows.slice(0, count) } });
+  const metrics = evaluationMetrics();
+  const formula = 'COUNT(SELECT(items[id], TRUE))';
+  assert.equal(evaluateExpression(formula, {}, { tables: sample(110_000), metrics }), 110_000);
+  assert.ok(metrics.peakSteps > 100_000);
+  assert.equal(metrics.stepLimit, 200_000);
+  assert.throws(() => evaluateExpression(formula, {}, { tables: sample(200_000) }));
+  const scalar = evaluationMetrics();
+  assert.equal(evaluateExpression('1 + 1', {}, { metrics: scalar }), 2);
+  assert.equal(scalar.stepLimit, 2_000);
 });

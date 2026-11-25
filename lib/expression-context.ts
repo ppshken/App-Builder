@@ -23,7 +23,8 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
   const fullTables = new Map<string, ExpressionTable>(), projections = new Map<string, ExpressionTable>(), relatedProjections = new Map<string, ExpressionTable>();
   let relatedCachedRows=0;
   let systemData:Record<string,ExpressionTable>|undefined;
-  const systemTable=(name:string,requested?:string[])=>{if(!systemData){systemData=formulaSystemData(database);if(metrics){metrics.dataLoads+=Object.keys(systemData).length;metrics.rowsLoaded+=Object.values(systemData).reduce((sum,t)=>sum+t.rows.length,0);}}const data=systemData[name];for(const column of requested||[])if(!data.columns.includes(column))throw Error(`ไม่พบคอลัมน์ [${column}] ในตาราง ${name}`);return tables[name]=data;};
+  const countRows=(name:string,count:number)=>{if(metrics){metrics.rowsLoaded+=count;metrics.rowsByTable[name]=(metrics.rowsByTable[name]||0)+count;}};
+  const systemTable=(name:string,requested?:string[])=>{if(!systemData){systemData=formulaSystemData(database);if(metrics){metrics.dataLoads+=Object.keys(systemData).length;for(const [table,data] of Object.entries(systemData))countRows(table,data.rows.length);}}const data=systemData[name];for(const column of requested||[])if(!data.columns.includes(column))throw Error(`ไม่พบคอลัมน์ [${column}] ในตาราง ${name}`);return tables[name]=data;};
   const project=(name:string,requested:string[],related=false,scope?:RelatedReadScope,rowIds?:number[]):ExpressionTable=>{
     if(isSystemFormulaTable(name)){if(related||scope)throw Error('ตารางระบบไม่รองรับ Related');return systemTable(name,requested);}
     assertTablePermission(name,"read");
@@ -64,7 +65,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       // Project only requested values, so unrelated child formulas do not load
       // the parent back into its own Related calculation.
       const rows = visibleRawRows(name,raw,database).map(r=>calculateRow(selected,r,false,now,false,userEmail,context).row);
-      if(metrics){metrics.rowsLoaded+=rows.length;if(!scope||scope.includeBlank||scope.parentIds.length)metrics.dataLoads++;}
+      if(metrics){countRows(name,rows.length);if(!scope||scope.includeBlank||scope.parentIds.length)metrics.dataLoads++;}
       let data: ExpressionTable = {columns:["id",...selected.map(c=>c.name)],key,rows,labels:Object.fromEntries(rows.filter(r=>r[key]!=null).map(r=>[String(r[key]),String(r[label]??r[key])])),labelImages: image?Object.fromEntries(rows.filter(r=>r[key]!=null&&typeof r[image]==="string").map(r=>[String(r[key]),String(r[image])])):{},refs:refTablesOf(cols),relatedRefs:refTablesOf(cols.filter(c=>!c.is_virtual))};
       if(scope){
         if(cached){const previous=new Map(cached.rows.map(r=>[r.id,r]));const merged=rows.map(r=>({...previous.get(r.id),...r}));data={...data,columns:[...new Set([...cached.columns,...data.columns])],rows:merged,labels:Object.fromEntries(merged.filter(r=>r[key]!=null).map(r=>[String(r[key]),String(r[label]??r[key])])),labelImages:{...cached.labelImages,...data.labelImages}};relatedCachedRows-=cached.rows.length;cache.delete(cacheKey);}
@@ -101,7 +102,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     loading.add(name);
     try {
       const rows = visibleRawRows(name,raw,database).map(r => calculateRow(cols, r, false, now, false, userEmail, context).row);
-      if(metrics){metrics.rowsLoaded+=rows.length;metrics.dataLoads++;}
+      if(metrics){countRows(name,rows.length);metrics.dataLoads++;}
       const labels: Record<string, string> = Object.create(null),labelImages:Record<string,string>=Object.create(null),image=labelImageColumn(cols);
       for (const r of rows) if (r[key] != null) {labels[String(r[key])] = String(r[label] ?? r[key]);if(image&&typeof r[image]==="string"&&r[image])labelImages[String(r[key])]=r[image] as string;}
       const data = { columns: ["id", ...cols.map(c => c.name)], key, rows, labels, labelImages, refs: refTablesOf(cols), relatedRefs:refTablesOf(cols.filter(c=>!c.is_virtual)) };
@@ -109,7 +110,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       return tables[name] = data;
     } finally { loading.delete(name); }
   } };
-  return { ...context, snapshot(sources: string[], columns: Column[] = [], skipDenied=false,relatedScope?:{ownerTable:string;parentIds:number[];deferBlank?:boolean;referenceOnly?:boolean}) {
+  return { ...context, snapshot(sources: string[], columns: Column[] = [], skipDenied=false,relatedScope?:{ownerTable:string;parentIds:number[];deferBlank?:boolean;referenceOnly?:boolean;sampleRefs?:Record<string,number>}) {
     const scopedSnapshots:Record<string,ExpressionTable>=Object.create(null);
     const referenceSnapshots:Record<string,ExpressionTable>=Object.create(null);
     const mergeScoped=(name:string,data:ExpressionTable,refColumns:string[],includeBlank=false,scope=relatedScope!)=>{
@@ -128,6 +129,11 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     const referenceIds=(target:string):number[]|undefined=>{
       // Editing forms and formula samples may contain unsaved Ref values; only
       // display requests can use the persisted owner's Ref IDs as a boundary.
+      if(relatedScope?.sampleRefs&&!wholeTables.has(target)&&!isSystemFormulaTable(target)){
+        const paths=sources.flatMap(source=>source.trim()?referencePaths(source):[]).filter(path=>!path.table);
+        const refs=columns.filter(c=>c.type==='ref'&&c.ref_table===target&&paths.some(path=>path.column===c.name));
+        if(refs.length&&refs.every(c=>Object.hasOwn(relatedScope.sampleRefs!,c.name)))return [...new Set(refs.map(c=>relatedScope.sampleRefs![c.name]))].sort((a,b)=>a-b);
+      }
       if(!relatedScope?.referenceOnly||!relatedScope.parentIds.length&&!relatedScope.deferBlank||wholeTables.has(target)||isSystemFormulaTable(target)||relatedScope.parentIds.length>500)return;
       const refs=columns.filter(c=>c.type==='ref'&&c.ref_table===target&&sources.some(source=>source.trim()&&referencePaths(source).some(p=>!p.table&&p.column===c.name)));
       if(!refs.length)return;

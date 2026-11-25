@@ -8,8 +8,24 @@ async function api(p,m='GET',b,status=200){const r=await fetch(base+p,{method:m,
  const views=await api('/api/views'),detail=views.find(v=>v.table_name==='boolean_labels'&&v.kind==='detail'),form=views.find(v=>v.table_name==='boolean_labels'&&v.kind==='form');
  const browser=await chromium.launch({channel:process.env.NOCODE_BROWSER_CHANNEL||'msedge',headless:true});
  try{const page=await browser.newPage();
- for(const width of [1440,390]){await page.setViewportSize({width,height:900});await page.goto(base+'/run?view='+form.name);const screen=page.locator('.runtime-screen:visible').last();const check=screen.locator('input[type=checkbox]').first();await expect(check).toBeVisible();await expect(screen).toContainText('ไม่ผ่าน');await check.check();await expect(screen).toContainText('ผ่าน');}
- const rows=await api('/api/data/boolean_labels');for(const row of rows){await page.goto(base+'/run?view='+detail.name+'&row='+row.id);await expect(page.locator('.detail-page:visible')).toContainText(row.approved?'ผ่าน':'ไม่ผ่าน');}
+ for(const width of [1440,390]){
+  await page.setViewportSize({width,height:900});
+  await page.goto(base+'/run?view='+form.name);
+  const group=page.getByRole('group',{name:'Approved',exact:true}),labels=JSON.parse(options);
+  const yes=group.getByRole('button',{name:labels.true,exact:true}),no=group.getByRole('button',{name:labels.false,exact:true});
+  await expect(yes).toHaveAttribute('aria-pressed','false');await expect(no).toHaveAttribute('aria-pressed','false');
+  await expect.poll(async()=>{const a=await yes.boundingBox(),b=await no.boundingBox();return !!a&&!!b&&a.x<b.x&&Math.abs(a.y-b.y)<2;}).toBe(true);
+  await yes.click();await expect(yes).toHaveAttribute('aria-pressed','true');
+  await no.click();await expect(yes).toHaveAttribute('aria-pressed','false');await expect(no).toHaveAttribute('aria-pressed','true');
+  await no.click();await expect(no).toHaveAttribute('aria-pressed','false');
+  await page.getByLabel('Name',{exact:true}).fill('Cleared '+width);
+  const saved=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().includes('/api/data/boolean_labels'));
+  await page.getByRole('button',{name:'บันทึกข้อมูล',exact:true}).click();
+  assert.equal((await saved).ok(),true);
+ }
+ const all=await api('/api/data/boolean_labels');
+ assert.equal(all.filter(row=>row.name.startsWith('Cleared ')&&row.approved===null).length,2);
+ const rows=await api('/api/data/boolean_labels');for(const row of rows.filter(row=>row.approved!==null)){await page.goto(base+'/run?view='+detail.name+'&row='+row.id);await expect(page.locator('.detail-page:visible')).toContainText(row.approved?'ผ่าน':'ไม่ผ่าน');}
  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/t/boolean_labels/edit');await page.getByRole('button',{name:'แก้ไขคอลัมน์ Approved',exact:true}).click();
  await page.getByLabel('ชื่อแสดงผล True',{exact:true}).fill('อนุมัติ');await page.getByLabel('ชื่อแสดงผล False',{exact:true}).fill('ปฏิเสธ');await page.getByRole('button',{name:'บันทึกการแก้ไข',exact:true}).click();await expect(page.getByLabel('ชื่อแสดงผล True',{exact:true})).not.toBeVisible();
  await page.goto(base+'/run?view='+detail.name+'&row='+rows.find(r=>r.name==='Negative').id);await expect(page.locator('.detail-page:visible')).toContainText('ปฏิเสธ');
