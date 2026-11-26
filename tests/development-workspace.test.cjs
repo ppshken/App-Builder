@@ -1,7 +1,24 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),Database=require('better-sqlite3');
-const {initializeDevelopment,verifyDevelopment,developmentAccess,developmentOrigins}=require('../.test-build/development-workspace');
+const {copyDevelopmentStructure,initializeDevelopment,verifyDevelopment,developmentAccess,developmentOrigins}=require('../.test-build/development-workspace');
 const {withDevelopment,currentDevelopment,assertDevelopmentEffect,assertDevelopmentAction}=require('../.test-build/development-context');
 const {analyzeReleasePlan}=require('../.test-build/release-plan');
+test('row snapshots copy only selected tables and preserve the source sequence without sharing writes',()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'nocode-draft-snapshot-')),file=path.join(dir,'workspace.db');
+ const source=new Database(':memory:');let copy;
+ try{
+  source.exec(`CREATE TABLE t_allowed(id INTEGER PRIMARY KEY AUTOINCREMENT,value TEXT);
+   CREATE TABLE t_unconnected(id INTEGER PRIMARY KEY AUTOINCREMENT,value TEXT);
+   INSERT INTO t_allowed VALUES (4,'allowed'),(9,'removed'); DELETE FROM t_allowed WHERE id=9;
+   INSERT INTO t_unconnected(value) VALUES ('out of scope');`);
+  copyDevelopmentStructure(source,file,new Set(['allowed']));
+  copy=new Database(file);
+  assert.deepEqual(copy.prepare('SELECT * FROM t_allowed').all(),[{id:4,value:'allowed'}]);
+  assert.equal(copy.prepare('SELECT count(*) n FROM t_unconnected').get().n,0);
+  assert.equal(copy.prepare("INSERT INTO t_allowed(value) VALUES ('draft')").run().lastInsertRowid,10);
+  assert.equal(source.prepare('SELECT count(*) n FROM t_allowed').get().n,1);
+ }finally{copy?.close();source.close();fs.rmSync(file,{force:true});fs.rmdirSync(dir);}
+});
 function fixture(work){const database=new Database(':memory:');database.exec(`CREATE TABLE _tables(name TEXT PRIMARY KEY,owner_app_id TEXT,source_kind TEXT DEFAULT 'INTERNAL_DATABASE');CREATE TABLE _columns(id INTEGER PRIMARY KEY,table_name TEXT,name TEXT,type TEXT);CREATE TABLE _sessions(token_hash TEXT);CREATE TABLE _users(password_hash TEXT);CREATE TABLE _push_subscriptions(id TEXT);INSERT INTO _tables(name,owner_app_id) VALUES('rows','app'),('shared','other');INSERT INTO _columns VALUES(1,'rows','title','text');INSERT INTO _users VALUES('synthetic-secret');INSERT INTO _sessions VALUES('synthetic-token');INSERT INTO _push_subscriptions VALUES('synthetic-subscription');`);try{initializeDevelopment(database,'workspace','app',['rows','shared']);return work(database);}finally{database.close();}}
 test('development stores provenance only in the copied database and removes copied auth secrets',()=>fixture(database=>{
  verifyDevelopment(database,'workspace','app');assert.throws(()=>verifyDevelopment(database,'workspace','other'),/แอปต้นทาง/);assert.equal(database.prepare('SELECT count(*) n FROM _sessions').get().n,0);assert.equal(database.prepare('SELECT password_hash FROM _users').get().password_hash,'');assert.equal(database.prepare('SELECT count(*) n FROM _push_subscriptions').get().n,0);assert.equal(developmentOrigins(database).tables.rows.sourceKey,'rows');

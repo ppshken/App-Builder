@@ -12,7 +12,7 @@ const workspaceMetadata = new Set([
 ]);
 const quoteIdentifier = (name: string) => '"' + name.replaceAll('"', '""') + '"';
 
-export function copyDevelopmentStructure(source: Database.Database, path: string) {
+export function copyDevelopmentStructure(source: Database.Database, path: string, snapshotTables: ReadonlySet<string> = new Set()) {
   const target = new Database(path);
   try {
     source.transaction(() => {
@@ -23,12 +23,20 @@ export function copyDevelopmentStructure(source: Database.Database, path: string
         for (const object of schema.filter(entry => entry.type === 'table')) {
           target.exec(object.sql);
           const scoped = /^_a_[a-f0-9]{24}(_.*)$/.exec(object.name)?.[1];
-          if (!workspaceMetadata.has(object.name) && !(scoped && scopedMetadata.some(name => name === scoped))) continue;
+          const snapshot = object.name.startsWith('t_') && snapshotTables.has(object.name.slice(2));
+          if (!snapshot && !workspaceMetadata.has(object.name) && !(scoped && scopedMetadata.some(name => name === scoped))) continue;
           const table = quoteIdentifier(object.name);
           const fields = (source.pragma('table_info(' + table + ')') as {name:string}[]).map(field => field.name);
           const projection = fields.map(field => object.name === '_users' && field === 'password_hash' ? "''" : quoteIdentifier(field));
           const insert = target.prepare('INSERT INTO ' + table + '(' + fields.map(quoteIdentifier).join(',') + ') VALUES (' + fields.map(() => '?').join(',') + ')');
           for (const row of source.prepare('SELECT ' + projection.join(',') + ' FROM ' + table).raw().iterate()) insert.run(...row as unknown[]);
+        }
+        if (snapshotTables.size && source.prepare("SELECT 1 FROM sqlite_schema WHERE name='sqlite_sequence'").get()) {
+          for (const row of source.prepare('SELECT name,seq FROM sqlite_sequence').iterate() as Iterable<{name:string;seq:number}>) {
+            if (!row.name.startsWith('t_') || !snapshotTables.has(row.name.slice(2))) continue;
+            target.prepare('DELETE FROM sqlite_sequence WHERE name=?').run(row.name);
+            target.prepare('INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)').run(row.name,row.seq);
+          }
         }
         for (const object of schema.filter(entry => entry.type !== 'table')) target.exec(object.sql);
       })();

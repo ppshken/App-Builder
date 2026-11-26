@@ -42,7 +42,11 @@ async function handlePOST(req: Request) {const b=await req.clone().json().catch(
 async function handlePUT(req: Request) { return write(req, true); }
 async function write(req: Request, existing: boolean, preview = false) {
   try {
-    const b = await readBody(req); assertIdentifier(b.name);
+    return writeView(await readBody(req),existing,preview,req.headers.get("x-nocode-preview-email")||"");
+  } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
+}
+export function writeView(b:Awaited<ReturnType<typeof readBody>>,existing=false,preview=false,previewEmail="") {
+    assertIdentifier(b.name);
     if(b.kind==="form"&&externalTable(db,b.table_name))throw Error("Live / Cached API เป็นข้อมูลอ่านอย่างเดียว ไม่มีฟอร์มบันทึก");
     const previous = existing ? db.prepare("SELECT * FROM _views WHERE name=?").get(b.name) as Record<string, any> | undefined : undefined;
     if (existing && !previous) return bad("ไม่พบมุมมอง", 404);
@@ -103,12 +107,11 @@ async function write(req: Request, existing: boolean, preview = false) {
     if (showIf) viewIsVisible(showIf, { ...expressionContext(), userEmail:"" });
     if(display.form_saved_action&&!(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.form_saved_action,b.table_name)))throw Error("กรุณาเลือก Action ของตารางนี้สำหรับหลังบันทึกฟอร์ม");
     if (display.row_click === "action" && !(db.prepare("SELECT 1 FROM _actions WHERE name=? AND table_name=?").get(display.row_action || "", b.table_name))) throw new Error("กรุณาเลือก Action ของตารางนี้สำหรับการคลิกแถว");
-    if(preview)return NextResponse.json({view:runtimeViewName({...b,table_name:b.table_name||"",label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,menu_group:menuGroup,icon,group_column:group,group_dir:groupDir,display,show_if:showIf},{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:req.headers.get("x-nocode-preview-email")||""})});
+    if(preview)return NextResponse.json({view:runtimeViewName({...b,table_name:b.table_name||"",label:b.label.trim(),columns:[...new Set(b.columns)],slice_name:slice?.name||null,inline_ref:inlineRef,menu_group:menuGroup,icon,group_column:group,group_dir:groupDir,display,show_if:showIf},{...expressionContext(),userEmail:previewEmail}),visible:viewIsVisible(showIf,{...expressionContext(),userEmail:previewEmail})});
     const args = [b.label.trim(), b.table_name, b.kind, b.position, b.pos, JSON.stringify([...new Set(b.columns)]), b.sort_column, b.sort_dir, slice?.name || null, icon, group, groupDir, JSON.stringify(display), showIf, inlineRef, menuGroup, b.name];
     if (existing) db.prepare("UPDATE _views SET system_generated=CASE WHEN ? THEN 0 ELSE system_generated END,label=?,table_name=?,kind=?,position=?,pos=?,columns_json=?,sort_column=?,sort_dir=?,slice_name=?,icon=?,group_column=?,group_dir=?,display_json=?,show_if=?,inline_ref=?,menu_group=? WHERE name=?").run(b.system_generated===0 || b.position!==previous?.position ? 1 : 0,...args);
     else db.prepare("INSERT INTO _views(label,table_name,kind,position,pos,columns_json,sort_column,sort_dir,slice_name,icon,group_column,group_dir,display_json,show_if,inline_ref,menu_group,name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(...args);
     return NextResponse.json({ ok: true, name:b.name });
-  } catch (e) { return bad(errorMessage(e),errorStatus(e)); }
 }
 async function handleDELETE(req: Request) {
   try {

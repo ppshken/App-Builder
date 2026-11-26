@@ -35,7 +35,7 @@ const draft=items.find(item=>item.id===active);
        <fieldset><legend>ประเภทฉบับร่าง</legend>
          <div className="release-mode-options">
          <label><input type="radio" name="release-mode" checked={!development} onChange={()=>setDevelopment(false)}/><span><strong>การตั้งค่า</strong><small>สำหรับแก้ View, สูตร, Action หรือแม่แบบ PDF</small></span></label>
-         <label><input type="radio" name="release-mode" checked={development} onChange={()=>setDevelopment(true)}/><span><strong>พื้นที่พัฒนาโครงสร้าง</strong><small>เก็บโครงสร้างและการตั้งค่า เริ่มจากตารางว่างสำหรับทดลอง อายุ 14 วัน</small></span></label>
+         <label><input type="radio" name="release-mode" checked={development} onChange={()=>setDevelopment(true)}/><span><strong>พื้นที่พัฒนาโครงสร้าง</strong><small>คัดลอกโครงสร้าง การตั้งค่า และข้อมูลจากตารางที่มีสิทธิ์อ่านไว้ทดลองแยก อายุ 14 วัน</small></span></label>
          </div>
        </fieldset>
        <button className="primary" disabled={busy||!label.trim()} onClick={()=>work(async()=>{await api('/api/releases',{op:'create',label,mode:development?'development':'configuration'});setLabel('');setList('draft');await load();})}>สร้างฉบับร่างจากเวอร์ชันจริง</button>

@@ -3,11 +3,33 @@ const assert = require('node:assert/strict');
 const { AiQuotaError, aiFormulaMeasurement, aiSettingLinks, geminiProvider, openAiProvider, parseAiSuggestion, validateAiFormula } = require('../.test-build/ai-assist');
 const { blankColumn } = require('../.test-build/columns');
 
+test('AI prioritizes selected and named late columns, includes accessible Ref targets, and reports truncation', () => {
+  const {aiContextTerms,selectAiContext} = require('../.test-build/ai-context');
+  const catalogue = [...Array.from({length:25},(_,i)=>({name:'table_'+i,label:'Table '+i})),
+    {name:'inspection',label:'ตรวจสภาพ'},{name:'vehicles',label:'รถ'},{name:'car',label:'Car'}];
+  const columns = Array.from({length:70},(_,i)=>({...blankColumn(),name:'field_'+i,label:'Field '+i}));
+  columns[69]={...columns[69],name:'vehicle_id',label:'ทะเบียนรถ',type:'ref',ref_table:'vehicles'};
+  columns[68]={...columns[68],name:'private_id',ref_table:'private_table'};
+  const reads=[];
+  const {tables,coverage}=selectAiContext(catalogue,name=>{reads.push(name);return name==='inspection'?columns:[];},
+    aiContextTerms('แก้สูตรของทะเบียนรถ ในตารางตรวจสภาพ','[private_id]'), {table:'inspection',column:'field_67'});
+  assert.equal(tables[0].name,'inspection');
+  assert.equal(tables[0].selectedColumns[0].name,'field_67');
+  assert.ok(tables[0].selectedColumns.some(column=>column.name==='vehicle_id'));
+  assert.equal(tables[1].name,'vehicles');
+  assert.ok(!reads.includes('private_table'));
+  assert.equal(reads.length,20);
+  assert.deepEqual(coverage,{tablesIncluded:20,tablesAvailable:28,columnsIncluded:30,columnsAvailableInSelectedTables:70});
+  assert.equal(aiContextTerms('car_model')({name:'car',label:'Car'}),0);
+});
+
 test('schema commands start a design and a missing plan never reports a completed change', () => {
   const {isAiSchemaRequest,aiDataDesignStatus} = require('../.test-build/ai-data-design');
   assert.equal(isAiSchemaRequest('สร้างตาราง repair_requests ชื่อ ใบแจ้งซ่อม'),true);
   assert.equal(isAiSchemaRequest('ในตาราง inspection ตั้ง Valid_If ของคอลัมน์ mile'),true);
   assert.equal(isAiSchemaRequest('Please add column notes to orders'),true);
+  assert.equal(isAiSchemaRequest('สร้าง View รายการอะไหล่'),true);
+  assert.equal(isAiSchemaRequest('สร้าง Action รับงาน'),true);
   assert.equal(isAiSchemaRequest('คอลัมน์ Ref ใช้ยังไง'),false);
   assert.equal(isAiSchemaRequest('How do I create a table?'),false);
   assert.match(aiDataDesignStatus(false,true,false),/ยังไม่ได้แผน/);
@@ -23,6 +45,13 @@ test('schema proposals validate Ref targets, reserved names, and supported types
   ]};
   const existing=new Set(['customers','private_data']),visible=new Set(['customers']);
   assert.deepEqual(aiDataDesign(design,existing,visible),design);
+  const view={label:'Order list',table:'orders',kind:'list'};
+  assert.deepEqual(aiDataDesign({...design,views:[view]},existing,visible)?.views,[view]);
+  assert.equal(aiDataDesign({tables:[],views:[{...view,table:'private_data'}]},existing,visible),null);
+  const action={name:'score',label:'Score',table:'orders',condition:'TRUE',updates:[{column:'customer',formula:'1'}]};
+  assert.deepEqual(aiDataDesign({...design,actions:[action]},existing,visible)?.actions,[action]);
+  assert.equal(aiDataDesign({tables:[],actions:[{...action,table:'customers'}]},existing,visible),null);
+  assert.equal(aiDataDesign({...design,actions:[{...action,updates:[{column:'id',formula:'1'}]}]},existing,visible),null);
   for(const patch of [{ref:'private_data'},{ref:'missing'},{name:'id'},{type:'constructor'}]){
     const changed=structuredClone(design);Object.assign(changed.tables[0].columns[0],patch);
     assert.equal(aiDataDesign(changed,existing,visible),null);
@@ -71,6 +100,10 @@ test('schema edits require an owned table and retain only the allowed fields', (
   assert.equal(normalize([validation]).changes[0].message,undefined);
   assert.equal(normalize([{...validation,message:''}]).changes[0].message,'');
   assert.equal(normalize([{...validation,message:'x'.repeat(1001)}]),null);
+  assert.equal(normalize([{...validation,kind:'edit_required_if',formula:'[qty] > 0'}]).changes[0].kind,'edit_required_if');
+  assert.equal(normalize([{...validation,kind:'edit_required_if',formula:''}]).changes[0].formula,'');
+  assert.equal(normalize([{...validation,kind:'edit_formula',formula:''}]),null);
+  assert.equal(normalize([{...validation,kind:'edit_required_if',formula:' '}]),null);
   const conversion={table:'orders',column:'title',type:'ref',ref:'shared'};
   assert.deepEqual(aiDataDesign({tables:[],conversion},existing,existing,editable),{tables:[],conversion});
   assert.equal(aiDataDesign({tables:[],conversion,changes},existing,existing,editable),null);

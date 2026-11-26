@@ -3,8 +3,9 @@ import { currentDevelopment } from "../../../../lib/development-context";
 import { columnsOf, db, tableExists } from "../../../../lib/db";
 import { canRead, currentAccess, currentUser } from "../../../../lib/permissions";
 import { FORMULA_FIELDS, SQLTYPE, type FormulaField } from "../../../../lib/columns";
-import { aiDataDesign, aiDataDesignStatus, aiFormulaField, isAiSchemaRequest } from "../../../../lib/ai-data-design";
+import { aiDataDesign, aiDataDesignStatus, aiFormulaField, isAiFormulaEdit, isAiSchemaRequest } from "../../../../lib/ai-data-design";
 import { dataDesignSchema } from "../../../../lib/ai-data-design-schema";
+import { aiContextTerms, selectAiContext } from "../../../../lib/ai-context";
 import { FUNCTION_NAMES } from "../../../../lib/expression";
 import { AiQuotaError, aiConversation, aiFormulaMeasurement, aiSettingLinks, geminiProvider, openAiProvider, validateAiFormula, type AiSetting } from "../../../../lib/ai-assist";
 
@@ -95,20 +96,14 @@ export const POST = withAuth(async (req: Request) => {
   if (used >= 8 || usage.size >= 150 && !usage.has(user.id) || inFlight >= 4) {
     return reply({ error: "ผู้ช่วย AI รับคำขอถึงขีดจำกัดแล้ว กรุณาลองใหม่ในอีกสักครู่" }, 429);
   }
-  const refTargets = new Set(columns.map(c => c.ref_table));
-  const relevance = (item: {name: string; label: string}) => item.name === table && column ? 4 :
-    (question.includes(item.name) || item.label && question.includes(item.label) ||
-      analyze && (body.source as string).includes(item.name)) ? 3 :
-    refTargets.has(item.name) ? 2 : 0;
-  const ordered = [...catalogue].sort((a, b) => relevance(b) - relevance(a));
-  const tables = ordered.slice(0, 20).map(item => ({
-    ...item,
-    columns: item.name === table && formulaMode ? columns : columnsOf(item.name),
-  }));
+  const mentions = aiContextTerms(question, analyze ? body.source as string : "");
+  const {tables, coverage} = selectAiContext(catalogue,
+    name => name === table && formulaMode ? columns : columnsOf(name), mentions,
+    column ? {table:table as string,column:column.name} : undefined);
   const settings: AiSetting[] = [];
   const settingId = (setting: AiSetting) => `setting_${settings.push(setting) - 1}`;
   const included = new Set(tables.map(item => item.name));
-  const designSchema = dataDesign ? dataDesignSchema() : undefined;
+  const designSchema = dataDesign ? dataDesignSchema(included) : undefined;
   const automationActions = automationDraft
     ? (db.prepare("SELECT table_name AS 'table',name,label FROM _actions WHERE kind='set' ORDER BY name").all() as {table: string; name: string; label: string}[])
       .filter(action => included.has(action.table)).slice(0, 30).map(action => ({...action,label:action.label.slice(0,100)}))
@@ -125,19 +120,20 @@ export const POST = withAuth(async (req: Request) => {
       });
   };
   const context = {
+    coverage,
     availableColumnTypes: dataDesign ? Object.keys(SQLTYPE).filter(type => type !== "enumlist") : undefined,
     editableDesignTables: designSchema && development ? [...designSchema.editable.keys()].filter(name => included.has(name)) : undefined,
     conversation: !analyze ? aiConversation(body.history) : undefined,
     tables: tables.map(item => ({
       name: item.name, label: item.label.slice(0, 100),
-      columns: item.columns.slice(0, 30).map(c => ({
+      columns: item.selectedColumns.map(c => ({
         name: c.name, label: c.label.slice(0, 100), type: c.type,
         settingId: c.name === "id" ? undefined : settingId({ kind: "column", table: item.name, name: c.name, label: c.label.slice(0, 100) }),
         ref: c.ref_table && allowed.has(c.ref_table) ? c.ref_table : undefined,
         key: Boolean(c.is_key), calculated: Boolean(c.is_virtual), required: dataDesign ? Boolean(c.required) : undefined,
-        ...(dataDesign && (question.includes(c.name) || question.includes(c.label))
+        ...(dataDesign && mentions(c)
           ? {calculation:c.virtual_expr?.slice(0, 600), defaultFormula:c.default_expr?.slice(0,600),
-            validIf:c.valid_if?.slice(0,600), autoNumber:!!c.auto_number} : {}),
+            validIf:c.valid_if?.slice(0,600), showIf:c.show_if?.slice(0,600), editableIf:c.editable_if?.slice(0,600), requiredIf:c.required_if?.slice(0,600), canEdit:c.is_editable !== 0 && c.is_editable !== false, autoNumber:!!c.auto_number} : {}),
       })),
     })),
     settings: [...relatedSettings("slice"), ...relatedSettings("action")],
@@ -172,13 +168,14 @@ export const POST = withAuth(async (req: Request) => {
         if (!source || source.is_virtual || source.is_key || !!source.required === target.required) design = null;
       }
       for (const change of design?.changes ?? []) {
-        if (change.kind !== "edit_formula" && change.kind !== "edit_default" && change.kind !== "edit_validation") continue;
+        if (!isAiFormulaEdit(change)) continue;
         const source = tables.find(item => item.name === change.table)?.columns.find(item => item.name === change.column);
         const calculated = change.kind === "edit_formula";
         const previousFormula = source?.[aiFormulaField(change.kind)];
         const changesMessage = change.kind === "edit_validation" && change.message !== undefined && change.message !== (source?.invalid_value_error ?? "");
         if (!source || !!source.is_virtual !== calculated || (change.kind === "edit_default" && source.auto_number) ||
-            (previousFormula === change.formula && !changesMessage)) {
+            (change.kind === "edit_editable" && (source.is_editable === 0 || source.is_editable === false)) ||
+            ((previousFormula ?? "") === change.formula && !changesMessage)) {
           design = null;
           break;
         }
@@ -186,25 +183,25 @@ export const POST = withAuth(async (req: Request) => {
         if (change.kind === "edit_validation" && change.message !== undefined) change.previousMessage = source.invalid_value_error ?? "";
       }
       const rejected = suggestion.dataDesign != null && !design;
-      return reply({ answer: aiDataDesignStatus(!!design, !!development, rejected), formula: null, links,
+      return reply({ answer: aiDataDesignStatus(!!design, !!development, rejected), formula: null, links, coverage,
         dataDesign: design, designWorkspace: development?.id, designAttempt: true });
     }
     if (automationDraft && development) {
       const proposal = suggestion.automationDraft;
       const valid = proposal && automationActions?.some(action => action.table === proposal.table && action.name === proposal.action);
-      return reply({ answer: suggestion.answer, formula: null, links,
+      return reply({ answer: suggestion.answer, formula: null, links, coverage,
         automationDraft: valid ? { ...proposal, workspace: development.id } : null });
     }
     if (viewDraft && development) {
       const proposal = suggestion.viewDraft;
-      return reply({ answer: suggestion.answer, formula: null, links,
+      return reply({ answer: suggestion.answer, formula: null, links, coverage,
         viewDraft: proposal && included.has(proposal.table) ? { ...proposal, workspace: development.id } : null });
     }
     if (!column || !suggestion.formula || analyze && suggestion.formula === (body.source as string).trim()) {
-      return reply({ answer: suggestion.answer, formula: null, links });
+      return reply({ answer: suggestion.answer, formula: null, links, coverage });
     }
     const validationError = validateAiFormula(suggestion.formula, column, field, table as string, columns, tables);
-    return reply({ answer: suggestion.answer, formula: suggestion.formula, validationError, links });
+    return reply({ answer: suggestion.answer, formula: suggestion.formula, validationError, links, coverage });
   } catch (error) {
     if (error instanceof AiQuotaError) return reply({ error: gemini
       ? "Gemini API ถึงขีดจำกัดคำขอหรือโควตา กรุณาลองใหม่ภายหลังหรือตรวจโควตาใน Google AI Studio"

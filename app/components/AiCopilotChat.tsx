@@ -5,16 +5,18 @@ import dynamic from "next/dynamic";
 import type { AiViewDraft } from "../../lib/ai-view-draft";
 import type { AiAutomationDraft } from "../../lib/ai-automation-draft";
 import type { AiDataDesign, AiRequirementReview } from "../../lib/ai-data-design";
-import { aiDataDesignStatus, isAiSchemaRequest } from "../../lib/ai-data-design";
+import { aiDataDesignStatus, isAiFormulaEdit, isAiSchemaRequest } from "../../lib/ai-data-design";
 import { useAuth } from "./AuthProvider";
 import AiAnswer from "./AiAnswer";
 import Icon from "./Icon";
 import type { Column } from "@/lib/columns";
+import type { AiContextCoverage } from "@/lib/ai-context";
 import "./ai-assist.css";
 
 const ColumnConversionDialog = dynamic(() => import("./ColumnConversionDialog"));
 
 type Answer = {
+  coverage?: AiContextCoverage;
   answer: string;
   links?: { kind: "column" | "slice" | "action"; label: string; href: string }[];
   viewDraft?: AiViewDraft & { workspace: string };
@@ -22,11 +24,13 @@ type Answer = {
   dataDesign?: AiDataDesign;
   designWorkspace?: string;
   designApplied?: boolean;
+  designReceipt?: string;
   conversionResult?: string;
   invalidDesign?: boolean;
   designAttempt?: boolean;
 };
 type Turn = { question: string; result?: Answer; error?: string };
+type PlanHistoryItem = {planId:string;kind:"schema"|"required";reviewedAt:number;expiresAt:number;authorizedAt:number|null;approvedAt:number|null;receiptId:string|null;canUndo:boolean;revertedAt:number|null;hasPayload:number;cancelledAt:number|null};
 type ConversionTable = { name: string; label: string; columns: Column[]; source_kind?: string };
 
 export default function AiCopilotChat() {
@@ -40,6 +44,12 @@ export default function AiCopilotChat() {
   const [designSaving, setDesignSaving] = useState(false);
   const [designError, setDesignError] = useState("");
   const [requirementReview, setRequirementReview] = useState<{index:number; data:AiRequirementReview} | null>(null);
+  const [schemaReview, setSchemaReview] = useState<{index:number; fingerprint:string;planId:string;expiresAt:number} | null>(null);
+  const [authorizedPlan, setAuthorizedPlan] = useState<string|null>(null);
+  const [planHistory, setPlanHistory] = useState<{plans:PlanHistoryItem[]}|{error:string}|null>(null);
+  const [historyLoading,setHistoryLoading] = useState(false);
+  const [undoConfirm,setUndoConfirm] = useState<string|null>(null);
+  const [undoError,setUndoError] = useState("");
   const [conversionError, setConversionError] = useState<{index:number; message:string} | null>(null);
   const [conversion, setConversion] = useState<{
     index: number; tables: ConversionTable[]; column: Column; target: NonNullable<AiDataDesign["conversion"]>;
@@ -47,6 +57,89 @@ export default function AiCopilotChat() {
   const controller = useRef<AbortController | null>(null);
   const feed = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  async function resumePlan(planId:string) {
+    if (pending || historyLoading || designSaving) return;
+    setHistoryLoading(true);
+    setUndoError("");
+    try {
+      const response = await fetch("/api/ai/design?" + new URLSearchParams({planId}),{cache:"no-store"});
+      const data = await response.json();
+      if (!response.ok || data.workspace !== workspace) throw Error(data.error || "เปิดแผนต่อไม่สำเร็จ");
+      const index = turns.length;
+      const design = data.design as AiDataDesign;
+      setTurns(previous => [...previous,{question:"เปิดแผนจากประวัติ",
+        result:{answer:"อนุมัติแผนแล้ว ตรวจรายละเอียดก่อนนำไปใช้",dataDesign:design,designWorkspace:workspace,designAttempt:true}}]);
+      setDesignError("");
+      setRequirementReview(design.requirement ? {index,data:data.review} : null);
+      setSchemaReview(design.requirement ? null : {index,...data.review});
+      setAuthorizedPlan(planId);
+      setDesignConfirm(index);
+      setPlanHistory(null);
+    } catch (error) {
+      setUndoError(error instanceof Error ? error.message : "เปิดแผนต่อไม่สำเร็จ");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+  function reviewFor(result:Answer,index:number) {
+    return result.dataDesign?.requirement
+      ? (requirementReview?.index === index && !requirementReview.data.invalid ? requirementReview.data : null)
+      : (schemaReview?.index === index ? schemaReview : null);
+  }
+  async function approvePlan(result:Answer,index:number) {
+    const review = reviewFor(result,index);
+    if (designSaving || !review?.planId) return;
+    setDesignSaving(true);
+    setDesignError("");
+    try {
+      const response = await fetch("/api/ai/design",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({op:"approve",workspace,planId:review.planId,fingerprint:review.fingerprint})});
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || "อนุมัติแผนไม่สำเร็จ");
+      setAuthorizedPlan(review.planId);
+      setPlanHistory(null);
+    } catch (error) {
+      setDesignError(error instanceof Error ? error.message : "อนุมัติแผนไม่สำเร็จ");
+    } finally {
+      setDesignSaving(false);
+    }
+  }
+  async function updatePlanHistory(planId:string,op:"undo"|"cancel") {
+    setHistoryLoading(true);
+    setUndoError("");
+    try {
+      const response = await fetch("/api/ai/design",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({op,workspace,planId,confirm:true})});
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || "จัดการแผนไม่สำเร็จ");
+      setUndoConfirm(null);
+      if (op === "undo") window.dispatchEvent(new Event("nocode:metadata"));
+      if (op === "cancel" && (schemaReview?.planId === planId || requirementReview?.data.planId === planId)) {
+        setSchemaReview(null);
+        setRequirementReview(null);
+        setAuthorizedPlan(null);
+        setDesignConfirm(null);
+      }
+      await loadPlanHistory();
+    } catch (error) {
+      setUndoError(error instanceof Error ? error.message : "จัดการแผนไม่สำเร็จ");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+  async function loadPlanHistory() {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch("/api/ai/design",{cache:"no-store"});
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || "เปิดประวัติแผนไม่สำเร็จ");
+      setPlanHistory({plans:data.plans});
+    } catch (error) {
+      setPlanHistory({error:error instanceof Error ? error.message : "เปิดประวัติแผนไม่สำเร็จ"});
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
   async function openConversion(result: Answer, index: number) {
     const target = result.dataDesign?.conversion;
     if (!target || result.designWorkspace !== workspace || designSaving) return;
@@ -73,18 +166,25 @@ export default function AiCopilotChat() {
     try {
       const response = await fetch("/api/ai/design" + (preview ? "?preview=1" : ""), {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace, design: result.dataDesign,
-          fingerprint: requirementReview?.index === index ? requirementReview.data.fingerprint : undefined }),
+        body: JSON.stringify({ workspace, design: result.dataDesign, reviewed:true,
+          planId: result.dataDesign.requirement ? requirementReview?.data.planId : schemaReview?.planId,
+          fingerprint: result.dataDesign.requirement
+            ? (requirementReview?.index === index ? requirementReview.data.fingerprint : undefined)
+            : (schemaReview?.index === index ? schemaReview.fingerprint : undefined) }),
       });
       const data = await response.json();
       if (result.dataDesign.requirement) {
         setRequirementReview(data?.review && response.ok ? {index,data:data.review} : null);
+      } else {
+        setSchemaReview(preview && response.ok && typeof data?.review?.fingerprint === "string" && typeof data.review.planId === "string"
+          ? {index,fingerprint:data.review.fingerprint,planId:data.review.planId,expiresAt:data.review.expiresAt} : null);
       }
       if (!response.ok) throw new Error(data.error || "นำแผนไปใช้ไม่สำเร็จ");
       if (preview) return;
       setTurns(previous => previous.map((turn, i) => i === index && turn.result === result
-        ? { ...turn, result: { ...result, designApplied: true } } : turn));
+        ? { ...turn, result: { ...result, designApplied: true, designReceipt: data.receiptId } } : turn));
       setDesignConfirm(null);
+      setPlanHistory(null);
       window.dispatchEvent(new Event("nocode:metadata"));
     } catch (error) {
       setDesignError(error instanceof Error ? error.message : "นำแผนไปใช้ไม่สำเร็จ");
@@ -122,7 +222,7 @@ export default function AiCopilotChat() {
   async function send(mode: "ask" | "view_draft" | "automation_draft" | "data_design" = "ask") {
     const question = message.trim();
     if (mode === "ask" && isAiSchemaRequest(question)) mode = "data_design";
-    if (!question || controller.current || loadedKey !== storageKey) return;
+    if (!question || controller.current || loadedKey !== storageKey || historyLoading) return;
     const request = new AbortController();
     controller.current = request;
     setMessage("");
@@ -160,11 +260,23 @@ export default function AiCopilotChat() {
           <h3 className="ai-answer-heading"><span aria-hidden="true">✦</span> AI Copilot</h3>
           <AiAnswer answer={result.designAttempt || result.dataDesign || !result.invalidDesign && !isAiSchemaRequest(question)
             ? result.answer : aiDataDesignStatus(false, false, !!result.invalidDesign)}/>
+          {result.coverage && (result.coverage.tablesIncluded < result.coverage.tablesAvailable ||
+            result.coverage.columnsIncluded < result.coverage.columnsAvailableInSelectedTables) && <small className="hint">
+            บริบทที่ใช้ {result.coverage.tablesIncluded}/{result.coverage.tablesAvailable} ตาราง · {result.coverage.columnsIncluded}/{result.coverage.columnsAvailableInSelectedTables} คอลัมน์ในตารางที่เลือก
+          </small>}
           {!result.dataDesign && (result.designAttempt || result.invalidDesign || isAiSchemaRequest(question)) && <div className="ai-actions">
             <button type="button" onClick={() => {setMessage(question); input.current?.focus();}}>นำคำสั่งกลับมาแก้</button>
           </div>}
           {result.dataDesign && <div className="ai-formula">
             <h4>โครงสร้างข้อมูลที่เสนอ</h4>
+            {!!result.dataDesign.views?.length && <ul>{result.dataDesign.views.map((view,index) => <li key={index}>
+              เพิ่ม View {view.label} · {view.kind === "table" ? "ตาราง" : "รายการ"} · <code>{view.table}</code> · เมนู
+            </li>)}</ul>}
+            {!!result.dataDesign.actions?.length && <ul>{result.dataDesign.actions.map(action => <li key={action.name}>
+              เพิ่ม Action {action.label} · อัปเดตแถวใน <code>{action.table}</code>
+              <div>เงื่อนไข <code>{action.condition}</code></div>
+              <ul>{action.updates.map(update => <li key={update.column}><code>{update.column}</code> = <code>{update.formula}</code></li>)}</ul>
+            </li>)}</ul>}
             {result.dataDesign.tables.map(table => <section key={table.name} className="ai-answer ai-comparison">
               <h4>{table.label} · <code>{table.name}</code></h4>
               <table>
@@ -188,11 +300,12 @@ export default function AiCopilotChat() {
                   ? <>เพิ่ม {change.column.formula ? "คอลัมน์คำนวณ " : ""}{change.column.label} (<code>{change.column.name}</code>, {change.column.type}{change.column.ref && <> → <code>{change.column.ref}</code></>})
                     {change.column.formula && <div><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{change.column.formula}</code></div>}
                   </>
-                  : change.kind === "edit_formula" || change.kind === "edit_default" || change.kind === "edit_validation"
-                    ? <>{change.kind === "edit_validation" ? "ตั้งเงื่อนไข Valid_If " : change.kind === "edit_default" ? "ตั้งสูตรค่าเริ่มต้นสำหรับแถวใหม่ " : "แก้สูตรคอลัมน์ "}<code>{change.column}</code>
+                  : isAiFormulaEdit(change)
+                    ? <>{change.kind === "edit_required_if" ? "บังคับกรอกเมื่อ (Required_If) " : change.kind === "edit_show" ? "แสดงเมื่อ (Show_If) " : change.kind === "edit_editable" ? "แก้ไขเมื่อ (Editable_If) " : change.kind === "edit_validation" ? "ตั้งเงื่อนไข Valid_If " : change.kind === "edit_default" ? "ตั้งสูตรค่าเริ่มต้นสำหรับแถวใหม่ " : "แก้สูตรคอลัมน์ "}<code>{change.column}</code>
                       <div>สูตรเดิม<br/><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{change.previousFormula || "—"}</code></div>
-                      <div>สูตรใหม่<br/><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{change.formula}</code></div>
+                      <div>สูตรใหม่<br/><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{change.formula || "ล้างสูตร"}</code></div>
                       {change.kind === "edit_default" && <small className="hint">หากเปิด Reset on edit คอลัมน์จะใช้สูตรนี้เมื่อเข้าเงื่อนไขรีเซ็ตด้วย</small>}
+                      {change.kind === "edit_required_if" && <small className="hint">ถ้าเปิดบังคับกรอกอยู่ ช่องนี้ยังบังคับกรอกทุกแถว</small>}
                       {change.kind === "edit_validation" && change.message !== undefined && <>
                         <div>ข้อความเดิม · {change.previousMessage || "ใช้ข้อความมาตรฐาน"}</div>
                         <div>ข้อความใหม่ · {change.message || "ใช้ข้อความมาตรฐาน"}</div>
@@ -213,11 +326,13 @@ export default function AiCopilotChat() {
                 : result.designWorkspace === workspace && <button type="button" className="button" disabled={designSaving}
                   onClick={() => void openConversion(result, index)}>เปิดหน้าตรวจการแปลง</button>}
               {conversionError?.index === index && <p className="err" role="alert">{conversionError.message}</p>}
-            </> : result.designApplied ? <p role="status">นำแผนไปใช้ในพื้นที่พัฒนาแล้ว</p>
+            </> : result.designApplied ? <><p role="status">นำแผนไปใช้ในพื้นที่พัฒนาแล้ว</p>
+              {result.designReceipt && <small className="hint">รหัสยืนยันผล <code>{result.designReceipt}</code></small>}</>
               : result.designWorkspace && result.designWorkspace === workspace ? (
                 designConfirm === index ? <>
                   <p>ยืนยันนำรายการเปลี่ยนแปลงด้านบนไปใช้ในพื้นที่พัฒนาโครงสร้าง</p>
                   {designError && <p className="err" role="alert">{designError}</p>}
+                  {schemaReview?.index === index && <p role="status">ผ่านการทดลองแผน ยังไม่ได้บันทึกการเปลี่ยนแปลง · ยืนยันได้ถึง {new Date(schemaReview.expiresAt).toLocaleTimeString("th-TH")}</p>}
                   {result.dataDesign.requirement && requirementReview?.index === index && <div role="status">
                     <p>ข้อมูลทดสอบในพื้นที่พัฒนา {requirementReview.data.total} แถว · ค่าว่างหรืออ่านค่าไม่ได้ {requirementReview.data.invalid} แถว</p>
                     {!!requirementReview.data.sampleIds.length && <p>รหัสแถวตัวอย่าง {requirementReview.data.sampleIds.join(", ")}</p>}
@@ -228,13 +343,19 @@ export default function AiCopilotChat() {
                     <button type="button" className="button" disabled={designSaving} onClick={() => setDesignConfirm(null)}>ยกเลิก</button>
                     {result.dataDesign.requirement && <button type="button" className="button" disabled={designSaving}
                       onClick={() => void applyDesign(result, index, true)}>ตรวจข้อมูล</button>}
-                    <button type="button" className="button" disabled={designSaving || !!result.dataDesign.requirement &&
-                      (requirementReview?.index !== index || !!requirementReview.data.invalid)} onClick={() => void applyDesign(result, index)}>
+                    {!result.dataDesign.requirement && designError && <button type="button" className="button" disabled={designSaving}
+                      onClick={() => void applyDesign(result,index,true)}>ตรวจแผนใหม่</button>}
+                    {reviewFor(result,index)?.planId && authorizedPlan !== reviewFor(result,index)?.planId &&
+                      <button type="button" className="button" disabled={designSaving} onClick={() => void approvePlan(result,index)}>อนุมัติแผน</button>}
+                    {authorizedPlan && authorizedPlan === reviewFor(result,index)?.planId && <span role="status">อนุมัติแล้ว · รอนำไปใช้</span>}
+                    <button type="button" className="button" disabled={designSaving || !authorizedPlan ||
+                      authorizedPlan !== reviewFor(result,index)?.planId} onClick={() => void applyDesign(result, index)}>
                       {designSaving ? "กำลังนำแผนไปใช้…" : "ยืนยันและนำไปใช้"}
                     </button>
                   </div>
                 </> : <button type="button" className="button" disabled={designSaving} onClick={() => {
-                  setDesignError(""); setRequirementReview(null); setDesignConfirm(index);
+                  setDesignError(""); setRequirementReview(null); setSchemaReview(null); setDesignConfirm(index);
+                  if (!result.dataDesign?.requirement) void applyDesign(result,index,true);
                 }}>ตรวจแผนและนำไปใช้</button>
               ) : <p className="hint">เปิดพื้นที่พัฒนาโครงสร้าง แล้วสร้างแผนที่นั่นเพื่อนำไปใช้</p>}
           </div>}
@@ -269,6 +390,31 @@ export default function AiCopilotChat() {
       </div>)}
     </div>
     <div className="ai-chat-composer">
+      {planHistory && <section className="ai-answer" aria-label="ประวัติแผน Copilot">
+        <div className="ai-actions">
+          <strong>ประวัติแผน Copilot</strong>
+          <button type="button" disabled={historyLoading} onClick={() => void loadPlanHistory()}>รีเฟรชประวัติ</button>
+          <button type="button" onClick={() => {setPlanHistory(null);setUndoConfirm(null);setUndoError("");}}>ปิดประวัติ</button>
+        </div>
+        {"error" in planHistory ? <p role="alert">{planHistory.error}</p> : planHistory.plans.length
+          ? <ul style={{maxHeight:"10rem",overflowY:"auto"}}>{planHistory.plans.map(plan => <li key={plan.planId}>
+            {plan.kind === "required" ? "บังคับกรอก" : "โครงสร้าง"} · {plan.cancelledAt ? "ยกเลิกแล้ว" : plan.revertedAt ? "ย้อนกลับแล้ว" : plan.approvedAt ? "ยืนยันและบันทึกแล้ว" : plan.expiresAt <= Date.now() ? "หมดอายุ" : plan.authorizedAt ? "อนุมัติแล้ว · รอนำไปใช้" : "รออนุมัติ"} · {new Date(plan.cancelledAt ?? plan.revertedAt ?? plan.approvedAt ?? plan.authorizedAt ?? plan.reviewedAt).toLocaleString("th-TH")}
+            <br/><code>{plan.receiptId ?? plan.planId}</code>
+            {!!plan.hasPayload && !!plan.authorizedAt && !plan.approvedAt && plan.expiresAt > Date.now() &&
+              <button type="button" disabled={pending || designSaving || historyLoading} onClick={() => void resumePlan(plan.planId)}>เปิดแผนต่อ</button>}
+            {plan.canUndo && (undoConfirm === plan.planId ? <div className="ai-actions">
+              <span>คืนการตั้งค่าที่แผนนี้แก้ในพื้นที่พัฒนา</span>
+              <button type="button" disabled={historyLoading} onClick={() => setUndoConfirm(null)}>ยกเลิก</button>
+              <button type="button" disabled={historyLoading} onClick={() => void updatePlanHistory(plan.planId,"undo")}>ยืนยันย้อนแผน</button>
+            </div> : <button type="button" disabled={historyLoading} onClick={() => {setUndoError("");setUndoConfirm(plan.planId);}}>ย้อนแผน</button>)}
+            {!plan.cancelledAt && !plan.approvedAt && plan.expiresAt > Date.now() && (undoConfirm === plan.planId ? <div className="ai-actions">
+              <span>ยกเลิกผลตรวจและสิทธิ์นำแผนนี้ไปใช้</span>
+              <button type="button" disabled={historyLoading} onClick={() => setUndoConfirm(null)}>เก็บแผนไว้</button>
+              <button type="button" disabled={historyLoading} onClick={() => void updatePlanHistory(plan.planId,"cancel")}>ยืนยันยกเลิกแผน</button>
+            </div> : <button type="button" disabled={historyLoading} onClick={() => {setUndoError("");setUndoConfirm(plan.planId);}}>ยกเลิกแผน</button>)}
+          </li>)}</ul> : <p>ยังไม่มีประวัติแผนในพื้นที่นี้</p>}
+      </section>}
+      {undoError && <p role="alert" className="err">{undoError}</p>}
       <div className="ai-chat-input">
         <textarea ref={input} rows={2} maxLength={1500} value={message} aria-label="ข้อความถึง AI Copilot"
           placeholder={turns.length ? "ถามต่อ…" : "พิมพ์ข้อความ…"} onChange={event => setMessage(event.target.value)}
@@ -282,10 +428,11 @@ export default function AiCopilotChat() {
       <div className="ai-actions">
         <button type="button" onClick={() => send("data_design")} disabled={pending || !message.trim()}>ออกแบบโครงสร้างข้อมูล</button>
         {workspace !== "live" && <>
+          <button type="button" disabled={historyLoading} onClick={() => void loadPlanHistory()}>ประวัติแผน</button>
           <button type="button" onClick={() => send("view_draft")} disabled={pending || !message.trim()}>ร่าง View</button>
           <button type="button" onClick={() => send("automation_draft")} disabled={pending || !message.trim()}>ร่าง Automation</button>
         </>}
-        {!!turns.length && <button type="button" disabled={pending || designSaving} onClick={() => { setTurns([]); setMessage(""); setDesignConfirm(null); input.current?.focus(); }}>เริ่มแชตใหม่</button>}
+        {!!turns.length && <button type="button" disabled={pending || designSaving || historyLoading} onClick={() => { setTurns([]); setMessage(""); setDesignConfirm(null); input.current?.focus(); }}>เริ่มแชตใหม่</button>}
         <small className="hint">{isAiSchemaRequest(message)
           ? "ส่งคำสั่งนี้เพื่อสร้างแผนโครงสร้าง ระบบจะรอให้คุณตรวจและยืนยัน"
           : "Enter เพื่อส่ง · Shift + Enter เพื่อขึ้นบรรทัดใหม่ · เลี่ยงการใส่ข้อมูลลับ"}</small>

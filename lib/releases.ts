@@ -6,7 +6,7 @@ import {copyDevelopmentStructure,initializeDevelopment,verifyDevelopment,develop
 import {developmentAccess} from './development-workspace';
 import {withDevelopment} from './development-context';
 import {withApplication} from './application-context';
-import {currentUser,currentAccess,runAuthorized} from './permissions';
+import {canRead,currentUser,currentAccess,runAuthorized} from './permissions';
 import {withoutWorkflows} from './workflows';
 import {REHEARSAL_SAMPLE_LIMIT,REHEARSAL_SAMPLE_ROWS,RELEASE_EXECUTOR_VERSION,ReleaseRemovalBlockedError,additiveRehearsalScope,applyRehearsalSchema,dataFingerprint,rehearsalEligibility,validateReleaseRows,type RehearsalResult} from './release-rehearsal';
 import {calculateRow,validateRow} from './columns';
@@ -54,7 +54,10 @@ export function createDraft(owner:number,label:string,version?:string,before=fal
  if(existsSync(file(id,'.json'))||existsSync(file(id,'.baseline.json'))||existsSync(file(id,'.db')))throw new AuthError('รหัสพื้นที่ซ้ำ กรุณาลองใหม่',409);
  try{
   if(development){mkdirSync(dirname(target),{mode:0o700});createdDevelopmentDirectory=true;}
-  if(development||scopedRollback) copyDevelopmentStructure(platformDatabase(),target);
+  if(development||scopedRollback) {
+   const snapshotTables=new Set(development?baseline._tables.filter(table=>table.source_kind!=='EXTERNAL_REST_API'&&canRead(String(table.name))).map(table=>String(table.name)):[]);
+   copyDevelopmentStructure(platformDatabase(),target,snapshotTables);
+  }
   else db.prepare('VACUUM INTO ?').run(target);
   if(development){
    chmodSync(target,0o600);const opened=new Database(target);

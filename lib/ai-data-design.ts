@@ -1,9 +1,11 @@
 import { SQLTYPE } from "./columns";
+import { aiViewDraft, type AiViewDraft } from "./ai-view-draft";
 
 export function isAiSchemaRequest(question: string) {
   const text = question.trim();
   return /^(?:(?:ช่วย(?:ทำการ)?|ขอให้|ลอง|กรุณา|อยากให้|ผมอยากให้)\s*)*(?:สร้าง|เพิ่ม|แก้ไข|แก้|เปลี่ยน|ตั้งค่า|ตั้ง|กำหนด|เปิด|ปิด|ลบ|ย้าย|แปลง)[^\n]{0,100}(?:ตาราง|คอลัมน์|บังคับกรอก|valid[_ ]?if|ref\b)/i.test(text) ||
-    /^(?:please\s+)?(?:create|add|edit|update|change|convert|set|rename|delete|drop|retarget)\b[^\n]{0,100}\b(?:table|tables|column|columns|schema|ref)\b/i.test(text) ||
+    /^(?:ช่วย\s*)?(?:สร้าง|เพิ่ม)\s*(?:view|action)\b/i.test(text) ||
+    /^(?:please\s+)?(?:(?:create|add)\s+(?:a\s+)?(?:views?|actions?)\b|(?:create|add|edit|update|change|convert|set|rename|delete|drop|retarget)\b[^\n]{0,100}\b(?:table|tables|column|columns|schema|ref)\b)/i.test(text) ||
     /^ในตาราง[^\n]{1,100}(?:ตั้ง|เพิ่ม|แก้|เปลี่ยน|กำหนด|เปิด|ปิด|ลบ|ย้าย|แปลง).*(?:valid[_ ]?if|คอลัมน์|ค่าเริ่มต้น|ref\b)/i.test(text);
 }
 
@@ -17,7 +19,12 @@ export function aiDataDesignStatus(hasDesign: boolean, development: boolean, rej
 }
 
 type DesignColumn = { name: string; label: string; type: string; required: boolean; ref: string | null; formula?: string };
+type DesignAction = {name:string; label:string; table:string; condition:string; updates:{column:string;formula:string}[]};
+type VisibilityEdit = { table: string; column: string; formula: string; previousFormula?: string };
 type DesignChange =
+  | ({kind:"edit_show"} & VisibilityEdit)
+  | ({kind:"edit_editable"} & VisibilityEdit)
+  | ({kind:"edit_required_if"} & VisibilityEdit)
   | { kind: "add_column"; table: string; column: DesignColumn }
   | { kind: "rename_label"; table: string; column: string; label: string }
   | { kind: "edit_formula"; table: string; column: string; formula: string; previousFormula?: string }
@@ -27,42 +34,56 @@ type DesignChange =
 export type AiDataDesign = {
   tables: { name: string; label: string; columns: DesignColumn[] }[];
   changes?: DesignChange[];
+  views?: AiViewDraft[];
+  actions?: DesignAction[];
   conversion?: { table: string; column: string; type: string; ref: string | null; options?: string };
   requirement?: { table: string; column: string; required: boolean };
 };
-export const aiFormulaField = (kind: "edit_formula" | "edit_default" | "edit_validation") =>
-  kind === "edit_formula" ? "virtual_expr" : kind === "edit_default" ? "default_expr" : "valid_if";
-export type AiRequirementReview = { total: number; invalid: number; sampleIds: number[]; conditional: boolean; fingerprint: string };
+const formulaFields = {edit_formula:"virtual_expr", edit_default:"default_expr", edit_validation:"valid_if",
+  edit_show:"show_if", edit_editable:"editable_if", edit_required_if:"required_if"} as const;
+export const aiFormulaField = (kind: keyof typeof formulaFields) => formulaFields[kind];
+export const isAiFormulaEdit = (change: DesignChange): change is Extract<DesignChange, {kind:keyof typeof formulaFields}> =>
+  Object.hasOwn(formulaFields, change.kind);
+export type AiRequirementReview = { total: number; invalid: number; sampleIds: number[]; conditional: boolean; fingerprint: string; planId?:string; expiresAt?:number };
 
 const identifier = /^[a-z][a-z0-9_]{0,40}$/;
 const validName = (value: unknown): value is string => typeof value === "string" && value !== "id" && identifier.test(value);
 const validLabel = (value: unknown): value is string => typeof value === "string" && !!value.trim() && value.length <= 100;
 
 export function aiDataDesign(value: unknown, existing: ReadonlySet<string>, visible: ReadonlySet<string>, editable: ReadonlyMap<string, ReadonlySet<string>> = new Map()): AiDataDesign | null {
-  const proposal = value as { tables?: unknown; changes?: unknown; conversion?: unknown; requirement?: unknown } | null;
+  const proposal = value as { tables?: unknown; changes?: unknown; views?: unknown; actions?:unknown; conversion?: unknown; requirement?: unknown } | null;
   const tables = proposal?.tables;
   const changes = proposal?.changes ?? [];
-  if (!Array.isArray(tables) || tables.length > 5 || !Array.isArray(changes) || changes.length > 10) return null;
+  const rawViews = proposal?.views ?? [];
+  const rawActions = proposal?.actions ?? [];
+  if (!Array.isArray(tables) || tables.length > 5 || !Array.isArray(changes) || changes.length > 10 ||
+      !Array.isArray(rawViews) || rawViews.length > 5 || !Array.isArray(rawActions) || rawActions.length > 5) return null;
   if (proposal?.requirement != null) {
     const {table,column,required} = proposal.requirement as NonNullable<AiDataDesign["requirement"]>;
-    if (proposal.conversion != null || tables.length || changes.length || !validName(table) || !validName(column) ||
+    if (proposal.conversion != null || tables.length || changes.length || rawViews.length || rawActions.length || !validName(table) || !validName(column) ||
         !editable.get(table)?.has(column) || typeof required !== "boolean") return null;
     return {tables:[],requirement:{table,column,required}};
   }
   if (proposal?.conversion != null) {
     const {table,column,type,ref = null,options} = proposal.conversion as NonNullable<AiDataDesign["conversion"]>;
-    if (tables.length || changes.length || !validName(table) || !validName(column) || !editable.get(table)?.has(column) ||
+    if (tables.length || changes.length || rawViews.length || rawActions.length || !validName(table) || !validName(column) || !editable.get(table)?.has(column) ||
         typeof type !== "string" || !Object.hasOwn(SQLTYPE,type) ||
         (type === "ref" ? typeof ref !== "string" || !visible.has(ref) : ref !== null) ||
         (options != null && (!["enum","enumlist"].includes(type) || typeof options !== "string" || options.length > 2000))) return null;
     return {tables:[],conversion:{table,column,type,ref,...(options ? {options:options.trim()} : {})}};
   }
-  if (!tables.length && !changes.length) return null;
+  if (!tables.length && !changes.length && !rawViews.length && !rawActions.length) return null;
   const names = new Set<string>();
   for (const table of tables) {
     if (!table || !validName(table.name) || !validLabel(table.label) || names.has(table.name) ||
         existing.has(table.name) || !Array.isArray(table.columns) || !table.columns.length || table.columns.length > 8) return null;
     names.add(table.name);
+  }
+  const views: AiViewDraft[] = [];
+  for (const raw of rawViews) {
+    const view = aiViewDraft(raw);
+    if (!view || !names.has(view.table) && !visible.has(view.table)) return null;
+    views.push(view);
   }
   const normalizeColumn = (column: DesignColumn | null): DesignColumn | null => {
     if (!column || !validName(column.name) || !validLabel(column.label) ||
@@ -96,10 +117,10 @@ export function aiDataDesign(value: unknown, existing: ReadonlySet<string>, visi
       if (!column || fields.has(column.name) || column.required || targets.has(change.table + "." + column.name)) return null;
       targets.add(change.table + "." + column.name);
       edits.push({ kind: "add_column", table: change.table, column });
-    } else if ((change.kind === "edit_formula" || change.kind === "edit_default" || change.kind === "edit_validation") && validName(change.column) && fields.has(change.column)) {
+    } else if (isAiFormulaEdit(change) && validName(change.column) && fields.has(change.column)) {
       const {formula,previousFormula} = change;
-      const target = change.table + "." + change.column;
-      if (targets.has(target) || typeof formula !== "string" || !formula.trim() || formula.length > 4000 ||
+      const target = change.table + "." + change.column + "." + aiFormulaField(change.kind);
+      if (targets.has(target) || typeof formula !== "string" || (change.kind === "edit_formula" || formula !== "") && !formula.trim() || formula.length > 4000 ||
           (previousFormula !== undefined && (typeof previousFormula !== "string" || previousFormula.length > 40000))) return null;
       targets.add(target);
       if (change.kind === "edit_validation") {
@@ -118,5 +139,23 @@ export function aiDataDesign(value: unknown, existing: ReadonlySet<string>, visi
         : { kind: change.kind, table: change.table, column: change.column, label: change.label.trim() });
     } else return null;
   }
-  return { tables: result, ...(edits.length ? { changes: edits } : {}) };
+  const actions: DesignAction[] = [];
+  const actionNames = new Set<string>();
+  for (const action of rawActions) {
+    if (!action || !validName(action.name) || actionNames.has(action.name) || !validLabel(action.label) ||
+        !validName(action.table) || !names.has(action.table) && !editable.has(action.table) ||
+        !Array.isArray(action.updates) || !action.updates.length || action.updates.length > 10 ||
+        action.condition != null && (typeof action.condition !== "string" || action.condition.length > 4000)) return null;
+    const fields = new Set<string>();
+    const updates: DesignAction["updates"] = [];
+    for (const update of action.updates) {
+      if (!update || !validName(update.column) || fields.has(update.column) ||
+          typeof update.formula !== "string" || !update.formula.trim() || update.formula.length > 4000) return null;
+      fields.add(update.column);
+      updates.push({column:update.column,formula:update.formula.trim()});
+    }
+    actionNames.add(action.name);
+    actions.push({name:action.name,label:action.label.trim(),table:action.table,condition:action.condition?.trim() || "TRUE",updates});
+  }
+  return {tables:result,...(edits.length ? {changes:edits} : {}),...(views.length ? {views} : {}),...(actions.length ? {actions} : {})};
 }
