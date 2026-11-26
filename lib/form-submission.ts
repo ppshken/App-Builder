@@ -1,5 +1,7 @@
 import {createHash} from 'node:crypto';
 import {db} from './db';
+import {BULK_ACTION_SCHEMA} from './bulk-action-schema';
+import {FORM_SUBMISSION_SCHEMA} from './form-submission-schema';
 import {currentApplication} from './application-context';
 import {currentDevelopment} from './development-context';
 import {currentUser,assertTablePermission} from './permissions';
@@ -10,8 +12,14 @@ const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).d
 const canonical=(value:any):any=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
 function scope(email:string){const user=currentUser();if(!user)throw new AuthError('กรุณาเข้าสู่ระบบก่อนบันทึก',401);return hash([currentApplication()?.id||'default',currentDevelopment()?.id||'',user.id,email]);}
 export function formSubmissionContext(email=''){
+ const boundary=scope(email);
+ if(currentDevelopment()){
+  const hasTable=db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name=?");
+  if(!hasTable.get('_bulk_action_state')||!db.prepare('SELECT 1 FROM _bulk_action_state WHERE id=1').get())db.exec(BULK_ACTION_SCHEMA);
+  if(!hasTable.get('_form_submissions'))db.exec(FORM_SUBMISSION_SCHEMA);
+ }
  const epoch=(db.prepare('SELECT epoch FROM _bulk_action_state WHERE id=1').get() as {epoch:string}).epoch;
- return epoch+'.'+scope(email)+'.'+Date.now();
+ return epoch+'.'+boundary+'.'+Date.now();
 }
 /** Called inside the same immediate transaction as rows, children, files and saved Actions. */
 export function formSubmission<T>(table:string,view:string|null,email:string,values:Record<string,any>,images:FormImageUpload[],key:string|undefined,work:()=>T):T{
