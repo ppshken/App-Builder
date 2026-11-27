@@ -1,4 +1,5 @@
 type DecimalColumn={options?:string|null};
+const decimalFormatters=new Map<number,Intl.NumberFormat>();
 export function decimalPlaces(column:DecimalColumn):number|null{
  try{const n=JSON.parse(column.options||'null')?.decimal_places;return Number.isInteger(n)&&n>=0&&n<=10?n:null;}catch{return null;}
 }
@@ -12,5 +13,7 @@ export function decimalLabel(column:DecimalColumn,value:unknown):string{
  if(value==null||value==='')return '';
  const places=decimalPlaces(column),n=Number(value);
  if(places===null||!Number.isFinite(n))return String(value);
- return new Intl.NumberFormat('en-US',{useGrouping:false,minimumFractionDigits:places,maximumFractionDigits:places}).format(n);
+ let formatter=decimalFormatters.get(places);
+ if(!formatter){formatter=new Intl.NumberFormat('en-US',{useGrouping:false,minimumFractionDigits:places,maximumFractionDigits:places});decimalFormatters.set(places,formatter);}
+ return formatter.format(n);
 }

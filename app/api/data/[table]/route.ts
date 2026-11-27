@@ -47,7 +47,9 @@ async function handleGET(req: Request, { params }: { params: { table: string } }
     if (u.searchParams.get("defaults") === "1") {
       assertTableCreateAllowed(t);
       const defaultColumns=writeColumns(db,t);
-      const { row, errors } = calculateRow(defaultColumns, {}, true, now, true, userEmail, context);
+      const storedColumns=defaultColumns.filter(column=>!column.is_virtual);
+      const calculationColumns=projectionColumns(defaultColumns,storedColumns.map(column=>column.name),storedColumns.map(column=>column.default_expr||''));
+      const { row, errors } = calculateRow(calculationColumns, {}, true, now, true, userEmail, context);
       const firstError = defaultColumns.find(c => !c.is_virtual && errors[c.name]);
       if (firstError) throw new Error(`ค่าเริ่มต้นของ "${firstError.label}": ${errors[firstError.name]}`);
       return NextResponse.json({ submission_context:formSubmissionContext(userEmail),values: Object.fromEntries(defaultColumns.filter(c => !c.is_virtual).map(c => [c.name, c.type === "yesno" ? row[c.name] ?? null : row[c.name]])) });

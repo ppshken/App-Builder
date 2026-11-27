@@ -24,7 +24,7 @@ export function listKey(table: string) { if (!tableExists(table)) throw Error("�
 export function checkLists(cols: Column[], row: Record<string, unknown>) {
   for (const c of cols.filter(c => c.type === "list" && c.ref_table && !c.is_virtual)) {
     const target = c.ref_table!, key = listKey(target);
-    const missing = db.prepare(`SELECT value FROM json_each(?) WHERE NOT EXISTS (SELECT 1 FROM "t_${target}" WHERE CAST("${key}" AS TEXT)=CAST(json_each.value AS TEXT)) LIMIT 1`).get(JSON.stringify(row[c.name] ?? []));
+    const missing = db.prepare(`SELECT value FROM json_each(?) WHERE NOT EXISTS (SELECT 1 FROM "t_${target}" WHERE "${key}"=CAST(json_each.value AS INTEGER) AND CAST("${key}" AS TEXT)=CAST(json_each.value AS TEXT)) LIMIT 1`).get(JSON.stringify(row[c.name] ?? []));
     if (missing) throw new Error(`"${c.label}" มีรหัสที่ไม่พบในตารางอ้างอิง กรุณาเลือกข้อมูลที่มีอยู่`);
   }
 }
@@ -69,12 +69,12 @@ export function listPage(table: string, query: URLSearchParams, userEmail = "", 
     assertRowAllowed(owner,raw);
     const values = calculateRow(ownerCols, raw, false, new Date(), false, userEmail, expressionContext(new Date(),userEmail)).row[c.name];
     defaultLimit = c.list_limit ?? 5;
-    where = ` WHERE CAST("${listKey(table)}" AS TEXT) IN (SELECT CAST(value AS TEXT) FROM json_each(?))`; bindings = [JSON.stringify(values ?? [])];
+    where = ` WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?) WHERE CAST(CAST(value AS INTEGER) AS TEXT)=CAST(value AS TEXT))`; bindings = [JSON.stringify(values ?? [])];
   } else if (mode !== null && mode !== "choices") throw new Error("รูปแบบการดึงรายการไม่ถูกต้อง");
   if (keys !== undefined) {
     if (mode && mode !== "choices") throw new Error("ใช้รายการคีย์ได้เฉพาะการเลือกข้อมูล");
     if (!Array.isArray(keys) || keys.length > 10000 || keys.some(v => typeof v !== "string")) throw new Error("รายการคีย์ไม่ถูกต้อง");
-    where = ` WHERE CAST("${listKey(table)}" AS TEXT) IN (SELECT CAST(value AS TEXT) FROM json_each(?))`; bindings = [JSON.stringify(keys)];
+    where = ` WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?) WHERE CAST(CAST(value AS INTEGER) AS TEXT)=CAST(value AS TEXT))`; bindings = [JSON.stringify(keys)];
   }
   if(hasRowRule(table)){const ids=visibleRawRows(table,db.prepare(`SELECT * FROM "t_${table}"${where}`).all(...bindings) as any[]).map(r=>r.id);where+=(where?" AND ":" WHERE ")+"id IN (SELECT value FROM json_each(?))";bindings.push(JSON.stringify(ids));}
   const limitText = query.get("limit") ?? String(defaultLimit);

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import type { AiViewDraft } from "../../lib/ai-view-draft";
 import type { AiAutomationDraft } from "../../lib/ai-automation-draft";
 import type { AiDataDesign, AiRequirementReview } from "../../lib/ai-data-design";
-import { aiDataDesignStatus, isAiFormulaEdit, isAiSchemaRequest } from "../../lib/ai-data-design";
+import { aiConversionChangesColumn, aiDataDesignStatus, updateAiEnumOptions, isAiFormulaEdit, isAiSchemaRequest } from "../../lib/ai-data-design";
 import { useAuth } from "./AuthProvider";
 import AiAnswer from "./AiAnswer";
 import Icon from "./Icon";
@@ -16,6 +16,7 @@ import "./ai-assist.css";
 const ColumnConversionDialog = dynamic(() => import("./ColumnConversionDialog"));
 
 type Answer = {
+  choices?: {label: string; name: string; instruction: string}[];
   coverage?: AiContextCoverage;
   answer: string;
   links?: { kind: "column" | "slice" | "action"; label: string; href: string }[];
@@ -26,6 +27,10 @@ type Answer = {
   designApplied?: boolean;
   designReceipt?: string;
   conversionResult?: string;
+  nextConversion?: AiDataDesign["conversion"];
+  nextRequirement?: AiDataDesign["requirement"];
+  enumAdditions?: string[];
+  enumRemovals?: string[];
   invalidDesign?: boolean;
   designAttempt?: boolean;
 };
@@ -39,6 +44,8 @@ export default function AiCopilotChat() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [focus, setFocus] = useState("auto");
   const [pending, setPending] = useState(false);
   const [designConfirm, setDesignConfirm] = useState<number | null>(null);
   const [designSaving, setDesignSaving] = useState(false);
@@ -141,7 +148,7 @@ export default function AiCopilotChat() {
     }
   }
   async function openConversion(result: Answer, index: number) {
-    const target = result.dataDesign?.conversion;
+    let target = result.dataDesign?.conversion ?? (result.designApplied ? result.nextConversion : undefined);
     if (!target || result.designWorkspace !== workspace || designSaving) return;
     setConversionError(null);
     setDesignSaving(true);
@@ -150,8 +157,20 @@ export default function AiCopilotChat() {
       if (!response.ok || response.headers.get("x-nocode-workspace") !== workspace)
         throw Error("โหลดโครงสร้างปัจจุบันไม่ได้ กรุณาตรวจพื้นที่พัฒนาแล้วลองใหม่");
       const tables: ConversionTable[] = await response.json();
+      if (target.type === "ref" && !tables.some(table => table.name === target.ref && table.source_kind !== "EXTERNAL_REST_API"))
+        throw Error("ไม่พบตารางปลายทาง Ref ในพื้นที่พัฒนานี้ กรุณาตรวจตารางแล้วลองใหม่");
       const column = tables.find(table => table.name === target.table)?.columns.find(column => column.name === target.column);
       if (!column || column.is_virtual) throw Error("ไม่พบคอลัมน์จริงตามแผน กรุณาสร้างแผนใหม่");
+      if (result.enumRemovals || result.enumAdditions) {
+        const options = column.type === target.type ? updateAiEnumOptions(column, result.enumAdditions, result.enumRemovals) : null;
+        if (options === null) throw Error("การตั้งค่าคอลัมน์เปลี่ยนแล้ว กรุณาตรวจชนิดข้อมูลหรือสร้างแผนใหม่");
+        target = {...target,options};
+      }
+      if (!aiConversionChangesColumn(column, target)) {
+        setTurns(previous => previous.map((turn, i) => i === index && turn.result
+          ? {...turn,result:{...turn.result,conversionResult:"โครงสร้างล่าสุดใช้การตั้งค่าตามแผนแล้ว"}} : turn));
+        return;
+      }
       setConversion({index, tables:tables.filter(table => table.source_kind !== "EXTERNAL_REST_API"), column, target});
     } catch (error) {
       setConversionError({index,message:error instanceof Error ? error.message : "เปิดหน้าตรวจการแปลงไม่สำเร็จ"});
@@ -221,7 +240,6 @@ export default function AiCopilotChat() {
 
   async function send(mode: "ask" | "view_draft" | "automation_draft" | "data_design" = "ask") {
     const question = message.trim();
-    if (mode === "ask" && isAiSchemaRequest(question)) mode = "data_design";
     if (!question || controller.current || loadedKey !== storageKey || historyLoading) return;
     const request = new AbortController();
     controller.current = request;
@@ -229,14 +247,24 @@ export default function AiCopilotChat() {
     setPending(true);
     setTurns(previous => [...previous, { question }]);
     const finish = (turn: Turn) => setTurns(previous => [...previous.slice(0, -1), turn]);
-    const history = turns.flatMap(turn => turn.result ? [{
-      question: turn.question.slice(0, 700),
-      answer: turn.result.answer.slice(0, 1200),
-    }] : []).slice(-4);
+    const history = turns.flatMap(turn => {
+      if (!turn.result) return [];
+      const plan = turn.result.dataDesign;
+      const targets = plan?.conversion
+        ? [plan.conversion.table, plan.conversion.column, plan.conversion.ref].filter(Boolean)
+        : [...(plan?.tables.map(table => table.name) ?? []), ...(plan?.changes?.map(change =>
+          change.table + "." + (change.kind === "add_column" ? change.column.name : change.column)) ?? [])];
+      const outcome = turn.result.conversionResult
+        ?? (turn.result.designApplied ? "Builder ยืนยันว่าบันทึกแผนในพื้นที่พัฒนาแล้ว" : turn.result.answer);
+      return [{
+        question: turn.question.slice(0, 700),
+        answer: [targets.join(", "), outcome].filter(Boolean).join("\n").slice(0, 1200),
+      }];
+    }).slice(-4);
     try {
       const response = await fetch("/api/ai/assist", {
         method: "POST", signal: request.signal, headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, question, history }),
+        body: JSON.stringify({ mode, question, history, focus }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || typeof result?.answer !== "string") throw Error(result?.error || "ติดต่อ AI Copilot ไม่สำเร็จ");
@@ -249,7 +277,7 @@ export default function AiCopilotChat() {
     }
   }
 
-  return <div className="ai-chat">
+  return <div className="ai-chat-layout"><div className="ai-chat">
     <div ref={feed} className="ai-chat-feed" role="log" aria-label="บทสนทนากับ AI Copilot" tabIndex={0}>
       {!turns.length && <div className="ai-chat-empty"><span aria-hidden="true">✦</span>
         <h3>ถามเกี่ยวกับแอปนี้ได้เลย</h3><p className="hint">เช่น ตารางไหนเชื่อมกับตารางรายการตรวจ หรือช่วยอธิบายสูตรที่กำลังใช้</p>
@@ -265,10 +293,26 @@ export default function AiCopilotChat() {
             บริบทที่ใช้ {result.coverage.tablesIncluded}/{result.coverage.tablesAvailable} ตาราง · {result.coverage.columnsIncluded}/{result.coverage.columnsAvailableInSelectedTables} คอลัมน์ในตารางที่เลือก
           </small>}
           {!result.dataDesign && (result.designAttempt || result.invalidDesign || isAiSchemaRequest(question)) && <div className="ai-actions">
+            {result.choices?.map(choice => <button type="button" key={choice.name} disabled={pending || designSaving}
+              onClick={() => {setMessage(question.slice(0, 1499 - choice.instruction.length) + "\n" + choice.instruction); input.current?.focus();}}>
+              {choice.label} · <code>{choice.name}</code>
+            </button>)}
             <button type="button" onClick={() => {setMessage(question); input.current?.focus();}}>นำคำสั่งกลับมาแก้</button>
           </div>}
           {result.dataDesign && <div className="ai-formula">
             <h4>โครงสร้างข้อมูลที่เสนอ</h4>
+            {result.nextRequirement && <div>
+              <p>หลังเพิ่มคอลัมน์ · ตรวจข้อมูลก่อนบังคับกรอก <code>{result.nextRequirement.table}.{result.nextRequirement.column}</code></p>
+              {result.designApplied && result.designWorkspace === workspace && <button type="button" disabled={pending || designSaving}
+                onClick={() => {
+                  const requirement = result.nextRequirement!;
+                  setTurns(previous=>[...previous,{question:`บังคับกรอก ${requirement.table}.${requirement.column}`,
+                    result:{answer:"ตรวจข้อมูลเดิมก่อนเปิดการบังคับกรอก",designWorkspace:workspace,
+                      dataDesign:{tables:[],requirement},designAttempt:true}}]);
+                }}>ตรวจการบังคับกรอกขั้นถัดไป</button>}
+            </div>}
+            {result.enumAdditions?.length ? <p>ตัวเลือกที่จะเพิ่ม · {result.enumAdditions.join(", ")}</p> : null}
+            {result.enumRemovals?.length ? <p>ตัวเลือกที่จะลบ · {result.enumRemovals.join(", ")}</p> : null}
             {!!result.dataDesign.views?.length && <ul>{result.dataDesign.views.map((view,index) => <li key={index}>
               เพิ่ม View {view.label} · {view.kind === "table" ? "ตาราง" : "รายการ"} · <code>{view.table}</code> · เมนู
             </li>)}</ul>}
@@ -287,6 +331,7 @@ export default function AiCopilotChat() {
                     <th scope="row">{column.label}<br/><code>{column.name}</code></th>
                     <td>{column.type}</td>
                     <td>{column.ref && <code>{column.ref}</code>}{column.ref && column.required ? " · " : ""}{column.required ? "บังคับ" : !column.ref && !column.formula ? "—" : null}
+                      {column.options && <div>ตัวเลือก · {column.options}</div>}
                       {column.formula && <div>สูตรคำนวณ<br/><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{column.formula}</code></div>}
                     </td>
                   </tr>)}
@@ -298,6 +343,7 @@ export default function AiCopilotChat() {
                 <code>{change.table}</code>{" · "}
                 {change.kind === "add_column"
                   ? <>เพิ่ม {change.column.formula ? "คอลัมน์คำนวณ " : ""}{change.column.label} (<code>{change.column.name}</code>, {change.column.type}{change.column.ref && <> → <code>{change.column.ref}</code></>})
+                    {change.column.options && <div>ตัวเลือก · {change.column.options}</div>}
                     {change.column.formula && <div><code style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{change.column.formula}</code></div>}
                   </>
                   : isAiFormulaEdit(change)
@@ -318,15 +364,26 @@ export default function AiCopilotChat() {
             </ul>}
             {result.dataDesign.requirement && <p><code>{result.dataDesign.requirement.table}[{result.dataDesign.requirement.column}]</code>
               {" · "}{result.dataDesign.requirement.required ? "เปิดการบังคับกรอก" : "ปิดการบังคับกรอก"}</p>}
+            {result.nextConversion && <div>
+              <p>ขั้นถัดไป · ตรวจการเปลี่ยน <code>{result.nextConversion.table}.{result.nextConversion.column}</code> เป็น <code>{result.nextConversion.type}</code>
+                {result.nextConversion.ref && <> ไปยัง <code>{result.nextConversion.ref}</code></>}
+                {result.nextConversion.options && <> · ตัวเลือก {result.nextConversion.options}</>}
+              </p>
+              {result.conversionResult ? <p role="status">{result.conversionResult}</p>
+                : result.designApplied && result.designWorkspace === workspace && <button type="button" className="button" disabled={designSaving}
+                  onClick={() => void openConversion(result, index)}>{result.nextConversion.type === "ref" ? "เปิดหน้าตรวจ Ref ขั้นถัดไป" : "เปิดหน้าตรวจการแปลงขั้นถัดไป"}</button>}
+              {conversionError?.index === index && <p className="err" role="alert">{conversionError.message}</p>}
+            </div>}
             {result.dataDesign.conversion ? <>
               <p><code>{result.dataDesign.conversion.table}[{result.dataDesign.conversion.column}]</code>
                 {" → "}{result.dataDesign.conversion.type}{result.dataDesign.conversion.ref && <> · <code>{result.dataDesign.conversion.ref}</code></>}
+                {result.dataDesign.conversion.options && <> · ตัวเลือก {result.dataDesign.conversion.options}</>}
               </p>
               {result.conversionResult ? <p role="status">{result.conversionResult}</p>
                 : result.designWorkspace === workspace && <button type="button" className="button" disabled={designSaving}
                   onClick={() => void openConversion(result, index)}>เปิดหน้าตรวจการแปลง</button>}
               {conversionError?.index === index && <p className="err" role="alert">{conversionError.message}</p>}
-            </> : result.designApplied ? <><p role="status">นำแผนไปใช้ในพื้นที่พัฒนาแล้ว</p>
+            </> : result.designApplied ? <><p role="status">{result.nextConversion ? "บันทึกขั้นแรกในพื้นที่พัฒนาแล้ว" : "นำแผนไปใช้ในพื้นที่พัฒนาแล้ว"}</p>
               {result.designReceipt && <small className="hint">รหัสยืนยันผล <code>{result.designReceipt}</code></small>}</>
               : result.designWorkspace && result.designWorkspace === workspace ? (
                 designConfirm === index ? <>
@@ -335,7 +392,13 @@ export default function AiCopilotChat() {
                   {schemaReview?.index === index && <p role="status">ผ่านการทดลองแผน ยังไม่ได้บันทึกการเปลี่ยนแปลง · ยืนยันได้ถึง {new Date(schemaReview.expiresAt).toLocaleTimeString("th-TH")}</p>}
                   {result.dataDesign.requirement && requirementReview?.index === index && <div role="status">
                     <p>ข้อมูลทดสอบในพื้นที่พัฒนา {requirementReview.data.total} แถว · ค่าว่างหรืออ่านค่าไม่ได้ {requirementReview.data.invalid} แถว</p>
-                    {!!requirementReview.data.sampleIds.length && <p>รหัสแถวตัวอย่าง {requirementReview.data.sampleIds.join(", ")}</p>}
+                    {!!requirementReview.data.sampleIds.length && <div>
+                      <p>แถวตัวอย่างที่ต้องตรวจใน <code>{result.dataDesign.requirement.table}.{result.dataDesign.requirement.column}</code></p>
+                      <div className="ai-actions">{requirementReview.data.sampleIds.map(id => <a className="button" key={id}
+                        href={`/t/${encodeURIComponent(result.dataDesign!.requirement!.table)}?row=${encodeURIComponent(id)}&edit=1`}
+                        target="_blank" rel="noopener noreferrer">ตรวจแถว {id}</a>)}</div>
+                      <p className="hint">หลังแก้ข้อมูลแล้ว กดตรวจข้อมูลอีกครั้งเพื่ออัปเดตผลตรวจ</p>
+                    </div>}
                     {requirementReview.data.conditional && <p>สูตร Required_If ยังมีผลตามเงื่อนไขเดิม</p>}
                     <p>ข้อมูลเวอร์ชันจริงจะตรวจแยกในขั้นตอนซ้อมเผยแพร่</p>
                   </div>}
@@ -390,6 +453,38 @@ export default function AiCopilotChat() {
       </div>)}
     </div>
     <div className="ai-chat-composer">
+      <div className="ai-chat-input">
+        <textarea ref={input} rows={2} maxLength={1500} value={message} aria-label="ข้อความถึง AI Copilot"
+          placeholder={turns.length ? "ถามต่อ หรือบอกสิ่งที่ต้องการให้ทำ…" : "เล่าระบบที่อยากสร้าง หรือบอกงานที่ต้องการให้ช่วย…"} onChange={event => setMessage(event.target.value)}
+          onKeyDown={event => {
+            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+            event.preventDefault();
+            void send();
+          }}/>
+        <button type="button" className="primary" onClick={() => send()} disabled={pending || !message.trim()}>ส่ง</button>
+      </div>
+      <div className="ai-chat-focus" role="group" aria-label="เน้นการคุย">
+        {[
+          ["auto","✦ อัตโนมัติ"],["requirements","วิเคราะห์ความต้องการ"],
+          ["design","ออกแบบระบบ"],["technical","เชิงเทคนิค"],
+        ].map(([value,label])=><button type="button" key={value} aria-pressed={focus===value}
+          disabled={pending} onClick={()=>setFocus(value)}>{label}</button>)}
+      </div>
+      <div className="ai-actions">
+        <small className="hint">{isAiSchemaRequest(message)
+          ? "ส่งคำสั่งนี้เพื่อสร้างแผนโครงสร้าง ระบบจะรอให้คุณตรวจและยืนยัน"
+          : "Enter เพื่อส่ง · Shift + Enter เพื่อขึ้นบรรทัดใหม่ · เลี่ยงการใส่ข้อมูลลับ"}</small>
+      </div>
+    </div>
+    </div><aside className={`ai-chat-sidebar${sidebarCollapsed ? " is-collapsed" : ""}`} aria-label="เครื่องมือบทสนทนา">
+      <div className="ai-sidebar-heading"><strong>Copilot</strong>
+      <button type="button" className="ai-sidebar-toggle" aria-expanded={!sidebarCollapsed}
+        aria-label={sidebarCollapsed ? "ขยายแถบด้านข้าง" : "ย่อแถบด้านข้าง"} title={sidebarCollapsed ? "ขยายแถบด้านข้าง" : "ย่อแถบด้านข้าง"}
+        onClick={()=>setSidebarCollapsed(value=>!value)}><Icon name="menu"/></button></div>
+        {workspace !== "live" && <>
+          <button type="button" aria-label="ประวัติแผน" title="ประวัติแผน" disabled={historyLoading} onClick={() => {setSidebarCollapsed(false);void loadPlanHistory();}}><Icon name="folder"/><span>ประวัติแผน</span></button>
+        </>}
+        <button type="button" aria-label="เริ่มแชตใหม่" title="เริ่มแชตใหม่" disabled={pending || designSaving || historyLoading} onClick={() => { setTurns([]); setMessage(""); setDesignConfirm(null); input.current?.focus(); }}><Icon name="plus"/><span>เริ่มแชตใหม่</span></button>
       {planHistory && <section className="ai-answer" aria-label="ประวัติแผน Copilot">
         <div className="ai-actions">
           <strong>ประวัติแผน Copilot</strong>
@@ -397,7 +492,7 @@ export default function AiCopilotChat() {
           <button type="button" onClick={() => {setPlanHistory(null);setUndoConfirm(null);setUndoError("");}}>ปิดประวัติ</button>
         </div>
         {"error" in planHistory ? <p role="alert">{planHistory.error}</p> : planHistory.plans.length
-          ? <ul style={{maxHeight:"10rem",overflowY:"auto"}}>{planHistory.plans.map(plan => <li key={plan.planId}>
+          ? <ul className="ai-sidebar-plans">{planHistory.plans.map(plan => <li key={plan.planId}>
             {plan.kind === "required" ? "บังคับกรอก" : "โครงสร้าง"} · {plan.cancelledAt ? "ยกเลิกแล้ว" : plan.revertedAt ? "ย้อนกลับแล้ว" : plan.approvedAt ? "ยืนยันและบันทึกแล้ว" : plan.expiresAt <= Date.now() ? "หมดอายุ" : plan.authorizedAt ? "อนุมัติแล้ว · รอนำไปใช้" : "รออนุมัติ"} · {new Date(plan.cancelledAt ?? plan.revertedAt ?? plan.approvedAt ?? plan.authorizedAt ?? plan.reviewedAt).toLocaleString("th-TH")}
             <br/><code>{plan.receiptId ?? plan.planId}</code>
             {!!plan.hasPayload && !!plan.authorizedAt && !plan.approvedAt && plan.expiresAt > Date.now() &&
@@ -415,29 +510,7 @@ export default function AiCopilotChat() {
           </li>)}</ul> : <p>ยังไม่มีประวัติแผนในพื้นที่นี้</p>}
       </section>}
       {undoError && <p role="alert" className="err">{undoError}</p>}
-      <div className="ai-chat-input">
-        <textarea ref={input} rows={2} maxLength={1500} value={message} aria-label="ข้อความถึง AI Copilot"
-          placeholder={turns.length ? "ถามต่อ…" : "พิมพ์ข้อความ…"} onChange={event => setMessage(event.target.value)}
-          onKeyDown={event => {
-            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-            event.preventDefault();
-            void send();
-          }}/>
-        <button type="button" className="primary" onClick={() => send()} disabled={pending || !message.trim()}>ส่ง</button>
-      </div>
-      <div className="ai-actions">
-        <button type="button" onClick={() => send("data_design")} disabled={pending || !message.trim()}>ออกแบบโครงสร้างข้อมูล</button>
-        {workspace !== "live" && <>
-          <button type="button" disabled={historyLoading} onClick={() => void loadPlanHistory()}>ประวัติแผน</button>
-          <button type="button" onClick={() => send("view_draft")} disabled={pending || !message.trim()}>ร่าง View</button>
-          <button type="button" onClick={() => send("automation_draft")} disabled={pending || !message.trim()}>ร่าง Automation</button>
-        </>}
-        {!!turns.length && <button type="button" disabled={pending || designSaving || historyLoading} onClick={() => { setTurns([]); setMessage(""); setDesignConfirm(null); input.current?.focus(); }}>เริ่มแชตใหม่</button>}
-        <small className="hint">{isAiSchemaRequest(message)
-          ? "ส่งคำสั่งนี้เพื่อสร้างแผนโครงสร้าง ระบบจะรอให้คุณตรวจและยืนยัน"
-          : "Enter เพื่อส่ง · Shift + Enter เพื่อขึ้นบรรทัดใหม่ · เลี่ยงการใส่ข้อมูลลับ"}</small>
-      </div>
-    </div>
+    </aside>
     {conversion && <ColumnConversionDialog table={conversion.target.table} column={conversion.column}
       tables={conversion.tables} designWorkspace={workspace}
       initialTarget={{type:conversion.target.type,ref_table:conversion.target.ref,options:conversion.target.options ?? ""}}

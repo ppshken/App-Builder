@@ -18,7 +18,7 @@ export function aiDataDesignStatus(hasDesign: boolean, development: boolean, rej
     : "ยังไม่ได้แผนที่นำไปใช้ได้ กรุณาระบุชื่อตาราง คอลัมน์ และสิ่งที่ต้องการเปลี่ยนให้ชัดเจน แล้วลองใหม่";
 }
 
-type DesignColumn = { name: string; label: string; type: string; required: boolean; ref: string | null; formula?: string };
+type DesignColumn = { name: string; label: string; type: string; required: boolean; ref: string | null; formula?: string; options?: string };
 type DesignAction = {name:string; label:string; table:string; condition:string; updates:{column:string;formula:string}[]};
 type VisibilityEdit = { table: string; column: string; formula: string; previousFormula?: string };
 type DesignChange =
@@ -46,6 +46,55 @@ export const isAiFormulaEdit = (change: DesignChange): change is Extract<DesignC
   Object.hasOwn(formulaFields, change.kind);
 export type AiRequirementReview = { total: number; invalid: number; sampleIds: number[]; conditional: boolean; fingerprint: string; planId?:string; expiresAt?:number };
 
+export function updateAiEnumOptions(source: {type:string;ref_table?:string|null;options?:string|null},
+  additions: unknown, removals?: unknown) {
+  const valid = (values: unknown): values is string[] =>
+    Array.isArray(values) && values.length > 0 && values.length <= 20 &&
+    values.every(value => typeof value === "string" && !!value.trim() && !value.includes(",") && value.length <= 100);
+  if (!["enum","enumlist"].includes(source.type) || source.ref_table ||
+      (additions === undefined && removals === undefined) ||
+      (additions !== undefined && !valid(additions)) || (removals !== undefined && !valid(removals))) return null;
+  const current = (source.options ?? "").split(",").map(value => value.trim()).filter(Boolean);
+  const added = additions === undefined ? [] : (additions as string[]).map(value => value.trim());
+  const removed = new Set(removals === undefined ? [] : (removals as string[]).map(value => value.trim()));
+  if (added.some(value => removed.has(value))) return null;
+  const choices = [...new Set([...current.filter(value => !removed.has(value)), ...added])].join(",");
+  return choices.length > 0 && choices.length <= 2000 ? choices : null;
+}
+
+export function aiConversionChangesColumn(source: {type:string;ref_table?:string|null;options?:string|null},
+  target: NonNullable<AiDataDesign["conversion"]>) {
+  if (source.type !== target.type || (source.ref_table || null) !== target.ref) return true;
+  if (target.options === undefined || !["enum","enumlist"].includes(target.type)) return false;
+  const normalize = (options: string) => [...new Set(options.split(",").map(option => option.trim()).filter(Boolean))].join(",");
+  return normalize(source.options ?? "") !== normalize(target.options);
+}
+
+export function aiConversionStageConflict(proposal: Partial<AiDataDesign> | null) {
+  const conversion = proposal?.conversion;
+  if (!conversion) return false;
+  return (Array.isArray(proposal?.changes) && proposal.changes.some(change =>
+    change?.table === conversion.table && change.column === conversion.column)) ||
+    (Array.isArray(proposal?.actions) && proposal.actions.some(action =>
+      action?.table === conversion.table && Array.isArray(action.updates) &&
+      action.updates.some(update => update?.column === conversion.column)));
+}
+
+export function splitAiConversionPlan(proposal: Partial<AiDataDesign> | null, existing: ReadonlySet<string>,
+  visible: ReadonlySet<string>, editable: ReadonlyMap<string, ReadonlySet<string>>) {
+  const conversion = proposal?.conversion;
+  if (!conversion || !Array.isArray(proposal?.tables) ||
+      proposal.requirement != null) return null;
+  const first = aiDataDesign({
+    tables:proposal.tables, changes:proposal.changes, views:proposal.views, actions:proposal.actions,
+  }, existing, visible, editable);
+  if (!first) return null;
+  if (aiConversionStageConflict({...first,conversion})) return null;
+  const targets = new Set([...visible, ...first.tables.map(table => table.name)]);
+  const second = aiDataDesign({tables:[],conversion}, existing, targets, editable);
+  return second?.conversion ? {first, next:second.conversion} : null;
+}
+
 const identifier = /^[a-z][a-z0-9_]{0,40}$/;
 const validName = (value: unknown): value is string => typeof value === "string" && value !== "id" && identifier.test(value);
 const validLabel = (value: unknown): value is string => typeof value === "string" && !!value.trim() && value.length <= 100;
@@ -69,7 +118,8 @@ export function aiDataDesign(value: unknown, existing: ReadonlySet<string>, visi
     if (tables.length || changes.length || rawViews.length || rawActions.length || !validName(table) || !validName(column) || !editable.get(table)?.has(column) ||
         typeof type !== "string" || !Object.hasOwn(SQLTYPE,type) ||
         (type === "ref" ? typeof ref !== "string" || !visible.has(ref) : ref !== null) ||
-        (options != null && (!["enum","enumlist"].includes(type) || typeof options !== "string" || options.length > 2000))) return null;
+        (options != null && (typeof options !== "string" || options.length > 2000 ||
+          !!options.trim() && !["enum","enumlist"].includes(type)))) return null;
     return {tables:[],conversion:{table,column,type,ref,...(options ? {options:options.trim()} : {})}};
   }
   if (!tables.length && !changes.length && !rawViews.length && !rawActions.length) return null;
@@ -91,9 +141,14 @@ export function aiDataDesign(value: unknown, existing: ReadonlySet<string>, visi
     const ref = column.ref ?? null;
     if (column.type === "ref" ? typeof ref !== "string" || !names.has(ref) && !visible.has(ref) : ref !== null) return null;
     const formula = column.formula;
+    if (column.options != null && (!["enum","enumlist"].includes(column.type) ||
+        typeof column.options !== "string" || column.options.length > 2000)) return null;
+    const options = typeof column.options === "string"
+      ? [...new Set(column.options.split(",").map(value=>value.trim()).filter(Boolean))].join(",") : undefined;
+    if (column.type === "enumlist" && !options && !formula) return null;
     if (formula != null && (typeof formula !== "string" || !formula.trim() || formula.length > 4000 || column.required)) return null;
     return { name: column.name, label: column.label.trim(), type: column.type, required: column.required, ref,
-      ...(formula ? {formula:formula.trim()} : {}) };
+      ...(formula ? {formula:formula.trim()} : {}), ...(options ? {options} : {}) };
   };
   const result: AiDataDesign["tables"] = [];
   for (const table of tables) {

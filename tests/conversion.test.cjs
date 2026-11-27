@@ -9,6 +9,37 @@ function table(db,name,columns,rows=[]){db.prepare('INSERT INTO _tables(name,lab
 }
 const fixture=()=>{const db=new Database(':memory:');initializeDatabase(db,':memory:');return db;};
 const text={name:'value',label:'ค่า',type:'text'},target=type=>({...text,type});
+test('EnumList option edits check every selected value and retain the saved selections',()=>{
+ const db=fixture();
+ try {
+  const selection='["Waiting","Done"]';
+  table(db,'statuses',[{...text,type:'enumlist',options:'Waiting,Done'}],[{value:selection}]);
+  const request=options=>({column:'value',mode:'replace',target:{type:'enumlist',options}});
+  const blocked=previewConversion(db,'statuses',request('Waiting,Working'));
+  assert.equal(blocked.allowed,false);
+  assert.equal(blocked.failed,1);
+  const next=request('Waiting,Working,Done');
+  assert.equal(previewConversion(db,'statuses',next).allowed,true);
+  applyConversion(db,'statuses',next);
+  assert.equal(db.prepare("SELECT options FROM _columns WHERE table_name='statuses' AND name='value'").get().options,'Waiting,Working,Done');
+  assert.equal(db.prepare('SELECT value FROM t_statuses').get().value,selection);
+ }finally{db.close();}
+});
+test('Enum option edits preview existing rows before replacing the option list',()=>{
+ const db=fixture();
+ try {
+  table(db,'statuses',[{...text,type:'enum',options:'Waiting,Done'}],[{value:'Waiting'}]);
+  const request=options=>({column:'value',mode:'replace',target:{type:'enum',options}});
+  assert.equal(previewConversion(db,'statuses',request('Done')).allowed,false);
+  const next=request('Waiting,Working,Done');
+  const report=previewConversion(db,'statuses',next);
+  assert.equal(report.allowed,true,JSON.stringify(report));
+  assert.equal(db.prepare("SELECT options FROM _columns WHERE table_name='statuses' AND name='value'").get().options,'Waiting,Done');
+  applyConversion(db,'statuses',next);
+  assert.equal(db.prepare("SELECT options FROM _columns WHERE table_name='statuses' AND name='value'").get().options,'Waiting,Working,Done');
+  assert.equal(db.prepare('SELECT value FROM t_statuses').get().value,'Waiting');
+ }finally{db.close();}
+});
 test('app-scoped TEXT to EnumList preview ignores unrelated inaccessible tables without reading their data',()=>{
  const d=fixture(),{withDatabase,db}=require('../.test-build/db'),{withApplication}=require('../.test-build/application-context'),{runAuthorized,accessFor}=require('../.test-build/permissions');
  try{table(d,'inspection_groups',[text]);table(d,'unrelated_private',[text],[{value:'private fixture'}]);const owner={id:1,name:'Owner',email:'owner@example.test',role:'owner'};withDatabase(d,()=>withApplication({id:'default',datasets:{inspection_groups:{read:true,create:true,update:true,delete:true}}},()=>runAuthorized(owner,accessFor(owner),()=>{

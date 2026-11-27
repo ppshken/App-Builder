@@ -25,11 +25,13 @@ export default function MapView({rows,d,onOpen,dataView,dataViewLabel}:{rows:Dat
     const content=document.createElement('span');content.className='map-marker-shape shape-'+d.map_marker;
     const inner=document.createElement('span');inner.className='map-marker-content';inner.textContent=d.map_marker==='number'?String(index+1):'';content.append(inner);
     const size=d.map_marker_size*2,marker=L.marker([p.lat,p.lng],{title:p.label,keyboard:true,icon:L.divIcon({className:'map-marker-icon',html:content,iconSize:[size,size],iconAnchor:d.map_marker==='pin'?[size/2,size]:[size/2,size/2],popupAnchor:[0,-size/2]})});
+    let loadPhoto:(()=>void)|undefined;
     const popup=document.createElement('div');popup.className='map-popup modern-map-popup';
-    const photo=p.row[d.map_image||''];if(typeof photo==='string'&&/^\/api\/images\/[a-f0-9-]{36}$/.test(photo)){const photoButton=document.createElement('button');photoButton.type='button';photoButton.className='map-popup-photo';photoButton.setAttribute('aria-label','ดูภาพเต็ม '+p.label);const image=document.createElement('img');image.src=appResourceUrl(photo,application);image.alt=p.label;photoButton.append(image);photoButton.addEventListener('click',()=>callbacks.current.openImage(photo,p.label));popup.append(photoButton);}
+    const photo=p.row[d.map_image||''];if(typeof photo==='string'&&/^\/api\/images\/[a-f0-9-]{36}$/.test(photo)){const photoButton=document.createElement('button');photoButton.type='button';photoButton.className='map-popup-photo';photoButton.setAttribute('aria-label','ดูภาพเต็ม '+p.label);const image=document.createElement('img');image.decoding="async";loadPhoto=()=>{image.src=appResourceUrl(photo,application);};image.alt=p.label;photoButton.append(image);photoButton.addEventListener('click',()=>callbacks.current.openImage(photo,p.label));popup.append(photoButton);}
     const title=document.createElement('button');title.type='button';title.className='map-popup-title';title.textContent=p.label||String(p.row.id);title.addEventListener('click',()=>callbacks.current.onOpen(p.row));popup.append(title);
     if(d.map_show_coordinates){const coordinates=document.createElement('small');coordinates.textContent=p.lat.toFixed(5)+', '+p.lng.toFixed(5);popup.append(coordinates);}
     const detail=document.createElement('button');detail.type='button';detail.className='map-popup-detail';detail.textContent='ดูรายละเอียด';detail.addEventListener('click',()=>callbacks.current.onOpen(p.row));popup.append(detail);
+    if(loadPhoto)marker.once("popupopen",loadPhoto);
     marker.bindPopup(popup).bindTooltip(Object.assign(document.createElement('span'),{textContent:p.label})).on('click',()=>setSelected(p.row.id)).addTo(m);marker.getElement()?.setAttribute('aria-label','ตำแหน่ง '+p.label);markers.current.set(p.row.id,marker);
    }
    const showAll=()=>{if(points.length)m.fitBounds(L.latLngBounds(points.map(p=>[p.lat,p.lng])),{padding:[32,32],maxZoom:d.map_zoom,animate:false});else m.setView([13.7563,100.5018],6,{animate:false});};fit.current=showAll;if(d.map_fit)showAll();
@@ -37,7 +39,8 @@ export default function MapView({rows,d,onOpen,dataView,dataViewLabel}:{rows:Dat
   }).catch(()=>{if(!cancelled)setError('เปิดแผนที่ไม่ได้ กรุณาลองใหม่');});
   return()=>{cancelled=true;observer?.disconnect();instance?.remove();if(map.current===instance)map.current=null;markers.current.clear();fit.current=()=>{};};
  },[points,d.map_zoom,d.map_fit,d.map_scroll_zoom,d.map_marker,d.map_marker_size,d.map_image,d.map_show_coordinates,application,retry]);
- useEffect(()=>{for(const [id,marker] of markers.current)marker.getElement()?.setAttribute('data-selected',String(selected===id));},[selected,ready]);
+ const previousSelected=useRef<number|null>(null);
+ useEffect(()=>{if(previousSelected.current!==null)markers.current.get(previousSelected.current)?.getElement()?.setAttribute('data-selected','false');if(selected!==null)markers.current.get(selected)?.getElement()?.setAttribute('data-selected','true');previousSelected.current=selected;},[selected,ready]);
  function focusPoint(p:typeof points[number]){setSelected(p.row.id);const m=map.current;if(!m)return;const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;m.setView([p.lat,p.lng],Math.max(m.getZoom(),d.map_zoom),{animate:!reduced,duration:.25});markers.current.get(p.row.id)?.openPopup();}
  return <section className={'map-view modern-map layout-'+d.map_layout+' map-style-'+d.map_style} style={{'--map-height':d.map_height+'px','--map-radius':d.map_radius+'px','--map-marker-color':d.map_marker_color||'var(--accent)','--map-marker-size':d.map_marker_size*2+'px'} as CSSProperties} aria-label="ข้อมูลแผนที่">
   {d.map_show_summary&&<div className="map-summary"><span className="map-summary-count"><Icon name="map" width="16" height="16"/>{points.length.toLocaleString()} จุด</span>{rows.length>points.length&&<span>ไม่มีพิกัดที่ใช้ได้ {rows.length-points.length} รายการ</span>}</div>}

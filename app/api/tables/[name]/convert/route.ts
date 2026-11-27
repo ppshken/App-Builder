@@ -27,6 +27,8 @@ async function handlePOST(req:Request,{params}:{params:{name:string}}){try{
  const source=columnsOf(params.name).find(c=>c.name===body.column);
  if(req.headers.has("x-nocode-design-workspace")&&source?.type==="ref"&&body.target?.type==="ref"&&body.ref_match==="key")return bad("การย้าย Ref ผ่าน Copilot รองรับการจับคู่ด้วย id เดิม",400);
  if(body.source_type&&source?.type!==body.source_type)return bad("ชนิดคอลัมน์เปลี่ยนไปแล้ว กรุณาโหลดหน้าตารางใหม่ก่อนตรวจการแปลง",409);
+ if(body.source_options!==undefined&&(!source||typeof body.source_options!=="string"||body.source_options!==(source.options??"")))
+  return bad("ตัวเลือกคอลัมน์เปลี่ยนแล้ว กรุณาปิดและเปิดหน้าตรวจอีกครั้งเพื่อใช้ตัวเลือกล่าสุด",409);
  if(pending.size>=30)throw Error("มีผลตรวจรอยืนยันหลายรายการ กรุณาปิดรายการเก่าหรือรอ 15 นาที");
  const request:ConversionRequest={column:body.column,mode:body.mode,target:body.target,ref_match:body.ref_match},fingerprint=conversionFingerprint(db,params.name,request),report=previewConversion(db,params.name,request);
  const token=report.allowed?randomUUID():"";if(token)pending.set(token,{table:params.name,path:conversionScope(),request,fingerprint,expires:Date.now()+15*60*1000});

@@ -1,7 +1,7 @@
 import {dataStyleFor,type DataStyle,type ValueStyle} from "./data-decoration";
 import {db, columnsOf, tableExists} from "./db";
 import {labelTextColumn, labelImageColumn, calculateRow, type Column} from "./columns";
-import {visibleRawRows} from "./row-access";
+import {visibleRawRows,hasRowRule} from "./row-access";
 import {expressionContext} from "./expression-context";
 import {canRead} from "./permissions";
 import {references} from "./expression";
@@ -36,13 +36,19 @@ export function loadReferenceLabels(cols: Column[], rows: Row[], now: Date, emai
     if (ids.length) {
       const targetCols = columnsOf(target), label = labelTextColumn(targetCols), image = labelImageColumn(targetCols);
       const views=db.prepare("SELECT display_json FROM _views WHERE table_name=? AND kind IN ('detail','list','table') ORDER BY CASE WHEN kind='detail' AND position='ref' THEN 0 WHEN kind='detail' THEN 1 WHEN position='primary' THEN 2 ELSE 3 END,pos,name").all(target) as {display_json:string}[];
-      const decoration=views.map(v=>JSON.parse(v.display_json).data_styles?.[label]).find(Boolean) as DataStyle|undefined;
+      let decoration:DataStyle|undefined;
+      for(const view of views){
+        decoration=JSON.parse(view.display_json).data_styles?.[label];
+        if(decoration)break;
+      }
       const decorationNames=(decoration?.rules||[]).flatMap(rule=>references(rule.condition)).filter(name=>name!=='_THIS');
       const selected = referenceLabelColumns(targetCols, [label, ...(image ? [image] : []),...decorationNames]);
+      const fields=hasRowRule(target)?'*':['id',...selected.filter(column=>!column.is_virtual).map(column=>column.name)]
+        .map(name=>'"'+name.replaceAll('"','""')+'"').join(',');
       // Read each target once per batch, including full raw rows for row policies.
       for (let i = 0; i < ids.length; i += 500) {
         const batch = ids.slice(i, i + 500);
-        const raw = db.prepare(`SELECT * FROM "t_${target}" WHERE id IN (${batch.map(() => "?").join(",")})`).all(...batch) as Row[];
+        const raw = db.prepare(`SELECT ${fields} FROM "t_${target}" WHERE id IN (${batch.map(() => "?").join(",")})`).all(...batch) as Row[];
         for (const record of visibleRawRows(target, raw)) {
           const {row} = calculateRow(selected, record, false, now, true, email, context);
           labels.set(record.id, {label: row[label], image: image ? row[image] ?? null : null,...(decoration?{decoration:dataStyleFor(label,row,decoration,{...context,userEmail:email}).appearance}:{})});

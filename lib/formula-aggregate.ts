@@ -7,10 +7,19 @@ import {hasRowRule} from './row-access';
 type Node=ReturnType<typeof parseExpression>;
 export type AggregateReader=(op:'COUNT'|'SUM',input:Node,outer:(name:string)=>Value)=>number|undefined;
 export function formulaAggregate(database:Database.Database,columnsOf:(table:string)=>Column[],exists:(table:string)=>boolean,email:string):AggregateReader{
- const valid=new Map<string,boolean>(),indexes=new Map<string,boolean>(),results=new Map<string,number>();
+ const valid=new Map<string,boolean>(),indexes=new Map<string,boolean>(),results=new Map<string,number>(),hasRows=new Map<string,boolean>();
+ const existingTables=new Map<string,boolean>();
+ const statements=new Map<string,Database.Statement<unknown[]>>();
+ const prepare=(sql:string)=>{
+  let statement=statements.get(sql);
+  if(!statement){statement=database.prepare(sql);if(statements.size>=128)statements.delete(statements.keys().next().value!);statements.set(sql,statement);}
+  return statement;
+ };
  return (op,input,outer)=>{
   const select=input.kind==='call'&&input.name==='SELECT'?input:null,source=select?select.args[0]:input;
-  if(source.kind!=='table'||!IDENT.test(source.table)||!exists(source.table))return;
+  if(source.kind!=='table'||!IDENT.test(source.table))return;
+  if(!existingTables.has(source.table))existingTables.set(source.table,exists(source.table));
+  if(!existingTables.get(source.table))return;
   const table=source.table;assertTablePermission(table,'read');if(hasRowRule(table,database))return;
   if(select?.args[2]&&(select.args[2].kind!=='literal'||![false,0,null,''].includes(select.args[2].value as any)))return;
   const predicate=select?.args[1]||{kind:'literal',value:true,start:0,end:0} as Node;
@@ -45,7 +54,8 @@ export function formulaAggregate(database:Database.Database,columnsOf:(table:str
    }
    if(!valid.get(validityKey))return;
    // On empty datasets the interpreter never resolves outer fields.
-   if(!database.prepare('SELECT 1'+from+' LIMIT 1').get())return 0;
+   if(!hasRows.has(table))hasRows.set(table,!!database.prepare('SELECT 1'+from+' LIMIT 1').get());
+   if(!hasRows.get(table))return 0;
    const literal=(value:Value):Node=>{if(Array.isArray(value)||typeof value==='number'&&!Number.isFinite(value))throw Error('Unsupported aggregate value');return {kind:'literal',value,start:0,end:0};};
    const replace=(n:Node):Node=>n.kind==='outer'?literal(outer(n.name)):n.kind==='literal'?literal(n.value):n.kind==='binary'?{...n,left:replace(n.left),right:replace(n.right)}:n;
    const plan=sliceSqlNode(replace(predicate),cols,email,true);if(!plan)return;
@@ -55,10 +65,10 @@ export function formulaAggregate(database:Database.Database,columnsOf:(table:str
    if(op==='SUM'){
     // Floating summation order/rounding differs between engines. Restrict the
     // native path to integers whose absolute total stays exactly representable.
-    const stats=database.prepare('SELECT max(CASE WHEN '+value+' IS NOT NULL AND '+value+"<>'' AND "+value+'<>CAST('+value+' AS INTEGER) THEN 1 ELSE 0 END) fractional,total(abs('+value+')) magnitude'+from+where).get(...plan.args) as {fractional:number;magnitude:number};
+    const stats=prepare('SELECT max(CASE WHEN '+value+' IS NOT NULL AND '+value+"<>'' AND "+value+'<>CAST('+value+' AS INTEGER) THEN 1 ELSE 0 END) fractional,total(abs('+value+')) magnitude'+from+where).get(...plan.args) as {fractional:number;magnitude:number};
     if(stats.fractional||!Number.isFinite(stats.magnitude)||stats.magnitude>Number.MAX_SAFE_INTEGER)return;
    }
-   const result=database.prepare('SELECT '+(op==='COUNT'?'count(nullif('+value+",''))":'coalesce(sum('+value+'),0)')+' value'+from+where).get(...plan.args) as {value:number};
+   const result=prepare('SELECT '+(op==='COUNT'?'count(nullif('+value+",''))":'coalesce(sum('+value+'),0)')+' value'+from+where).get(...plan.args) as {value:number};
    if(typeof result.value!=='number'||!Number.isFinite(result.value))return;
    if(resultKey.length<=8000){if(results.size>=512)results.delete(results.keys().next().value!);results.set(resultKey,result.value);}return result.value;
   }catch{return;}// Unsupported storage or outer resolution: preserve interpreter errors.

@@ -37,7 +37,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
     const cached=scope||rowIds?cache.get(cacheKey):tables[name];
     // For an identical Related row scope, previously validated columns already
     // include their dependencies. Avoid rebuilding that plan for each row use.
-    if(scope&&cached&&requested.every(c=>cached.columns.includes(c))){if(metrics)metrics.cacheHits++;return cached;}
+    if((scope||rowIds)&&cached&&requested.every(c=>cached.columns.includes(c))){if(metrics)metrics.cacheHits++;return cached;}
     const loadingKey=scope?cacheKey+':'+[...new Set(requested)].sort().join(','):cacheKey;
     if (!tableExists(name)) throw new Error(`ไม่พบตาราง ${name} กรุณาตรวจชื่อในระบบ`);
     const cols = columnsOf(name), key = cols.find(c=>c.is_key)?.name || "id";
@@ -57,7 +57,7 @@ export function expressionContext(now = new Date(), userEmail = "", database:Dat
       const ref=links[0].name;if(!IDENT.test(ref))throw Error('ชื่อคอลัมน์ Ref ไม่ถูกต้อง');
       if(scope.parentIds.length>500)throw Error('Related อ่านได้ครั้งละไม่เกิน 500 แถวแม่');
       const ids=[...new Set(scope.parentIds.map(Number).filter(id=>Number.isSafeInteger(id)&&id>0))];
-      raw=scope.includeBlank?database.prepare('SELECT '+fields+' FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id').all() as Record<string,any>[]:ids.length?database.prepare('SELECT * FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id').all(JSON.stringify(ids)) as Record<string,any>[]:[];
+      raw=scope.includeBlank?database.prepare('SELECT '+fields+' FROM "t_'+name+'" WHERE "'+ref+'" IS NULL OR "'+ref+'"='+"''"+' ORDER BY id').all() as Record<string,any>[]:ids.length?database.prepare('SELECT '+fields+' FROM "t_'+name+'" WHERE "'+ref+'" IN (SELECT value FROM json_each(?)) ORDER BY id').all(JSON.stringify(ids)) as Record<string,any>[]:[];
     }else if(rowIds)raw=rowIds.length?database.prepare(`SELECT ${fields} FROM "t_${name}" WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`).all(JSON.stringify(rowIds)) as Record<string,any>[]:[];
     else raw = database.prepare(`SELECT ${fields} FROM "t_${name}" ORDER BY id`).all() as Record<string,any>[];
     loading.add(loadingKey);

@@ -51,7 +51,7 @@ test('Ref labels batch shared targets and skip unrelated formulas and List looku
   assert.equal(rows[0].second__label, 'PRODUCT 600 · 600');
   assert.equal(rows[0].first__image, image);
   assert.equal(rows[0].second__image, null);
-  assert.equal(queries.filter(sql => sql.startsWith('SELECT * FROM "t_products"')).length, 2);
+  assert.equal(queries.filter(sql => sql.startsWith('SELECT ') && sql.includes(' FROM "t_products" WHERE id IN')).length, 2);
   assert.equal(queries.filter(sql => sql.startsWith('SELECT * FROM _columns')).length, 1);
   assert.equal(formulaReads, 0);
   assert.ok(queries.every(sql => !sql.includes('t_extras')));
@@ -138,7 +138,7 @@ test('Inline pages batch repeated Ref labels once and retain paging, images and 
   assert.equal(result.rows[0].values.first__label, 'PRODUCT 1 · 1');
   assert.equal(result.rows[0].values.first__image, image);
   assert.equal(result.rows[0].values.second__label, 'PRODUCT 2 · 2');
-  assert.equal(queries.filter(sql => sql.startsWith('SELECT * FROM "t_products"')).length, 1);
+  assert.equal(queries.filter(sql => sql.startsWith('SELECT ') && sql.includes(' FROM "t_products" WHERE id IN')).length, 1);
   assert.equal(queries.filter(sql => sql.includes('FROM _columns') && sql.includes("'products'")).length, 1);
   query.set('page', '3');
   result = listPage('lines', query);

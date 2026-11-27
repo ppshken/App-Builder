@@ -8,6 +8,8 @@ type Props=React.ComponentProps<typeof RuntimeTable>&{views:AppView[];dataRevisi
 function Dashboard(props:Props){
  const v=props.runtimeView!,{settings}=useAppSettings(),d=displaySettings(v.display,settings.display_defaults.dashboard),layout=useDashboardLayout(d),[tab,setTab]=useState(''),[search,setSearch]=useState('');
  const children=d.dashboard_views.flatMap(name=>{const found=props.views.find(x=>x.name===name&&['list','table','map','chart','calendar'].includes(x.kind)&&x.position!=='inline');return found?[found]:[];});
+ const [settledSearch,setSettledSearch]=useState(search);
+ useEffect(()=>{const timer=setTimeout(()=>setSettledSearch(search),250);return ()=>clearTimeout(timer);},[search]);
  const selected=children.find(x=>x.name===tab)||children[0];
  useEffect(()=>props.onReady?.(),[props.onReady]);useEffect(()=>{props.onScreenChange?.(v.name,false);},[v.name,props.onScreenChange]);
  return <section ref={layout.ref} className="dashboard-view" aria-label={v.label} data-dashboard-layout={layout.mode} data-dashboard-columns={layout.columns}>
@@ -17,7 +19,7 @@ function Dashboard(props:Props){
  <div className={'dashboard-panels layout-'+layout.mode} style={{gap:d.dashboard_gap,gridTemplateColumns:`repeat(${layout.columns},minmax(0,1fr))`,height:(!layout.mobile||layout.mode==='tabs')&&layout.availableHeight>0?layout.availableHeight:undefined,gridAutoRows:layout.mode==='tabs'?'minmax(0,1fr)':!layout.mobile?`minmax(${d.dashboard_height}px,1fr)`:d.dashboard_height+'px'} as React.CSSProperties}>
  {(layout.mode==='tabs'?(selected?[selected]:[]):children).map(child=>{const span=dashboardPanelSpan(d.dashboard_panel_sizes[child.name],layout);return <article className="dashboard-panel" key={child.name} data-dashboard-panel={child.name} style={{height:'100%',gridColumn:'span '+span.columns,gridRow:'span '+span.rows}}>
  <header className="dashboard-panel-heading"><button type="button" className="dashboard-panel-title" onClick={()=>props.onNavigate?.(child)} title={child.label}>{child.label}</button><button type="button" className="icon-button dashboard-panel-expand" aria-label={`เปิด View ${child.label}`} title={`เปิดหน้า ${child.label}`} onClick={()=>props.onNavigate?.(child)}><Icon name="expand" width="18" height="18"/></button></header>
- <div className="dashboard-panel-body"><RuntimeViewRenderer {...props} dashboardSearch={search} onNavigate={(next,id,values)=>props.onNavigate?.(next,id,values,v)} onOpenReference={(table,id,kind)=>props.onOpenReference?.(table,id,kind,v)} table={child.table_name} runtimeView={child} initialRow={undefined} initialValues={undefined} onReady={undefined} registerNavigationGuard={undefined} onScreenChange={undefined}/></div>
+ <div className="dashboard-panel-body"><RuntimeViewRenderer {...props} dashboardSearch={settledSearch} onNavigate={(next,id,values)=>props.onNavigate?.(next,id,values,v)} onOpenReference={(table,id,kind)=>props.onOpenReference?.(table,id,kind,v)} table={child.table_name} runtimeView={child} initialRow={undefined} initialValues={undefined} onReady={undefined} registerNavigationGuard={undefined} onScreenChange={undefined}/></div>
  </article>;})}</div>
  </section>;
 }

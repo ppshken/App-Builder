@@ -146,7 +146,7 @@ function RuntimeTableContent({ dataRefreshReceipt,realtimeActive=true,mapScope, 
   if(refreshNeeded.list)refreshEpoch.current.list++;if(refreshNeeded.detail)refreshEpoch.current.detail++;
   refreshEpoch.current.stamp={data:externalDataRevision,realtime:realtimeRevision};
   const listDataRevision=refreshEpoch.current.list,detailDataRevision=refreshEpoch.current.detail;
-  useEffect(()=>{const timer=setTimeout(()=>{setSearchTerm(dashboardSearch ?? q);setPage(1);},(dashboardSearch ?? q)?200:0);return()=>clearTimeout(timer);},[q,dashboardSearch]);
+  useEffect(()=>{const timer=setTimeout(()=>{setSearchTerm(dashboardSearch ?? q);setPage(1);},dashboardSearch!==undefined?0:q?200:0);return()=>clearTimeout(timer);},[q,dashboardSearch]);
   const [bulkSelection,setBulkSelection]=useState<BulkSelection>({}),[bulkBusy,setBulkBusy]=useState(false);
   useEffect(()=>{const blocked=new Set(rows.filter(r=>!(rights.update&&r.__permissions?.update!==false||rights.delete&&r.__permissions?.delete!==false)).map(r=>String(r.id)));if(blocked.size)setBulkSelection(old=>Object.fromEntries(Object.entries(old).filter(([id])=>!blocked.has(id))));},[rows]);
   const bulkConfig=runtimeView?.display?.bulk_actions;

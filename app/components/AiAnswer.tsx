@@ -29,7 +29,7 @@ export default function AiAnswer({ answer }: { answer: string }) {
       continue;
     }
     const ordered = /^(\d+)[.)]\s+/;
-    const unordered = /^[-*+]\s+/;
+    const unordered = /^[-*+•]\s+/;
     const marker = ordered.test(line) ? ordered : unordered.test(line) ? unordered : null;
     if (marker) {
       const items = [line.replace(marker, "")];

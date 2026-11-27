@@ -39,7 +39,7 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
   const invalid={...aiPlan,design:{...aiPlan.design,changes:[...aiPlan.design.changes,
     {kind:'add_column',table:'dev_rows',column:col('bad_list','enumlist')},
   ]}};
-  await api('/api/ai/design','POST',invalid,cookie,400);
+  await api('/api/ai/design','POST',invalid,cookie,409);
   assert.equal(development.prepare("SELECT count(*) n FROM _tables WHERE name IN ('ai_parts','ai_jobs')").get().n,0);
   assert.equal(development.prepare("SELECT count(*) n FROM _columns WHERE name='ai_notes'").get().n,0);
   const preview=(await api('/api/ai/design?preview=1','POST',aiPlan,cookie)).review;
@@ -87,7 +87,8 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
   ]}},cookie,400);
   assert.equal(development.prepare("SELECT count(*) n FROM _columns WHERE name IN ('rollback_input','ai_double')").get().n,0);
   const uiDesign={tables:[],views:[{label:'AI Notes View',table:'dev_rows',kind:'table'}],
-    changes:[{kind:'add_column',table:'dev_rows',column:col('ui_notes')},calculated]};
+    changes:[{kind:'add_column',table:'dev_rows',column:col('ui_notes')},
+      {kind:'add_column',table:'dev_rows',column:{...col('work_tags'),type:'enumlist',options:'Electrical,Engine,Body'}},calculated]};
   await context.addCookies([{name:'nocode_draft',value:draft.id,url:base}]);
   await page.reload();
   await expect(page.locator('.draft-banner')).toBeVisible();
@@ -111,24 +112,45 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
   await chat.getByRole('textbox',{name:'ข้อความถึง AI Copilot'}).fill('เพิ่มคอลัมน์ ui_notes ในตาราง dev_rows');
   await chat.getByRole('button',{name:'ส่ง',exact:true}).click();
   await expect(chat.getByText('[qty] * 2',{exact:true})).toBeVisible();
+  await expect(chat.getByText('ตัวเลือก · Electrical,Engine,Body',{exact:true})).toBeVisible();
   await expect(chat.getByText(/เพิ่ม View AI Notes View/)).toBeVisible();
-  assert.equal(sentDesignMode,'data_design');
+  assert.equal(sentDesignMode,'ask');
   await chat.getByRole('button',{name:'ตรวจแผนและนำไปใช้'}).click();
   assert.equal(development.prepare("SELECT count(*) n FROM _columns WHERE name='ui_notes'").get().n,0);
   await chat.getByRole('button',{name:'อนุมัติแผน'}).click();
   await chat.getByRole('button',{name:'ยืนยันและนำไปใช้'}).click();
   await expect(chat.getByText('นำแผนไปใช้ในพื้นที่พัฒนาแล้ว')).toBeVisible();
   assert.equal(development.prepare("SELECT count(*) n FROM _columns WHERE name='ui_notes'").get().n,1);
+  assert.deepEqual(development.prepare("SELECT type,options FROM _columns WHERE table_name='dev_rows' AND name='work_tags'").get(),
+    {type:'enumlist',options:'Electrical,Engine,Body'});
   assert.deepEqual(development.prepare("SELECT is_virtual,virtual_expr FROM _columns WHERE name='ai_double'").get(),{is_virtual:1,virtual_expr:'[qty] * 2'});
   assert.ok(!development.pragma('table_info(t_dev_rows)').some(column=>column.name==='ai_double'));
   const convert={tables:[],conversion:{table:'dev_rows',column:'qty',type:'decimal',ref:null}};
   await api('/api/ai/design','POST',{workspace:draft.id,design:convert},cookie,409);
   await api('/api/tables/dev_rows/convert','POST',{column:'qty',mode:'replace',target:{type:'decimal'}},owner,409,{'x-nocode-design-workspace':draft.id});
   await page.unroute('**/api/ai/assist');
-  await page.route('**/api/ai/assist',route=>route.fulfill({json:{answer:'Convert notes',designWorkspace:draft.id,dataDesign:{...convert,conversion:{...convert.conversion,column:'ui_notes'}}}}));
-  await chat.getByRole('textbox',{name:'ข้อความถึง AI Copilot'}).fill('Convert notes to decimal');
-  await chat.getByRole('button',{name:'ออกแบบโครงสร้างข้อมูล'}).click();
-  await chat.getByRole('button',{name:'เปิดหน้าตรวจการแปลง'}).click();
+  let followUp;
+  await page.route('**/api/ai/assist',route=>{
+    followUp=route.request().postDataJSON();
+    return route.fulfill({json:{answer:'Review the two stages',designWorkspace:draft.id,
+      dataDesign:{tables:[],views:[{table:'dev_rows',label:'AI Staged Notes',kind:'table'}]},
+      nextConversion:{...convert.conversion,column:'ui_notes'}}});
+  });
+  await chat.getByRole('textbox',{name:'ข้อความถึง AI Copilot'}).fill('แล้วเปลี่ยนช่องนั้นเป็นทศนิยมให้หน่อย');
+  await chat.getByRole('button',{name:'ส่ง',exact:true}).click();
+  await expect(chat.getByText(/เพิ่ม View AI Staged Notes/)).toBeVisible();
+  const nextStage=chat.getByRole('button',{name:'เปิดหน้าตรวจการแปลงขั้นถัดไป'});
+  await expect(nextStage).toHaveCount(0);
+  assert.equal(followUp.mode,'ask');
+  assert.match(followUp.history.at(-1).answer,/dev_rows/);
+  assert.match(followUp.history.at(-1).answer,/Builder ยืนยัน/);
+  await chat.getByRole('button',{name:'ตรวจแผนและนำไปใช้'}).click();
+  await chat.getByRole('button',{name:'อนุมัติแผน'}).click();
+  await chat.getByRole('button',{name:'ยืนยันและนำไปใช้'}).click();
+  await expect(nextStage).toBeVisible();
+  await expect(chat.getByText('บันทึกขั้นแรกในพื้นที่พัฒนาแล้ว',{exact:true})).toBeVisible();
+  assert.equal(development.prepare("SELECT type FROM _columns WHERE name='ui_notes'").get().type,'text');
+  await nextStage.click();
   const conversionDialog=page.getByRole('dialog',{name:'แปลงข้อมูล ui_notes'});
   await conversionDialog.getByRole('button',{name:'ตรวจการแปลง',exact:true}).click();
   await expect(conversionDialog.getByText('พร้อมแปลงข้อมูล',{exact:true})).toBeVisible();
@@ -137,6 +159,31 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
   await conversionDialog.getByRole('button',{name:'ยืนยันแปลงชนิดข้อมูล'}).click();
   await expect(chat.getByText(/แปลงชนิดข้อมูลเรียบร้อยแล้ว/)).toBeVisible();
   assert.equal(development.prepare("SELECT type FROM _columns WHERE name='ui_notes'").get().type,'decimal');
+  await api('/api/tables','POST',{name:'choice_preview',label:'Choice preview',columns:[{name:'status',label:'Status',type:'enum',options:'Waiting,Done,Cancelled'}]},cookie);
+  await api('/api/data/choice_preview','POST',{status:'Done'},cookie);
+  await page.unroute('**/api/ai/assist');
+  await page.route('**/api/ai/assist',route=>route.fulfill({json:{answer:'Review status options',designWorkspace:draft.id,
+    enumAdditions:['Parts'],enumRemovals:['Done','Cancelled'],
+    dataDesign:{tables:[],conversion:{table:'choice_preview',column:'status',type:'enum',ref:null,options:'Waiting,Parts'}}}}));
+  await chat.getByRole('textbox',{name:'ข้อความถึง AI Copilot'}).fill('เพิ่ม Parts และลบ Done กับ Cancelled');
+  await chat.getByRole('button',{name:'ส่ง',exact:true}).click();
+  await chat.getByRole('button',{name:'เปิดหน้าตรวจการแปลง',exact:true}).click();
+  const choiceDialog=page.getByRole('dialog',{name:'แปลงข้อมูล Status'});
+  const optionSummary=choiceDialog.getByRole('region',{name:'สรุปการเปลี่ยนตัวเลือก'});
+  await expect(optionSummary).toContainText('เพิ่ม Parts');
+  await expect(optionSummary).toContainText('นำออก Done, Cancelled');
+  await choiceDialog.getByRole('button',{name:'ตรวจการแปลง',exact:true}).click();
+  await expect(choiceDialog.getByText('ยังแปลงไม่ได้',{exact:true})).toBeVisible();
+  await choiceDialog.getByLabel('ตัวเลือก คั่นด้วยจุลภาค').fill('Waiting,Done,Parts');
+  await expect(optionSummary).toContainText('นำออก Cancelled');
+  await choiceDialog.getByRole('button',{name:'ตรวจการแปลง',exact:true}).click();
+  await expect(choiceDialog.getByText('พร้อมแปลงข้อมูล',{exact:true})).toBeVisible();
+  await choiceDialog.getByLabel('พิมพ์ แปลง เพื่อยืนยัน').fill('แปลง');
+  await choiceDialog.getByRole('button',{name:'ยืนยันแปลงชนิดข้อมูล'}).click();
+  await expect(choiceDialog).toHaveCount(0);
+  assert.equal(development.prepare('SELECT status FROM t_choice_preview').get().status,'Done');
+  assert.equal(development.prepare("SELECT options FROM _columns WHERE table_name='choice_preview' AND name='status'").get().options,'Waiting,Done,Parts');
+  await api('/api/tables/choice_preview','DELETE',undefined,cookie);
   await api('/api/data/ai_jobs','POST',{},cookie);
   const oldTarget=await api('/api/data/ai_jobs','POST',{},cookie);
   const child=await api('/api/data/ai_parts','POST',{job:oldTarget.id},cookie);
@@ -325,6 +372,16 @@ const cookieFor=(draft,source=owner)=>source+'; nocode_draft='+draft.id;
   await context.clearCookies({name:'nocode_draft'});
   await api('/api/tables','POST',{name:'new_dev_table',label:'New development table',columns:[{name:'title',label:'Title',type:'text'},{name:'amount',label:'Amount',type:'number'}]},cookie);
   assert.ok((await api('/api/tables','GET',undefined,cookie)).some(t=>t.name==='new_dev_table'),'new table persists across requests');assert.ok(!(await api('/api/tables')).some(t=>t.name==='new_dev_table'));
+  await api('/api/tables','POST',{name:'choice_race',label:'Choice race',columns:[{name:'status',type:'enum',options:'Waiting,Done'}]},cookie);
+  const choiceUrl='/api/tables/choice_race/convert';
+  const choiceRequest={column:'status',source_type:'enum',source_options:'Waiting',mode:'replace',target:{type:'enum',options:'Waiting,Working'}};
+  const staleOptions=await api(choiceUrl,'POST',choiceRequest,cookie,409,designHeader);
+  assert.match(staleOptions.error,/ตัวเลือกคอลัมน์เปลี่ยนแล้ว/);
+  const currentOptions=await api(choiceUrl,'POST',{...choiceRequest,source_options:'Waiting,Done',
+    target:{type:'enum',options:'Waiting,Done,Working'}},cookie,200,designHeader);
+  assert.equal(currentOptions.report.allowed,true,JSON.stringify(currentOptions.report));
+  await api(choiceUrl,'DELETE',{token:currentOptions.token},cookie,200,designHeader);
+  await api('/api/tables/choice_race','DELETE',undefined,cookie);
   const defaults=await api('/api/data/new_dev_table?defaults=1','GET',undefined,cookie);
   assert.ok(defaults.submission_context);
   const submissionHeaders={'x-nocode-form-submission':defaults.submission_context+'.'+require('node:crypto').randomUUID()};

@@ -3,6 +3,157 @@ const assert = require('node:assert/strict');
 const { AiQuotaError, aiFormulaMeasurement, aiSettingLinks, geminiProvider, openAiProvider, parseAiSuggestion, validateAiFormula } = require('../.test-build/ai-assist');
 const { blankColumn } = require('../.test-build/columns');
 
+test('Text to User accepts unused blank options but rejects a Ref destination or manual choices', () => {
+  const {aiDataDesign} = require('../.test-build/ai-data-design');
+  const names=new Set(['repairs']),editable=new Map([['repairs',new Set(['technician'])]]);
+  const conversion={table:'repairs',column:'technician',type:'user',ref:null,options:''};
+  assert.deepEqual(aiDataDesign({tables:[],conversion},names,names,editable),
+    {tables:[],conversion:{table:'repairs',column:'technician',type:'user',ref:null}});
+  assert.equal(aiDataDesign({tables:[],conversion:{...conversion,ref:'users'}},names,names,editable),null);
+  assert.equal(aiDataDesign({tables:[],conversion:{...conversion,options:'Alice'}},names,names,editable),null);
+});
+
+test('AI relationships distinguish multiple stored Ref paths and omit inaccessible parents', () => {
+  const {aiRelationships} = require('../.test-build/ai-context');
+  const columns = [
+    {...blankColumn(),name:'origin',type:'ref',ref_table:'sites'},
+    {...blankColumn(),name:'destination',type:'ref',ref_table:'sites'},
+    {...blankColumn(),name:'computed',type:'ref',ref_table:'sites',is_virtual:1},
+    {...blankColumn(),name:'secret',type:'ref',ref_table:'private_sites'},
+  ];
+  assert.deepEqual(aiRelationships([{name:'jobs',columns}],new Set(['sites'])),[
+    {childTable:'jobs',refColumn:'origin',parentTable:'sites',sameParentRefCount:2},
+    {childTable:'jobs',refColumn:'destination',parentTable:'sites',sameParentRefCount:2},
+  ]);
+});
+
+test('AI discovers readable child tables for an explicitly named parent', () => {
+  const {selectAiContext,aiContextTerms} = require('../.test-build/ai-context');
+  const catalogue = [...Array.from({length:25},(_,i)=>({name:'table_'+i,label:'Table '+i})),
+    {name:'repairs',label:'Repairs'},{name:'repair_parts',label:'Repair parts'}];
+  const {tables} = selectAiContext(catalogue,name=>name==='repair_parts'
+    ? [{...blankColumn(),name:'repair_id',type:'ref',ref_table:'repairs'}] : [], aiContextTerms('Explain repairs'));
+  assert.deepEqual(tables.slice(0,2).map(table=>table.name),['repairs','repair_parts']);
+  assert.equal(tables.length,20);
+});
+
+test('AI follows accessible Ref destinations when a table is explicitly named', () => {
+  const {selectAiContext,aiContextTerms} = require('../.test-build/ai-context');
+  const catalogue = [...Array.from({length:25},(_,i)=>({name:'table_'+i,label:'Table '+i})),
+    {name:'repairs',label:'Repairs'},{name:'repair_status',label:'Repair status'}];
+  const reads=[];
+  const {tables} = selectAiContext(catalogue,name=>{
+    reads.push(name);
+    return name==='repairs' ? [
+      {...blankColumn(),name:'status_id',type:'ref',ref_table:'repair_status'},
+      {...blankColumn(),name:'private_id',type:'ref',ref_table:'private_status'},
+    ] : [];
+  },aiContextTerms('Explain repairs'));
+  assert.deepEqual(tables.slice(0,2).map(table=>table.name),['repairs','repair_status']);
+  assert.ok(!reads.includes('private_status'));
+  assert.equal(tables.length,20);
+});
+
+test('AI loads more columns for a directly named table while bounding other context', () => {
+  const {selectAiContext,aiContextTerms} = require('../.test-build/ai-context');
+  const catalogue = [{name:'repairs',label:'Repairs'},{name:'parts',label:'Parts'}];
+  const columns = Array.from({length:120},(_,i)=>({...blankColumn(),name:'field_'+i,label:'Field '+i}));
+  const {tables,coverage} = selectAiContext(catalogue,()=>columns,aiContextTerms('Explain repairs'));
+  assert.equal(tables.find(table=>table.name==='repairs').selectedColumns.length,100);
+  assert.equal(tables.find(table=>table.name==='parts').selectedColumns.length,30);
+  assert.equal(coverage.columnsIncluded,130);
+  assert.equal(coverage.columnsAvailableInSelectedTables,240);
+});
+
+test('AI appends choice additions to the latest static options and keeps their order', () => {
+  const {updateAiEnumOptions} = require('../.test-build/ai-data-design');
+  const source = {type:'enumlist',options:'Waiting,On hold,Done'};
+  assert.equal(updateAiEnumOptions(source,[' Done ','Waiting for parts']), 'Waiting,On hold,Done,Waiting for parts');
+  assert.equal(updateAiEnumOptions({...source,ref_table:'statuses'},['New']),null);
+  assert.equal(updateAiEnumOptions(source,['New,Done']),null);
+  assert.equal(updateAiEnumOptions(source,[null]),null);
+  assert.equal(updateAiEnumOptions(source,undefined,[' On hold ','Unknown']),'Waiting,Done');
+  assert.equal(updateAiEnumOptions(source,undefined,['Unknown']),source.options);
+  assert.equal(updateAiEnumOptions(source,undefined,['Waiting','On hold','Done']),null);
+  assert.equal(updateAiEnumOptions(source,['Parts'],[' On hold ']),'Waiting,Done,Parts');
+  assert.equal(updateAiEnumOptions(source,[' Parts '],['Parts']),null);
+});
+
+test('AI recognizes Enum option changes without requiring a new type', () => {
+  const {aiConversionChangesColumn} = require('../.test-build/ai-data-design');
+  const source = {type:'enum',options:'Waiting,Done'};
+  const target = {table:'repairs',column:'status',type:'enum',ref:null};
+  assert.equal(aiConversionChangesColumn(source,target),false);
+  assert.equal(aiConversionChangesColumn(source,{...target,options:'Waiting, Done, Waiting'}),false);
+  assert.equal(aiConversionChangesColumn(source,{...target,options:'Waiting,Working,Done'}),true);
+  assert.equal(aiConversionChangesColumn(source,{...target,options:'Done,Waiting'}),true);
+});
+
+test('AI stages a view and Text-to-Enum conversion with the requested choices', () => {
+  const {splitAiConversionPlan} = require('../.test-build/ai-data-design');
+  const visible = new Set(['repair_requests']);
+  const editable = new Map([['repair_requests',new Set(['status'])]]);
+  const first = {tables:[],views:[{table:'repair_requests',label:'Repair requests',kind:'table'}]};
+  const conversion = {table:'repair_requests',column:'status',type:'enum',ref:null,options:'New,Closed'};
+  assert.deepEqual(splitAiConversionPlan({...first,conversion},visible,visible,editable),{first,next:conversion});
+  assert.equal(splitAiConversionPlan({...first,conversion:{...conversion,ref:'other'}},visible,visible,editable),null);
+  assert.equal(splitAiConversionPlan({...first,conversion,actions:[{table:'repair_requests',name:'close',label:'Close',
+    updates:[{column:'status',formula:'"Closed"'}]}]},visible,visible,editable),null);
+});
+
+test('AI stages a new Ref target before converting an existing column', () => {
+  const {splitAiConversionPlan,aiDataDesign,aiConversionStageConflict} = require('../.test-build/ai-data-design');
+  const existing = new Set(['repair_requests']);
+  const editable = new Map([['repair_requests',new Set(['status'])]]);
+  const proposal = {
+    tables:[{name:'repair_status',label:'Repair status',columns:[{name:'title',label:'Title',type:'text',required:false,ref:null}]}],
+    conversion:{table:'repair_requests',column:'status',type:'ref',ref:'repair_status'},
+  };
+  assert.equal(aiDataDesign(proposal,existing,existing,editable),null);
+  assert.deepEqual(splitAiConversionPlan(proposal,existing,existing,editable),{first:{tables:proposal.tables},next:proposal.conversion});
+  assert.equal(splitAiConversionPlan(proposal,existing,existing,new Map()),null);
+  assert.equal(splitAiConversionPlan({...proposal,conversion:{...proposal.conversion,ref:'other'}},existing,existing,editable),null);
+  const views = [{table:'repair_status',label:'Statuses',kind:'table'}];
+  const actions = [{table:'repair_status',name:'mark_active',label:'Mark active',condition:'TRUE',updates:[{column:'title',formula:'"Active"'}]}];
+  assert.deepEqual(splitAiConversionPlan({...proposal,views,actions},existing,existing,editable),
+    {first:{tables:proposal.tables,views,actions},next:proposal.conversion});
+  assert.equal(splitAiConversionPlan({...proposal,views:[{...views[0],table:'hidden'}]},existing,existing,editable),null);
+  const visible = new Set([...existing,'repair_status']);
+  const reuse = {...proposal,tables:[],views};
+  assert.deepEqual(splitAiConversionPlan(reuse,visible,visible,editable),
+    {first:{tables:[],views},next:proposal.conversion});
+  assert.equal(splitAiConversionPlan({...reuse,views:[]},visible,visible,editable),null);
+  const editsStatus = {...actions[0],table:'repair_requests',updates:[{column:'status',formula:'1'}]};
+  assert.equal(aiConversionStageConflict({...reuse,actions:[editsStatus]}),true);
+  assert.equal(aiConversionStageConflict({...reuse,actions}),false);
+  assert.equal(aiConversionStageConflict({...reuse,actions:[null]}),false);
+  assert.equal(splitAiConversionPlan({...reuse,actions:[editsStatus]},visible,visible,editable),null);
+  assert.equal(splitAiConversionPlan({...reuse,changes:[{kind:'edit_default',table:'repair_requests',column:'status',formula:'1'}]},
+    visible,visible,editable),null);
+});
+
+test('AI follow-up prioritizes current entities then restores relevant history from the app catalogue', () => {
+  const {aiContextTerms,selectAiContext} = require('../.test-build/ai-context');
+  const catalogue = [...Array.from({length:25},(_,i)=>({name:'table_'+i,label:'Table '+i})),
+    {name:'repair_requests',label:'Repair requests'},{name:'repair_status',label:'Repair status'}];
+  const mentions = aiContextTerms('Repair status', '', 'Use repair_requests and a hidden_table');
+  const {tables} = selectAiContext(catalogue,()=>[],mentions);
+  assert.deepEqual(tables.slice(0,2).map(table=>table.name),['repair_status','repair_requests']);
+  assert.ok(!tables.some(table=>table.name==='hidden_table'));
+});
+
+test('AI resolves displayed names only when unique and prefers an exact internal name', () => {
+  const {ambiguousAiNames,resolveAiName} = require('../.test-build/ai-context');
+  const tables = [{name:'repair_status',label:'สถานะแจ้งซ่อม'},{name:'request_status',label:'สถานะ'}];
+  assert.equal(resolveAiName('สถานะแจ้งซ่อม',tables),'repair_status');
+  const duplicates = [...tables,{name:'other_status',label:'สถานะแจ้งซ่อม'}];
+  assert.equal(resolveAiName('สถานะแจ้งซ่อม',duplicates),undefined);
+  assert.equal(resolveAiName('repair_status',duplicates),'repair_status');
+  assert.deepEqual(ambiguousAiNames('สถานะแจ้งซ่อม',duplicates).map(table=>table.name),['repair_status','other_status']);
+  assert.deepEqual(ambiguousAiNames('repair_status',duplicates),[]);
+  assert.deepEqual(ambiguousAiNames('unknown',duplicates),[]);
+});
+
 test('AI prioritizes selected and named late columns, includes accessible Ref targets, and reports truncation', () => {
   const {aiContextTerms,selectAiContext} = require('../.test-build/ai-context');
   const catalogue = [...Array.from({length:25},(_,i)=>({name:'table_'+i,label:'Table '+i})),
@@ -18,7 +169,8 @@ test('AI prioritizes selected and named late columns, includes accessible Ref ta
   assert.ok(tables[0].selectedColumns.some(column=>column.name==='vehicle_id'));
   assert.equal(tables[1].name,'vehicles');
   assert.ok(!reads.includes('private_table'));
-  assert.equal(reads.length,20);
+  assert.equal(reads.length,catalogue.length);
+  assert.equal(new Set(reads).size,reads.length);
   assert.deepEqual(coverage,{tablesIncluded:20,tablesAvailable:28,columnsIncluded:30,columnsAvailableInSelectedTables:70});
   assert.equal(aiContextTerms('car_model')({name:'car',label:'Car'}),0);
 });
@@ -163,7 +315,7 @@ test('AI provider sends only supplied context, disables storage, and forwards th
     assert.equal(init.redirect, 'error');
     assert.equal(init.signal, controller.signal);
     assert.equal(body.store, false);
-    assert.deepEqual(JSON.parse(body.messages[1].content), { question: 'example', context, mode: 'formula' });
+    assert.deepEqual(JSON.parse(body.messages.find(message=>message.role==='user').content), { question: 'example', context, mode: 'formula' });
     return Response.json({ choices: [{ message: { content: '{"answer":"example","formula":"[amount] + 1"}' } }] });
   });
   assert.deepEqual(await provider({ question: 'example', context, formula: true }, controller.signal),
